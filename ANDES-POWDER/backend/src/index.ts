@@ -50,6 +50,23 @@ app.post('/api/admin/sync-forecasts', async (req, res) => {
   }
 });
 
+// Debug endpoint to check forecast data
+app.get('/api/admin/debug-forecasts', async (req, res) => {
+  try {
+    const pool = (await import('./config/database')).default;
+    const result = await pool.query(`
+      SELECT resort_id, elevation_band, COUNT(*) as count,
+             MIN(valid_time) as first_time, MAX(valid_time) as last_time
+      FROM elevation_forecasts 
+      GROUP BY resort_id, elevation_band
+      ORDER BY resort_id, elevation_band
+    `);
+    res.json(result.rows);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`🏔️  Andes Powder API running on port ${PORT}`);
   
