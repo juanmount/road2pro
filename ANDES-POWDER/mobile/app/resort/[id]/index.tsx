@@ -754,20 +754,25 @@ export default function ResortDetailScreen() {
         </View>
       )}
 
-      {/* Weekly Forecast - Vertical Layout */}
+      {/* Weekly Forecast - Horizontal Scroll */}
       {dailyForecast.length > 0 && (
         <View style={styles.dailyForecastSection}>
           <Text style={styles.sectionTitle}>Pronóstico 7 Días</Text>
-          {dailyForecast.map((day, index) => {
-            const date = new Date(day.date);
-            const dayName = date.toLocaleDateString('es-AR', { weekday: 'short' }).toUpperCase();
-            const dateStr = date.toLocaleDateString('es-AR', { month: 'short', day: 'numeric' });
-            
-            console.log(`[RENDER] Day ${index}:`, dayName, dateStr, `${day.snowfall}cm`, `${day.maxTemp}°/${day.minTemp}°`);
-            
-            return (
-              <View key={index} style={styles.dailyCardWrapper}>
+          <ScrollView 
+            horizontal 
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.dailyCardsContainer}
+          >
+            {dailyForecast.map((day, index) => {
+              const date = new Date(day.date);
+              const dayName = date.toLocaleDateString('es-AR', { weekday: 'short' }).toUpperCase();
+              const dateStr = date.toLocaleDateString('es-AR', { month: 'short', day: 'numeric' });
+              
+              console.log(`[RENDER] Day ${index}:`, dayName, dateStr, `${day.snowfall}cm`, `${day.maxTemp}°/${day.minTemp}°`);
+              
+              return (
                 <DailyForecastCard
+                  key={index}
                   day={dayName}
                   date={dateStr}
                   snowfall={day.snowfall}
@@ -776,9 +781,9 @@ export default function ResortDetailScreen() {
                   icon={day.snowfall > 5 ? '🌨️' : day.snowfall > 0 ? '❄️' : '☀️'}
                   hourlyDetails={day.hourlyDetails || []}
                 />
-              </View>
-            );
-          })}
+              );
+            })}
+          </ScrollView>
         </View>
       )}
 
