@@ -119,25 +119,38 @@ export default function ResortDetailScreen() {
       
       setHourlyData(hourlyForecast);
       
-      // Load daily forecast from backend with hourly details
-      try {
-        const dailyData = await resortsService.getDailyForecast(id, selectedElevation, 7);
-        console.log('Daily forecast loaded:', dailyData?.length, 'days');
-        
-        // Enrich daily forecast with hourly details from hourlyForecast
-        const enrichedDaily = dailyData.map((day: any) => {
-          const dayDate = new Date(day.date);
-          dayDate.setHours(0, 0, 0, 0);
+      // Use hourly forecast to build daily forecast (more reliable than backend endpoint)
+      // Group hourly data by day
+      const dailyMap = new Map<string, any[]>();
+      hourlyForecast.forEach((h: any) => {
+        const date = new Date(h.time);
+        const dateKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+        if (!dailyMap.has(dateKey)) {
+          dailyMap.set(dateKey, []);
+        }
+        dailyMap.get(dateKey)!.push(h);
+      });
+      
+      // Build daily forecast from hourly data
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      const dailyFromHourly = Array.from(dailyMap.entries())
+        .filter(([dateKey, hours]) => {
+          const date = new Date(dateKey);
+          return date >= today;
+        })
+        .slice(0, 7)
+        .map(([dateKey, hours]) => {
+          const temps = hours.map(h => h.temperature);
+          const maxTemp = Math.max(...temps);
+          const minTemp = Math.min(...temps);
+          const snowfall = hours.reduce((sum, h) => sum + (h.snowfall || 0), 0);
+          const precipitation = hours.reduce((sum, h) => sum + (h.precipitation || 0), 0);
+          const maxWindSpeed = Math.max(...hours.map(h => h.windSpeed || 0));
+          const avgCloudCover = hours.reduce((sum, h) => sum + (h.cloudCover || 0), 0) / hours.length;
           
-          // Get hourly data for this day
-          const dayHours = hourlyForecast.filter((h: any) => {
-            const hourDate = new Date(h.time);
-            hourDate.setHours(0, 0, 0, 0);
-            return hourDate.getTime() === dayDate.getTime();
-          });
-          
-          // Map to hourly details format expected by DailyForecastCard
-          const hourlyDetails = dayHours.map((h: any) => ({
+          const hourlyDetails = hours.map((h: any) => ({
             time: new Date(h.time),
             temperature: h.temperature,
             precipitation: h.precipitation,
@@ -151,16 +164,19 @@ export default function ResortDetailScreen() {
           }));
           
           return {
-            ...day,
+            date: dateKey,
+            maxTemp,
+            minTemp,
+            snowfall,
+            precipitation,
+            maxWindSpeed,
+            cloudCover: avgCloudCover,
             hourlyDetails
           };
         });
-        
-        setDailyForecast(enrichedDaily || []);
-      } catch (error) {
-        console.warn('Failed to load daily forecast:', error);
-        setDailyForecast([]);
-      }
+      
+      setDailyForecast(dailyFromHourly);
+      console.log('[DAILY FORECAST] Built from hourly data:', dailyFromHourly.length, 'days');
       
       // NOTE: Storm Crossing, Snow Reality, and Wind Impact engines are active
       // in the backend forecast processor but not yet exposed via API endpoints.
