@@ -129,6 +129,46 @@ app.get('/api/admin/test-resort/:id', async (req, res) => {
   }
 });
 
+// Debug endpoint to test exact subquery
+app.get('/api/admin/test-subquery/:slug', async (req, res) => {
+  try {
+    const pool = (await import('./config/database')).default;
+    const { slug } = req.params;
+    const { elevation = 'mid' } = req.query;
+    
+    // First, check if resort exists
+    const resortCheck = await pool.query(
+      'SELECT id, name FROM resorts WHERE slug = $1',
+      [slug]
+    );
+    
+    // Then try the subquery
+    const result = await pool.query(
+      `SELECT 
+        valid_time::date as date,
+        MAX(temperature_c) as max_temp,
+        MIN(temperature_c) as min_temp,
+        SUM(snowfall_cm_corrected) as total_snowfall
+      FROM elevation_forecasts
+      WHERE resort_id IN (SELECT id FROM resorts WHERE slug = $1)
+      AND elevation_band = $2
+      GROUP BY valid_time::date
+      ORDER BY date
+      LIMIT 3`,
+      [slug, elevation]
+    );
+    
+    res.json({
+      resort_found: resortCheck.rows.length > 0,
+      resort: resortCheck.rows[0] || null,
+      forecast_count: result.rows.length,
+      forecasts: result.rows
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message, stack: error.stack });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`🏔️  Andes Powder API running on port ${PORT}`);
   
