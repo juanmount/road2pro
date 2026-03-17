@@ -1,0 +1,74 @@
+import { useEffect } from 'react';
+import { Stack, useRouter, useSegments } from 'expo-router';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { AuthProvider, useAuth } from '../contexts/AuthContext';
+
+function RootLayoutNav() {
+  const { user, loading } = useAuth();
+  const segments = useSegments();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (loading) return;
+
+    const inAuthGroup = segments[0] === 'auth';
+
+    if (!user && !inAuthGroup) {
+      router.replace('/auth/login');
+    } else if (user && inAuthGroup) {
+      router.replace('/');
+    }
+  }, [user, loading, segments]);
+
+  return (
+    <Stack
+      screenOptions={{
+        headerStyle: {
+          backgroundColor: '#1a365d',
+        },
+        headerTintColor: '#fff',
+        headerTitleStyle: {
+          fontWeight: '600',
+        },
+      }}
+    >
+      <Stack.Screen 
+        name="auth/login" 
+        options={{ 
+          headerShown: false,
+        }} 
+      />
+      <Stack.Screen 
+        name="auth/signup" 
+        options={{ 
+          title: 'Sign Up',
+          headerShown: true,
+        }} 
+      />
+      <Stack.Screen 
+        name="index" 
+        options={{ 
+          headerShown: false,
+        }} 
+      />
+      <Stack.Screen 
+        name="resort/[id]/index" 
+        options={{ 
+          headerShown: false,
+          presentation: 'card',
+          animation: 'slide_from_right',
+        }} 
+      />
+    </Stack>
+  );
+}
+
+export default function RootLayout() {
+  return (
+    <SafeAreaProvider>
+      <AuthProvider>
+        <RootLayoutNav />
+      </AuthProvider>
+    </SafeAreaProvider>
+  );
+}
