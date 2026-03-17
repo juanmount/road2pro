@@ -131,17 +131,20 @@ export default function ResortDetailScreen() {
         dailyMap.get(dateKey)!.push(h);
       });
       
-      // Build daily forecast from hourly data
+      // Build daily forecast from hourly data - always show 7 days
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       
-      const dailyFromHourly = Array.from(dailyMap.entries())
-        .filter(([dateKey, hours]) => {
-          const date = new Date(dateKey);
-          return date >= today;
-        })
-        .slice(0, 7)
-        .map(([dateKey, hours]) => {
+      // Create 7 days starting from today if we don't have enough data
+      const dailyFromHourly: any[] = [];
+      for (let i = 0; i < 7; i++) {
+        const targetDate = new Date(today);
+        targetDate.setDate(today.getDate() + i);
+        const dateKey = `${targetDate.getFullYear()}-${String(targetDate.getMonth() + 1).padStart(2, '0')}-${String(targetDate.getDate()).padStart(2, '0')}`;
+        
+        const hours = dailyMap.get(dateKey) || [];
+        
+        if (hours.length > 0) {
           const temps = hours.map(h => h.temperature);
           const maxTemp = Math.max(...temps);
           const minTemp = Math.min(...temps);
@@ -163,7 +166,7 @@ export default function ResortDetailScreen() {
             icon: h.snowfall > 2 ? '🌨️' : h.snowfall > 0 ? '❄️' : h.precipitation > 0 ? '🌧️' : '☀️'
           }));
           
-          return {
+          dailyFromHourly.push({
             date: dateKey,
             maxTemp,
             minTemp,
@@ -172,8 +175,21 @@ export default function ResortDetailScreen() {
             maxWindSpeed,
             cloudCover: avgCloudCover,
             hourlyDetails
-          };
-        });
+          });
+        } else {
+          // No data for this day, create placeholder with zeros
+          dailyFromHourly.push({
+            date: dateKey,
+            maxTemp: 0,
+            minTemp: 0,
+            snowfall: 0,
+            precipitation: 0,
+            maxWindSpeed: 0,
+            cloudCover: 0,
+            hourlyDetails: []
+          });
+        }
+      }
       
       console.log('[DAILY FORECAST] Built from hourly data:', dailyFromHourly.length, 'days');
       console.log('[DAILY FORECAST] Sample day:', dailyFromHourly[0]);
@@ -738,24 +754,20 @@ export default function ResortDetailScreen() {
         </View>
       )}
 
-      {/* Weekly Forecast */}
+      {/* Weekly Forecast - Vertical Layout */}
       {dailyForecast.length > 0 && (
         <View style={styles.dailyForecastSection}>
-          <ScrollView 
-            horizontal 
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.dailyCardsContainer}
-          >
-            {dailyForecast.map((day, index) => {
-              const date = new Date(day.date);
-              const dayName = date.toLocaleDateString('es-AR', { weekday: 'short' }).toUpperCase();
-              const dateStr = date.toLocaleDateString('es-AR', { month: 'short', day: 'numeric' });
-              
-              console.log(`[RENDER] Day ${index}:`, dayName, dateStr, `${day.snowfall}cm`, `${day.maxTemp}°/${day.minTemp}°`);
-              
-              return (
+          <Text style={styles.sectionTitle}>Pronóstico 7 Días</Text>
+          {dailyForecast.map((day, index) => {
+            const date = new Date(day.date);
+            const dayName = date.toLocaleDateString('es-AR', { weekday: 'short' }).toUpperCase();
+            const dateStr = date.toLocaleDateString('es-AR', { month: 'short', day: 'numeric' });
+            
+            console.log(`[RENDER] Day ${index}:`, dayName, dateStr, `${day.snowfall}cm`, `${day.maxTemp}°/${day.minTemp}°`);
+            
+            return (
+              <View key={index} style={styles.dailyCardWrapper}>
                 <DailyForecastCard
-                  key={index}
                   day={dayName}
                   date={dateStr}
                   snowfall={day.snowfall}
@@ -764,9 +776,9 @@ export default function ResortDetailScreen() {
                   icon={day.snowfall > 5 ? '🌨️' : day.snowfall > 0 ? '❄️' : '☀️'}
                   hourlyDetails={day.hourlyDetails || []}
                 />
-              );
-            })}
-          </ScrollView>
+              </View>
+            );
+          })}
         </View>
       )}
 
@@ -1338,6 +1350,10 @@ const styles = StyleSheet.create({
   
   dailyForecastSection: {
     marginBottom: 16,
+    paddingHorizontal: 16,
+  },
+  dailyCardWrapper: {
+    marginBottom: 12,
   },
   dailyCardsContainer: {
     paddingHorizontal: 16,
