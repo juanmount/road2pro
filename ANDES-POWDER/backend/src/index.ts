@@ -169,6 +169,49 @@ app.get('/api/admin/test-subquery/:slug', async (req, res) => {
   }
 });
 
+// Test hourly endpoint query
+app.get('/api/admin/test-hourly/:slug', async (req, res) => {
+  try {
+    const pool = (await import('./config/database')).default;
+    const { slug } = req.params;
+    const { elevation = 'mid', hours = '24' } = req.query;
+    
+    const resortResult = await pool.query(
+      'SELECT * FROM resorts WHERE slug = $1',
+      [slug]
+    );
+    
+    if (resortResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Resort not found' });
+    }
+    
+    const resort = resortResult.rows[0];
+    const hoursLimit = parseInt(hours as string);
+    
+    const result = await pool.query(
+      `SELECT 
+        valid_time,
+        temperature_c,
+        snowfall_cm_corrected,
+        wind_speed_kmh
+      FROM elevation_forecasts
+      WHERE resort_id = $1::uuid
+      AND elevation_band = $2
+      ORDER BY valid_time
+      LIMIT $3`,
+      [resort.id, elevation, hoursLimit]
+    );
+    
+    res.json({
+      resort: { id: resort.id, name: resort.name },
+      hourly_count: result.rows.length,
+      sample: result.rows.slice(0, 3)
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message, stack: error.stack });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`🏔️  Andes Powder API running on port ${PORT}`);
   
