@@ -233,7 +233,9 @@ router.get('/:id/forecast/current', async (req: Request, res: Response) => {
 router.get('/:id/forecast/hourly', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { elevation = 'mid', hours = '168' } = req.query; // Default to 7 days (168 hours)
+    const { elevation = 'mid', hours = '168' } = req.query;
+
+    console.log('[HOURLY] Request for:', id, 'elevation:', elevation, 'hours:', hours);
 
     const resortResult = await pool.query(
       'SELECT * FROM resorts WHERE slug = $1 OR id::text = $1',
@@ -241,6 +243,7 @@ router.get('/:id/forecast/hourly', async (req: Request, res: Response) => {
     );
 
     if (resortResult.rows.length === 0) {
+      console.log('[HOURLY] Resort not found:', id);
       return res.status(404).json({ error: 'Resort not found' });
     }
 
@@ -248,7 +251,9 @@ router.get('/:id/forecast/hourly', async (req: Request, res: Response) => {
     const elevationBand = elevation as string;
     const hoursLimit = parseInt(hours as string);
 
-    // Get hourly forecasts from elevation_forecasts table
+    console.log('[HOURLY] Resort found:', resort.name, 'ID:', resort.id, 'Type:', typeof resort.id);
+    console.log('[HOURLY] Querying elevation_forecasts with:', resort.id, elevationBand, hoursLimit);
+
     const result = await pool.query(
       `SELECT 
         valid_time,
@@ -268,20 +273,23 @@ router.get('/:id/forecast/hourly', async (req: Request, res: Response) => {
       [resort.id, elevationBand, hoursLimit]
     );
 
-    // Map to response format
+    console.log('[HOURLY] Query returned:', result.rows.length, 'rows');
+
     const hourlyForecasts = result.rows.map((row: any) => ({
       time: row.valid_time,
       temperature: parseFloat(row.temperature_c),
       precipitation: parseFloat(row.precipitation_mm || 0),
       windSpeed: parseFloat(row.wind_speed_kmh || 0),
       windDirection: row.wind_direction_deg || 0,
-      humidity: 70, // Not stored, use default
+      humidity: 70,
       cloudCover: parseFloat(row.cloud_cover || 0),
       phase: row.snowfall_cm_corrected > 0 ? 'snow' : row.precipitation_mm > 0 ? 'rain' : 'none',
       powderScore: parseFloat(row.powder_score || 0),
       snowfall: parseFloat(row.snowfall_cm_corrected || 0),
       freezingLevel: row.freezing_level_m ? parseInt(row.freezing_level_m) : 2000,
     }));
+
+    console.log('[HOURLY] Returning', hourlyForecasts.length, 'forecasts');
 
     res.json({
       resort: {
@@ -293,8 +301,8 @@ router.get('/:id/forecast/hourly', async (req: Request, res: Response) => {
       hourly: hourlyForecasts,
     });
   } catch (error) {
-    console.error('Error fetching hourly forecast:', error);
-    res.status(500).json({ error: 'Failed to fetch hourly forecast' });
+    console.error('[HOURLY] Error:', error);
+    res.status(500).json({ error: 'Failed to fetch hourly forecast', details: (error as Error).message });
   }
 });
 
