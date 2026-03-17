@@ -666,13 +666,9 @@ router.get('/:id/forecast/daily', async (req: Request, res: Response) => {
     const elevationBand = elevation as string;
     const daysLimit = parseInt(days as string);
 
-    console.log(`Fetching daily forecast for resort ${resort.id} (${resort.name}), elevation: ${elevationBand}, days: ${daysLimit}`);
-    console.log(`Resort ID type: ${typeof resort.id}, value: ${resort.id}`);
-    console.log(`Query params: resort_id=${resort.id}, elevation_band=${elevationBand}, limit=${daysLimit}`);
-
     const result = await pool.query(
       `SELECT 
-        DATE(valid_time AT TIME ZONE 'America/Argentina/Buenos_Aires') as date,
+        valid_time::date as date,
         MAX(temperature_c) as max_temp,
         MIN(temperature_c) as min_temp,
         SUM(snowfall_cm_corrected) as total_snowfall,
@@ -681,18 +677,13 @@ router.get('/:id/forecast/daily', async (req: Request, res: Response) => {
         MAX(wind_speed_kmh) as max_wind_speed,
         AVG(cloud_cover) as avg_cloud_cover
       FROM elevation_forecasts
-      WHERE resort_id = $1::uuid
+      WHERE resort_id = $1
       AND elevation_band = $2
-      GROUP BY DATE(valid_time AT TIME ZONE 'America/Argentina/Buenos_Aires')
+      GROUP BY valid_time::date
       ORDER BY date
       LIMIT $3`,
       [resort.id, elevationBand, daysLimit]
     );
-
-    console.log(`Query returned ${result.rows.length} rows`);
-    if (result.rows.length > 0) {
-      console.log(`First row:`, JSON.stringify(result.rows[0]));
-    }
     
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'No forecast data available' });
