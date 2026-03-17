@@ -248,42 +248,40 @@ router.get('/:id/forecast/hourly', async (req: Request, res: Response) => {
     const elevationBand = elevation as string;
     const hoursLimit = parseInt(hours as string);
 
-    // Get hourly forecasts from hourly_forecasts table
-    // Include last 120 hours (5 days) for historical tracking + future hours
+    // Get hourly forecasts from elevation_forecasts table
     const result = await pool.query(
       `SELECT 
-        timestamp,
-        temperature,
-        precipitation,
-        precipitation_type,
-        snow_depth,
-        wind_speed,
-        wind_direction,
+        valid_time,
+        temperature_c,
+        precipitation_mm,
+        snowfall_cm_corrected,
+        wind_speed_kmh,
+        wind_direction_deg,
         cloud_cover,
         powder_score,
-        freezing_level
-      FROM hourly_forecasts
+        freezing_level_m
+      FROM elevation_forecasts
       WHERE resort_id = $1
       AND elevation_band = $2
-      AND timestamp >= NOW() - INTERVAL '120 hours'
-      ORDER BY timestamp
+      AND valid_time >= NOW() - INTERVAL '120 hours'
+      ORDER BY valid_time
       LIMIT $3`,
       [resort.id, elevationBand, hoursLimit + 120]
     );
 
     // Map to response format
     const hourlyForecasts = result.rows.map((row: any) => ({
-      time: row.timestamp,
-      temperature: parseFloat(row.temperature),
-      precipitation: parseFloat(row.precipitation || 0),
-      windSpeed: parseFloat(row.wind_speed || 0),
-      windDirection: row.wind_direction || 0,
-      humidity: 70, // Not stored in hourly_forecasts, use default
+      time: row.valid_time,
+      temperature: parseFloat(row.temperature_c),
+      precipitation: parseFloat(row.precipitation_mm || 0),
+      windSpeed: parseFloat(row.wind_speed_kmh || 0),
+      windDirection: row.wind_direction_deg || 0,
+      humidity: 70, // Not stored, use default
       cloudCover: parseFloat(row.cloud_cover || 0),
-      phase: row.precipitation_type || 'none',
+      phase: row.snowfall_cm_corrected > 0 ? 'snow' : row.precipitation_mm > 0 ? 'rain' : 'none',
       powderScore: parseFloat(row.powder_score || 0),
-      snowfall: parseFloat(row.snow_depth || 0),
-      freezingLevel: row.freezing_level ? parseInt(row.freezing_level) : null,
+      snowfall: parseFloat(row.snowfall_cm_corrected || 0),
+      freezingLevel: row.freezing_level_m ? parseInt(row.freezing_level_m) : 2000,
     }));
 
     res.json({
