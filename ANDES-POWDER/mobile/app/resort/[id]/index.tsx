@@ -737,34 +737,7 @@ export default function ResortDetailScreen() {
         </View>
       )}
 
-      {dailyForecasts.length > 0 && (
-        <View style={styles.dailyForecastSection}>
-          <ScrollView 
-            horizontal 
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.dailyCardsContainer}
-            scrollEnabled={true}
-          >
-            {dailyForecasts.map((day, index) => (
-              <DailyForecastCard
-                key={day.dateKey}
-                day={day.day}
-                date={day.date}
-                snowfall={day.snowfall}
-                tempHigh={day.tempHigh}
-                tempLow={day.tempLow}
-                icon={day.icon}
-                hourlyDetails={day.hourlyDetails}
-                stormCrossing={day.stormCrossing}
-                snowReality={day.snowReality}
-                windImpact={day.windImpact}
-              />
-            ))}
-          </ScrollView>
-        </View>
-      )}
-
-      {/* Next 7 Days Forecast from Backend */}
+      {/* Weekly Forecast */}
       {dailyForecast.length > 0 && (
         <View style={styles.dailyForecastSection}>
           <ScrollView 
