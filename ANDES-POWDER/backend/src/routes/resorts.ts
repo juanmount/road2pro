@@ -648,4 +648,64 @@ function generateConditionsText(hourly: any): string {
   return parts.length > 0 ? parts.join(', ') : 'Standard conditions';
 }
 
+router.get('/:id/forecast/daily', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { elevation = 'mid', days = '7' } = req.query;
+
+    const resortResult = await pool.query(
+      'SELECT * FROM resorts WHERE slug = $1 OR id::text = $1',
+      [id]
+    );
+
+    if (resortResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Resort not found' });
+    }
+
+    const resort = resortResult.rows[0];
+    const elevationBand = elevation as string;
+    const daysLimit = parseInt(days as string);
+
+    const result = await pool.query(
+      `SELECT 
+        DATE(valid_time) as date,
+        MAX(temperature_c) as max_temp,
+        MIN(temperature_c) as min_temp,
+        SUM(snowfall_cm_corrected) as total_snowfall,
+        SUM(precipitation_mm) as total_precipitation,
+        AVG(powder_score) as avg_powder_score,
+        MAX(wind_speed_kmh) as max_wind_speed,
+        AVG(cloud_cover) as avg_cloud_cover
+      FROM elevation_forecasts
+      WHERE resort_id = $1
+      AND elevation_band = $2
+      AND valid_time >= NOW()
+      AND valid_time < NOW() + INTERVAL '1 day' * $3
+      GROUP BY DATE(valid_time)
+      ORDER BY date`,
+      [resort.id, elevationBand, daysLimit]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'No forecast data available' });
+    }
+
+    const dailyForecasts = result.rows.map((row: any) => ({
+      date: row.date,
+      maxTemp: parseFloat(row.max_temp),
+      minTemp: parseFloat(row.min_temp),
+      snowfall: parseFloat(row.total_snowfall || 0),
+      precipitation: parseFloat(row.total_precipitation || 0),
+      powderScore: parseFloat(row.avg_powder_score || 0),
+      maxWindSpeed: parseFloat(row.max_wind_speed || 0),
+      cloudCover: parseFloat(row.avg_cloud_cover || 0),
+    }));
+
+    res.json(dailyForecasts);
+  } catch (error) {
+    console.error('Error fetching daily forecast:', error);
+    res.status(500).json({ error: 'Failed to fetch daily forecast' });
+  }
+});
+
 export default router;
