@@ -28,12 +28,14 @@ export const resortsService = {
       const resortResponse = await api.get(`/resorts/${id}`);
       const resortId = resortResponse.data.id;
       
-      // Query Supabase directly
+      // Query Supabase directly - only get future forecasts
+      const now = new Date().toISOString();
       const { data, error } = await supabase
         .from('elevation_forecasts')
         .select('*')
         .eq('resort_id', resortId)
         .eq('elevation_band', elevation)
+        .gte('valid_time', now)
         .order('valid_time', { ascending: true })
         .limit(hours);
       
