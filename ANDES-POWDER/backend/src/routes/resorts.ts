@@ -658,17 +658,16 @@ router.get('/:id/forecast/daily', async (req: Request, res: Response) => {
     const result = await pool.query(
       `SELECT 
         valid_time::date as date,
-        MAX(ef.temperature_c) as max_temp,
-        MIN(ef.temperature_c) as min_temp,
-        SUM(ef.snowfall_cm_corrected) as total_snowfall,
-        SUM(ef.precipitation_mm) as total_precipitation,
-        AVG(ef.powder_score) as avg_powder_score,
-        MAX(ef.wind_speed_kmh) as max_wind_speed,
-        AVG(ef.cloud_cover) as avg_cloud_cover
-      FROM elevation_forecasts ef
-      JOIN resorts r ON ef.resort_id = r.id
-      WHERE (r.slug = $1 OR r.id::text = $1)
-      AND ef.elevation_band = $2
+        MAX(temperature_c) as max_temp,
+        MIN(temperature_c) as min_temp,
+        SUM(snowfall_cm_corrected) as total_snowfall,
+        SUM(precipitation_mm) as total_precipitation,
+        AVG(powder_score) as avg_powder_score,
+        MAX(wind_speed_kmh) as max_wind_speed,
+        AVG(cloud_cover) as avg_cloud_cover
+      FROM elevation_forecasts
+      WHERE resort_id IN (SELECT id FROM resorts WHERE slug = $1 OR id::text = $1)
+      AND elevation_band = $2
       GROUP BY valid_time::date
       ORDER BY date
       LIMIT $3`,
