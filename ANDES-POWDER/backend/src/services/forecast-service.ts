@@ -68,6 +68,78 @@ class ForecastService {
     }
     
     console.log('All resort forecasts processed');
+    
+    // Save yesterday's snowfall to history
+    console.log('Saving snowfall history for yesterday...');
+    for (const resort of resorts) {
+      try {
+        await this.saveYesterdaySnowfall(resort);
+      } catch (error) {
+        console.error(`Failed to save history for ${resort.name}:`, error);
+      }
+    }
+    console.log('Snowfall history saved');
+  }
+  
+  /**
+   * Save yesterday's snowfall to history table
+   */
+  private async saveYesterdaySnowfall(resort: Resort): Promise<void> {
+    const client = await pool.connect();
+    
+    try {
+      // Get yesterday's date
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      yesterday.setHours(0, 0, 0, 0);
+      
+      const yesterdayEnd = new Date(yesterday);
+      yesterdayEnd.setHours(23, 59, 59, 999);
+      
+      // Get yesterday's snowfall for each elevation from elevation_forecasts
+      const elevations = ['base', 'mid', 'summit'];
+      
+      for (const elevation of elevations) {
+        const result = await client.query(
+          `SELECT 
+            SUM(snowfall_cm_corrected) as total_snowfall,
+            AVG(temperature_c) as avg_temp
+          FROM elevation_forecasts
+          WHERE resort_id = $1
+            AND elevation_band = $2
+            AND valid_time >= $3
+            AND valid_time <= $4
+            AND created_at >= NOW() - INTERVAL '2 days'
+          GROUP BY resort_id, elevation_band`,
+          [resort.id, elevation, yesterday.toISOString(), yesterdayEnd.toISOString()]
+        );
+        
+        if (result.rows.length > 0 && result.rows[0].total_snowfall !== null) {
+          const snowfall = parseFloat(result.rows[0].total_snowfall) || 0;
+          const avgTemp = parseFloat(result.rows[0].avg_temp);
+          
+          // Insert or update history (upsert)
+          await client.query(
+            `INSERT INTO snowfall_history (
+              resort_id, elevation_band, date, snowfall_cm, temperature_avg_c
+            ) VALUES ($1, $2, $3, $4, $5)
+            ON CONFLICT (resort_id, elevation_band, date)
+            DO UPDATE SET 
+              snowfall_cm = EXCLUDED.snowfall_cm,
+              temperature_avg_c = EXCLUDED.temperature_avg_c,
+              created_at = NOW()`,
+            [resort.id, elevation, yesterday.toISOString().split('T')[0], snowfall, avgTemp]
+          );
+          
+          console.log(`  ✓ Saved ${elevation} history: ${snowfall.toFixed(1)} cm for ${resort.name}`);
+        }
+      }
+    } catch (error) {
+      console.error(`Error saving snowfall history for ${resort.name}:`, error);
+      throw error;
+    } finally {
+      client.release();
+    }
   }
   
   /**
