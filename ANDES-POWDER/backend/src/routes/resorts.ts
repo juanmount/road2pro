@@ -263,10 +263,9 @@ router.get('/:id/forecast/hourly', async (req: Request, res: Response) => {
       FROM elevation_forecasts
       WHERE resort_id = $1
       AND elevation_band = $2
-      AND valid_time >= NOW() - INTERVAL '120 hours'
       ORDER BY valid_time
       LIMIT $3`,
-      [resort.id, elevationBand, hoursLimit + 120]
+      [resort.id, elevationBand, hoursLimit]
     );
 
     // Map to response format
