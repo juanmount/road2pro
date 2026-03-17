@@ -11,8 +11,6 @@ export class OpenMeteoProvider implements ForecastProvider {
   readonly name = 'open-meteo' as const;
   readonly models: ModelName[] = ['ecmwf-ifs', 'gfs', 'gefs'];
   
-  private baseUrl = 'https://api.open-meteo.com/v1/forecast';
-  
   async fetchForecast(
     resort: Resort,
     timeRange: { start: Date; end: Date },
@@ -20,18 +18,18 @@ export class OpenMeteoProvider implements ForecastProvider {
   ): Promise<RawForecastData> {
     const model = options?.models?.[0] || 'ecmwf-ifs';
     
-    // Map our model names to Open-Meteo model names
-    const modelMap: Record<string, string> = {
-      'ecmwf-ifs': 'ecmwf_ifs04',
-      'gfs': 'gfs_global',
-      'gefs': 'gfs_seamless' // GEFS ensemble via seamless model
+    // Map our model names to Open-Meteo API endpoints
+    const endpointMap: Record<string, string> = {
+      'ecmwf-ifs': 'https://api.open-meteo.com/v1/ecmwf',
+      'gfs': 'https://api.open-meteo.com/v1/gfs',
+      'gefs': 'https://api.open-meteo.com/v1/ensemble'
     };
     
-    const params = {
+    const baseUrl = endpointMap[model];
+    
+    const params: any = {
       latitude: resort.latitude,
       longitude: resort.longitude,
-      elevation: resort.midElevation, // Use mid as reference
-      models: modelMap[model],
       hourly: [
         'temperature_2m',
         'apparent_temperature',
@@ -60,7 +58,7 @@ export class OpenMeteoProvider implements ForecastProvider {
     };
     
     try {
-      const response = await axios.get(this.baseUrl, { params });
+      const response = await axios.get(baseUrl, { params });
       
       return {
         provider: this.name,
@@ -186,7 +184,7 @@ export class OpenMeteoProvider implements ForecastProvider {
   
   async checkAvailability(): Promise<boolean> {
     try {
-      const response = await axios.get(this.baseUrl, {
+      const response = await axios.get('https://api.open-meteo.com/v1/ecmwf', {
         params: {
           latitude: -41.15,
           longitude: -71.31,
