@@ -666,6 +666,8 @@ router.get('/:id/forecast/daily', async (req: Request, res: Response) => {
     const elevationBand = elevation as string;
     const daysLimit = parseInt(days as string);
 
+    console.log(`Fetching daily forecast for resort ${resort.id} (${resort.name}), elevation: ${elevationBand}, days: ${daysLimit}`);
+
     const result = await pool.query(
       `SELECT 
         DATE(valid_time AT TIME ZONE 'America/Argentina/Buenos_Aires') as date,
@@ -686,6 +688,8 @@ router.get('/:id/forecast/daily', async (req: Request, res: Response) => {
       [resort.id, elevationBand, daysLimit]
     );
 
+    console.log(`Query returned ${result.rows.length} rows`);
+    
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'No forecast data available' });
     }
