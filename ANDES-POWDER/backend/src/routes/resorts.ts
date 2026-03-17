@@ -666,7 +666,7 @@ router.get('/:id/forecast/daily', async (req: Request, res: Response) => {
         MAX(wind_speed_kmh) as max_wind_speed,
         AVG(cloud_cover) as avg_cloud_cover
       FROM elevation_forecasts
-      WHERE resort_id IN (SELECT id FROM resorts WHERE slug = $1 OR id::text = $1)
+      WHERE resort_id IN (SELECT id FROM resorts WHERE slug = $1)
       AND elevation_band = $2
       GROUP BY valid_time::date
       ORDER BY date
