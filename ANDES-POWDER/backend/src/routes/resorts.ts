@@ -301,53 +301,6 @@ router.get('/:id/forecast/hourly', async (req: Request, res: Response) => {
   }
 });
 
-router.get('/:id/forecast/daily', async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
-    const { elevation = 'mid', days = '7' } = req.query;
-
-    const resortResult = await pool.query(
-      'SELECT id FROM resorts WHERE slug = $1 OR id::text = $1',
-      [id]
-    );
-
-    if (resortResult.rows.length === 0) {
-      return res.status(404).json({ error: 'Resort not found' });
-    }
-
-    const resortId = resortResult.rows[0].id;
-
-    const snapshotResult = await pool.query(
-      `SELECT id FROM forecast_snapshots 
-       WHERE resort_id = $1 
-       ORDER BY fetched_at DESC 
-       LIMIT 1`,
-      [resortId]
-    );
-
-    if (snapshotResult.rows.length === 0) {
-      return res.status(404).json({ error: 'No forecast data available' });
-    }
-
-    const snapshotId = snapshotResult.rows[0].id;
-
-    const result = await pool.query(
-      `SELECT * FROM daily_forecasts 
-       WHERE snapshot_id = $1 
-       AND elevation_band = $2 
-       AND date >= CURRENT_DATE 
-       ORDER BY date 
-       LIMIT $3`,
-      [snapshotId, elevation, parseInt(days as string)]
-    );
-
-    res.json(result.rows);
-  } catch (error) {
-    console.error('Error fetching daily forecast:', error);
-    res.status(500).json({ error: 'Failed to fetch daily forecast' });
-  }
-});
-
 /**
  * GET /api/resorts/:id/storm-crossing
  * Get storm crossing probability forecast for a resort
