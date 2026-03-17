@@ -67,6 +67,41 @@ app.get('/api/admin/debug-forecasts', async (req, res) => {
   }
 });
 
+// Test endpoint with exact Supabase query
+app.get('/api/admin/test-daily/:resortId', async (req, res) => {
+  try {
+    const pool = (await import('./config/database')).default;
+    const { resortId } = req.params;
+    const { elevation = 'mid' } = req.query;
+    
+    const result = await pool.query(`
+      SELECT 
+        valid_time::date as date,
+        MAX(temperature_c) as max_temp,
+        MIN(temperature_c) as min_temp,
+        SUM(snowfall_cm_corrected) as total_snowfall,
+        SUM(precipitation_mm) as total_precipitation,
+        AVG(powder_score) as avg_powder_score,
+        MAX(wind_speed_kmh) as max_wind_speed,
+        AVG(cloud_cover) as avg_cloud_cover
+      FROM elevation_forecasts
+      WHERE resort_id = $1::uuid
+      AND elevation_band = $2
+      GROUP BY valid_time::date
+      ORDER BY date
+      LIMIT 3
+    `, [resortId, elevation]);
+    
+    res.json({ 
+      params: { resortId, elevation },
+      rowCount: result.rows.length,
+      data: result.rows 
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message, stack: error.stack });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`🏔️  Andes Powder API running on port ${PORT}`);
   
