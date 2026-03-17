@@ -175,8 +175,9 @@ export default function ResortDetailScreen() {
           };
         });
       
-      setDailyForecast(dailyFromHourly);
       console.log('[DAILY FORECAST] Built from hourly data:', dailyFromHourly.length, 'days');
+      console.log('[DAILY FORECAST] Sample day:', dailyFromHourly[0]);
+      setDailyForecast(dailyFromHourly);
       
       // NOTE: Storm Crossing, Snow Reality, and Wind Impact engines are active
       // in the backend forecast processor but not yet exposed via API endpoints.
@@ -749,6 +750,8 @@ export default function ResortDetailScreen() {
               const date = new Date(day.date);
               const dayName = date.toLocaleDateString('es-AR', { weekday: 'short' }).toUpperCase();
               const dateStr = date.toLocaleDateString('es-AR', { month: 'short', day: 'numeric' });
+              
+              console.log(`[RENDER] Day ${index}:`, dayName, dateStr, `${day.snowfall}cm`, `${day.maxTemp}°/${day.minTemp}°`);
               
               return (
                 <DailyForecastCard
