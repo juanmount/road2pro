@@ -715,31 +715,32 @@ export default function ResortDetailScreen() {
         </View>
       )}
 
-      {/* Next 7 Days Forecast */}
+      {/* Next 7 Days Forecast from Backend */}
       {dailyForecast.length > 0 && (
-        <View style={styles.historySection}>
-          <Text style={styles.historySectionTitle}>Próximos 7 Días - Pronóstico de Nevada</Text>
-          <View style={styles.historyTable}>
+        <View style={styles.dailyForecastSection}>
+          <ScrollView 
+            horizontal 
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.dailyCardsContainer}
+          >
             {dailyForecast.map((day, index) => {
               const date = new Date(day.date);
-              const dayName = date.toLocaleDateString('es-AR', { weekday: 'short' });
-              const dayNumber = date.getDate();
-              const month = date.toLocaleDateString('es-AR', { month: 'short' });
+              const dayName = date.toLocaleDateString('es-AR', { weekday: 'short' }).toUpperCase();
+              const dateStr = date.toLocaleDateString('es-AR', { month: 'short', day: 'numeric' });
               
               return (
-                <View key={index} style={styles.historyRow}>
-                  <View style={styles.historyDateColumn}>
-                    <Text style={styles.historyDayName}>{dayName.toUpperCase()}</Text>
-                    <Text style={styles.historyDate}>{dayNumber} {month}</Text>
-                  </View>
-                  <View style={styles.historySnowColumn}>
-                    <Text style={styles.historySnowValue}>{Math.round(day.snowfall)}</Text>
-                    <Text style={styles.historySnowUnit}>cm</Text>
-                  </View>
-                </View>
+                <DailyForecastCard
+                  key={index}
+                  day={dayName}
+                  date={dateStr}
+                  snowfall={day.snowfall}
+                  tempHigh={day.maxTemp}
+                  tempLow={day.minTemp}
+                  icon={day.snowfall > 5 ? '🌨️' : day.snowfall > 0 ? '❄️' : '☀️'}
+                />
               );
             })}
-          </View>
+          </ScrollView>
         </View>
       )}
 
