@@ -30,6 +30,7 @@ export class OpenMeteoProvider implements ForecastProvider {
     const params: any = {
       latitude: resort.latitude,
       longitude: resort.longitude,
+      elevation: resort.midElevation, // Use mid elevation as reference for GFS
       hourly: [
         'temperature_2m',
         'apparent_temperature',

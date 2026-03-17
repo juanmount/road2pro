@@ -424,18 +424,18 @@ export class SnowEngine {
     if (!ecmwf && !gefs) return gfs;
     if (!gfs && !gefs) return ecmwf;
     
-    // STRICT PRIORITY: Always use ECMWF as primary (most accurate)
-    // Only use GFS/GEFS to fill hours beyond ECMWF's range
-    const primary = ecmwf;  // ALWAYS ECMWF if available
-    const secondary = gfs || gefs;  // Fallback for additional hours
+    // PRIORITY: Use GFS as primary for Patagonia (more accurate for this region)
+    // ECMWF has issues with freezing level (returns null) and temperature accuracy
+    const primary = gfs || ecmwf;  // Prefer GFS for Patagonia
+    const secondary = ecmwf || gefs;  // Fallback for additional hours
     
-    // If ECMWF not available, fall back to GFS or GEFS
+    // If GFS not available, fall back to ECMWF or GEFS
     if (!primary) {
-      console.log('    ⚠ ECMWF not available, using GFS/GEFS as primary');
-      return gfs || gefs || null;
+      console.log('    ⚠ GFS not available, using ECMWF/GEFS as primary');
+      return ecmwf || gefs || null;
     }
     
-    console.log('    → Using ECMWF as primary source (most accurate)');
+    console.log('    → Using GFS as primary source (most accurate for Patagonia)');
     
     // Hybrid approach: Start with ECMWF metadata
     const hybrid: NormalizedForecast = {
