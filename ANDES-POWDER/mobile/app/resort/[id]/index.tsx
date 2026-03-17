@@ -120,9 +120,16 @@ export default function ResortDetailScreen() {
       setHourlyData(hourlyForecast);
       
       // Use hourly forecast to build daily forecast (more reliable than backend endpoint)
-      // Group hourly data by day
+      // Filter only future hours
+      const now = new Date();
+      const futureHours = hourlyForecast.filter((h: any) => new Date(h.time) > now);
+      
+      console.log('[DAILY FORECAST] Total hourly data:', hourlyForecast.length);
+      console.log('[DAILY FORECAST] Future hours:', futureHours.length);
+      
+      // Group future hourly data by day
       const dailyMap = new Map<string, any[]>();
-      hourlyForecast.forEach((h: any) => {
+      futureHours.forEach((h: any) => {
         const date = new Date(h.time);
         const dateKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
         if (!dailyMap.has(dateKey)) {
@@ -131,7 +138,9 @@ export default function ResortDetailScreen() {
         dailyMap.get(dateKey)!.push(h);
       });
       
-      // Build daily forecast from hourly data - always show 7 days
+      console.log('[DAILY FORECAST] Days with data:', Array.from(dailyMap.keys()));
+      
+      // Build daily forecast from hourly data - always show 7 days starting from tomorrow
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       
@@ -1353,6 +1362,12 @@ const styles = StyleSheet.create({
     color: '#f97316',
   },
   
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#0c4a6e',
+    marginBottom: 12,
+  },
   dailyForecastSection: {
     marginBottom: 16,
     paddingHorizontal: 16,
