@@ -668,7 +668,7 @@ router.get('/:id/forecast/daily', async (req: Request, res: Response) => {
 
     const result = await pool.query(
       `SELECT 
-        DATE(valid_time) as date,
+        DATE(valid_time AT TIME ZONE 'America/Argentina/Buenos_Aires') as date,
         MAX(temperature_c) as max_temp,
         MIN(temperature_c) as min_temp,
         SUM(snowfall_cm_corrected) as total_snowfall,
@@ -679,9 +679,9 @@ router.get('/:id/forecast/daily', async (req: Request, res: Response) => {
       FROM elevation_forecasts
       WHERE resort_id = $1
       AND elevation_band = $2
-      AND valid_time >= NOW()
+      AND valid_time >= NOW() - INTERVAL '1 day'
       AND valid_time < NOW() + INTERVAL '1 day' * $3
-      GROUP BY DATE(valid_time)
+      GROUP BY DATE(valid_time AT TIME ZONE 'America/Argentina/Buenos_Aires')
       ORDER BY date`,
       [resort.id, elevationBand, daysLimit]
     );
