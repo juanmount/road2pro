@@ -681,10 +681,9 @@ router.get('/:id/forecast/daily', async (req: Request, res: Response) => {
       FROM elevation_forecasts
       WHERE resort_id = $1
       AND elevation_band = $2
-      AND valid_time >= NOW() - INTERVAL '1 day'
-      AND valid_time < NOW() + INTERVAL '1 day' * $3
       GROUP BY DATE(valid_time AT TIME ZONE 'America/Argentina/Buenos_Aires')
-      ORDER BY date`,
+      ORDER BY date
+      LIMIT $3`,
       [resort.id, elevationBand, daysLimit]
     );
 
