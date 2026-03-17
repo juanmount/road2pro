@@ -119,11 +119,44 @@ export default function ResortDetailScreen() {
       
       setHourlyData(hourlyForecast);
       
-      // Load daily forecast from backend
+      // Load daily forecast from backend with hourly details
       try {
         const dailyData = await resortsService.getDailyForecast(id, selectedElevation, 7);
         console.log('Daily forecast loaded:', dailyData?.length, 'days');
-        setDailyForecast(dailyData || []);
+        
+        // Enrich daily forecast with hourly details from hourlyForecast
+        const enrichedDaily = dailyData.map((day: any) => {
+          const dayDate = new Date(day.date);
+          dayDate.setHours(0, 0, 0, 0);
+          
+          // Get hourly data for this day
+          const dayHours = hourlyForecast.filter((h: any) => {
+            const hourDate = new Date(h.time);
+            hourDate.setHours(0, 0, 0, 0);
+            return hourDate.getTime() === dayDate.getTime();
+          });
+          
+          // Map to hourly details format expected by DailyForecastCard
+          const hourlyDetails = dayHours.map((h: any) => ({
+            time: new Date(h.time),
+            temperature: h.temperature,
+            precipitation: h.precipitation,
+            snowfall: h.snowfall || 0,
+            windSpeed: h.windSpeed,
+            windDirection: h.windDirection,
+            humidity: h.humidity || 70,
+            freezingLevel: h.freezingLevel || 2000,
+            phase: h.phase || 'unknown',
+            icon: h.snowfall > 2 ? '🌨️' : h.snowfall > 0 ? '❄️' : h.precipitation > 0 ? '🌧️' : '☀️'
+          }));
+          
+          return {
+            ...day,
+            hourlyDetails
+          };
+        });
+        
+        setDailyForecast(enrichedDaily || []);
       } catch (error) {
         console.warn('Failed to load daily forecast:', error);
         setDailyForecast([]);
@@ -737,6 +770,7 @@ export default function ResortDetailScreen() {
                   tempHigh={day.maxTemp}
                   tempLow={day.minTemp}
                   icon={day.snowfall > 5 ? '🌨️' : day.snowfall > 0 ? '❄️' : '☀️'}
+                  hourlyDetails={day.hourlyDetails || []}
                 />
               );
             })}
