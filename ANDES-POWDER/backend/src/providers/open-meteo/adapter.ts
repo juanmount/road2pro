@@ -140,10 +140,17 @@ export class OpenMeteoProvider implements ForecastProvider {
     const tempAdjustment = elevationDiff * tempLapseRate;
     
     return reference.map(point => ({
-      ...point,
+      time: point.time,
       temperature: point.temperature + tempAdjustment,
-      // Adjust snowfall based on elevation (more snow at higher elevations)
-      snowfall: point.snowfall ? point.snowfall * (1 + elevationDiff / 1000 * 0.1) : undefined
+      precipitation: point.precipitation,
+      snowfall: point.snowfall ? point.snowfall * (1 + elevationDiff / 1000 * 0.1) : undefined,
+      windSpeed: point.windSpeed,
+      windGust: point.windGust,
+      windDirection: point.windDirection,
+      humidity: point.humidity,
+      cloudCover: point.cloudCover,
+      pressure: point.pressure,
+      freezingLevel: point.freezingLevel
     }));
   }
   

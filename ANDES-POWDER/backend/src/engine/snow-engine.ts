@@ -294,7 +294,7 @@ export class SnowEngine {
   ): Promise<ElevationForecast> {
     // Debug logging
     if (forecastHour % 12 === 0) {
-      console.log(`  [${elevationBand}] Hour ${forecastHour}: temp=${data.temperature.toFixed(1)}°C, precip=${data.precipitation.toFixed(2)}mm, time=${data.time.toISOString()}, freezing=${data.freezingLevel || 'null'}`);
+      console.log(`  [${elevationBand}] Hour ${forecastHour}: temp=${data.temperature.toFixed(1)}°C, precip=${data.precipitation.toFixed(2)}mm, windDir=${data.windDirection || 'null'}, time=${data.time.toISOString()}, freezing=${data.freezingLevel || 'null'}`);
     }
     
     // 1. Classify precipitation phase using wet bulb temperature
@@ -389,6 +389,7 @@ export class SnowEngine {
       snowfallCmRaw: rawSnowfall,
       windSpeedKmh: corrected.windSpeedCorrected,
       windGustKmh: data.windGust,
+      windDirection: data.windDirection,
       humidity: data.humidity,
       cloudCover: data.cloudCover,
       pressure: data.pressure,
