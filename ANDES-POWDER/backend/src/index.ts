@@ -102,6 +102,33 @@ app.get('/api/admin/test-daily/:resortId', async (req, res) => {
   }
 });
 
+// Test endpoint to check what resort query returns
+app.get('/api/admin/test-resort/:id', async (req, res) => {
+  try {
+    const pool = (await import('./config/database')).default;
+    const { id } = req.params;
+    
+    const result = await pool.query(
+      'SELECT * FROM resorts WHERE slug = $1 OR id::text = $1',
+      [id]
+    );
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Resort not found' });
+    }
+    
+    const resort = result.rows[0];
+    res.json({
+      resort_id: resort.id,
+      resort_id_type: typeof resort.id,
+      resort_name: resort.name,
+      full_resort: resort
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message, stack: error.stack });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`🏔️  Andes Powder API running on port ${PORT}`);
   
