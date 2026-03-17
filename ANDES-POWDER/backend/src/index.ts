@@ -32,6 +32,24 @@ app.use('/api/observations', observationsRouter);
 app.use('/api/auth', authRouter);
 app.use('/api/favorites', favoritesRouter);
 
+// Admin endpoint to manually trigger forecast sync
+app.post('/api/admin/sync-forecasts', async (req, res) => {
+  try {
+    console.log('Manual sync triggered...');
+    const { forecastService } = await import('./services/forecast-service');
+    console.log('Forecast service imported, starting sync...');
+    await forecastService.processAllResorts();
+    console.log('Sync completed successfully');
+    res.json({ success: true, message: 'Forecast sync completed' });
+  } catch (error: any) {
+    console.error('Manual sync error:', error);
+    res.status(500).json({ 
+      error: error.message || String(error),
+      stack: error.stack 
+    });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`🏔️  Andes Powder API running on port ${PORT}`);
   
