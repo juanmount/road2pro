@@ -666,6 +666,7 @@ router.get('/:id/forecast/daily', async (req: Request, res: Response) => {
     const elevationBand = elevation as string;
     const daysLimit = parseInt(days as string);
 
+    // Use string literal in query to ensure UUID matching works
     const result = await pool.query(
       `SELECT 
         valid_time::date as date,
@@ -677,7 +678,7 @@ router.get('/:id/forecast/daily', async (req: Request, res: Response) => {
         MAX(wind_speed_kmh) as max_wind_speed,
         AVG(cloud_cover) as avg_cloud_cover
       FROM elevation_forecasts
-      WHERE resort_id = $1
+      WHERE resort_id = $1::uuid
       AND elevation_band = $2
       GROUP BY valid_time::date
       ORDER BY date
