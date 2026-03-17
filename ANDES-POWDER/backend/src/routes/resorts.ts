@@ -261,7 +261,7 @@ router.get('/:id/forecast/hourly', async (req: Request, res: Response) => {
         powder_score,
         freezing_level_m
       FROM elevation_forecasts
-      WHERE resort_id = $1
+      WHERE resort_id = $1::uuid
       AND elevation_band = $2
       ORDER BY valid_time
       LIMIT $3`,
