@@ -35,27 +35,30 @@ export default function ResortDetailScreen() {
   const loadResortData = async () => {
     try {
       setLoading(true);
-      console.log('Loading resort data for:', id, 'elevation:', selectedElevation);
+      console.log('[LOAD] Loading resort data for:', id, 'elevation:', selectedElevation);
       
+      console.log('[LOAD] Fetching resort by ID...');
       const resortData = await resortsService.getById(id);
-      console.log('Resort data loaded:', resortData?.name);
+      console.log('[LOAD] Resort data loaded:', resortData?.name);
       setResort(resortData);
       
-      try {
-        const conditionsData = await resortsService.getCurrentConditions(id);
-        console.log('Conditions loaded');
-        setConditions(conditionsData);
-      } catch (error) {
-        console.warn('Failed to load conditions:', error);
-        setConditions(null);
-      }
+      // Skip current conditions endpoint - we'll use first hourly forecast as current
+      // try {
+      //   const conditionsData = await resortsService.getCurrentConditions(id);
+      //   console.log('Conditions loaded');
+      //   setConditions(conditionsData);
+      // } catch (error) {
+      //   console.warn('Failed to load conditions:', error);
+      //   setConditions(null);
+      // }
       
       let hourlyForecast: any[] = [];
       try {
+        console.log('[LOAD] Fetching hourly forecast...');
         hourlyForecast = await resortsService.getHourlyForecast(id, selectedElevation, 168);
-        console.log('Hourly forecast loaded:', hourlyForecast?.length, 'hours');
+        console.log('[LOAD] Hourly forecast loaded:', hourlyForecast?.length, 'hours');
       } catch (error) {
-        console.warn('Failed to load hourly forecast:', error);
+        console.warn('[LOAD] Failed to load hourly forecast:', error);
         hourlyForecast = [];
       }
       
@@ -94,28 +97,16 @@ export default function ResortDetailScreen() {
       setYesterdaySnowfall(yesterdayTotal);
       console.log(`[YESTERDAY] Total snowfall: ${yesterdayTotal.toFixed(2)} cm from ${yesterdayHours.length} hours`);
       
-      // Calculate last 5 days snowfall history
-      const last5Days = [];
-      for (let i = 1; i <= 5; i++) {
-        const targetDate = new Date();
-        targetDate.setDate(targetDate.getDate() - i);
-        const dayHours = hourlyForecast.filter((h: any) => {
-          const date = new Date(h.time);
-          return date.getDate() === targetDate.getDate() && 
-                 date.getMonth() === targetDate.getMonth() &&
-                 date.getFullYear() === targetDate.getFullYear();
-        });
-        const dayTotal = dayHours.reduce((sum: number, h: any) => sum + (h.snowfall || 0), 0);
-        last5Days.push({
-          date: targetDate,
-          snowfall: dayTotal,
-          dayName: targetDate.toLocaleDateString('es-AR', { weekday: 'short' }),
-          dayNumber: targetDate.getDate(),
-          month: targetDate.toLocaleDateString('es-AR', { month: 'short' })
-        });
+      // Fetch snowfall history from snowfall_history table
+      try {
+        console.log('[LOAD] Fetching snowfall history...');
+        const historyData = await resortsService.getSnowfallHistory(id, selectedElevation, 5);
+        setLast5DaysSnowfall(historyData);
+        console.log('[HISTORY] Loaded', historyData.length, 'days of snowfall history');
+      } catch (error) {
+        console.warn('[HISTORY] Failed to load snowfall history:', error);
+        setLast5DaysSnowfall([]);
       }
-      setLast5DaysSnowfall(last5Days.reverse()); // Reverse to show oldest first
-      console.log('[LAST 5 DAYS] Snowfall history:', last5Days);
       
       setHourlyData(hourlyForecast);
       
@@ -172,8 +163,22 @@ export default function ResortDetailScreen() {
             humidity: h.humidity || 70,
             freezingLevel: h.freezingLevel || 2000,
             phase: h.phase || 'unknown',
-            icon: h.snowfall > 2 ? '🌨️' : h.snowfall > 0 ? '❄️' : h.precipitation > 0 ? '🌧️' : '☀️'
+            icon: getWeatherIcon({
+              hour: new Date(h.time).getHours(),
+              phase: h.phase || 'none',
+              cloudCover: h.cloudCover || 0,
+              precipitation: h.precipitation || 0
+            })
           }));
+          
+          // Calculate icon for the day (use afternoon hour as representative)
+          const afternoonHour = hours.find(h => new Date(h.time).getHours() === 15) || hours[Math.floor(hours.length / 2)];
+          const dayIcon = getWeatherIcon({
+            hour: new Date(afternoonHour.time).getHours(),
+            phase: afternoonHour.phase || 'none',
+            cloudCover: afternoonHour.cloudCover || 0,
+            precipitation: afternoonHour.precipitation || 0
+          });
           
           dailyFromHourly.push({
             date: dateKey,
@@ -183,6 +188,7 @@ export default function ResortDetailScreen() {
             precipitation,
             maxWindSpeed,
             cloudCover: avgCloudCover,
+            icon: dayIcon,
             hourlyDetails
           });
         } else {
@@ -216,9 +222,11 @@ export default function ResortDetailScreen() {
       setWindImpactData(null);
       
     } catch (err) {
-      console.error('Error loading resort data:', err);
+      console.error('[LOAD ERROR] Error loading resort data:', err);
+      console.error('[LOAD ERROR] Stack:', (err as Error).stack);
       alert('Error loading data: ' + (err as Error).message);
     } finally {
+      console.log('[LOAD] Setting loading to false');
       setLoading(false);
     }
   };
@@ -485,10 +493,11 @@ export default function ResortDetailScreen() {
     return days.slice(0, 7);
   };
 
-  if (loading || !resort || !conditions) {
+  if (loading || !resort) {
     return (
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color="#3b82f6" />
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#63b3ed" />
+        <Text style={styles.loadingText}>Cargando pronóstico...</Text>
       </View>
     );
   }
@@ -622,7 +631,7 @@ export default function ResortDetailScreen() {
         ))}
       </View>
 
-      {conditions?.byElevation[selectedElevation] && (
+      {hourlyData.length > 0 && (
         <View style={styles.liveCard}>
           <ImageBackground
             source={require('../../../assets/nieve-catedral-live.jpg')}
@@ -631,9 +640,9 @@ export default function ResortDetailScreen() {
           >
             <View style={[
               styles.liveCardOverlay,
-              conditions.byElevation[selectedElevation].phase === 'snow' && styles.liveCardSnow,
-              conditions.byElevation[selectedElevation].phase === 'rain' && styles.liveCardRain,
-              (!conditions.byElevation[selectedElevation].phase || conditions.byElevation[selectedElevation].phase === 'none') && styles.liveCardClear,
+              hourlyData[0].phase === 'snow' && styles.liveCardSnow,
+              hourlyData[0].phase === 'rain' && styles.liveCardRain,
+              (!hourlyData[0].phase || hourlyData[0].phase === 'none') && styles.liveCardClear,
             ]} />
           <View style={styles.liveCardContent}>
           <View style={styles.liveHeader}>
@@ -651,7 +660,7 @@ export default function ResortDetailScreen() {
                 {selectedElevation === 'base' ? 'BASE' : selectedElevation === 'mid' ? 'MID' : 'SUMMIT'} • {selectedElevation === 'base' ? resort.baseElevation : selectedElevation === 'mid' ? resort.midElevation : resort.summitElevation}m
               </Text>
               <Text style={styles.freezingLevel}>
-                Frz {Math.round(conditions.current.freezingLevel || hourlyData[0]?.freezingLevel || 0)}m
+                Frz {Math.round(hourlyData[0]?.freezingLevel || 2000)}m
               </Text>
             </View>
           </View>
@@ -661,12 +670,12 @@ export default function ResortDetailScreen() {
               <Text style={styles.weatherIcon}>
                 {getWeatherIcon({
                   hour: new Date().getHours(),
-                  phase: conditions.byElevation[selectedElevation].phase || 'none',
-                  cloudCover: conditions.byElevation[selectedElevation].cloudCover || 0,
+                  phase: hourlyData[0]?.phase || 'none',
+                  cloudCover: hourlyData[0]?.cloudCover || 0,
                   precipitation: hourlyData[0]?.precipitation || 0
                 })}
               </Text>
-              <Text style={styles.bigTemp}>{Math.round(conditions.byElevation[selectedElevation].temperature)}°</Text>
+              <Text style={styles.bigTemp}>{Math.round(hourlyData[0]?.temperature || 0)}°</Text>
               <Text style={styles.tempUnit}>C</Text>
             </View>
             <View style={styles.quickMetrics}>
@@ -678,14 +687,14 @@ export default function ResortDetailScreen() {
                     currentWindImpact?.category === 'EXTREME' && styles.windExtreme,
                     currentWindImpact?.category === 'STRONG' && styles.windStrong,
                     currentWindImpact?.category === 'MODERATE' && styles.windModerate,
-                  ]}>{Math.round(currentWindImpact?.adjustedWindKmh || conditions.byElevation[selectedElevation].windSpeed || 0)}</Text>
+                  ]}>{Math.round(currentWindImpact?.adjustedWindKmh || hourlyData[0]?.windSpeed || 0)}</Text>
                   <Text style={styles.quickUnit}>km/h</Text>
                 </View>
               </View>
               <View style={styles.quickMetricItem}>
                 <Text style={styles.quickLabel}>HUMIDITY</Text>
                 <View style={styles.quickValueRow}>
-                  <Text style={styles.quickValue}>{Math.round(conditions.byElevation[selectedElevation].humidity || 0)}</Text>
+                  <Text style={styles.quickValue}>{Math.round(hourlyData[0]?.humidity || 50)}</Text>
                   <Text style={styles.quickUnit}>%</Text>
                 </View>
               </View>
@@ -695,7 +704,7 @@ export default function ResortDetailScreen() {
           {/* Wind Narrative - Separate compact section */}
           {(() => {
             const windDir = hourlyData[0]?.windDirection || 270;
-            const windSpeed = currentWindImpact?.adjustedWindKmh || conditions.byElevation[selectedElevation].windSpeed || 0;
+            const windSpeed = currentWindImpact?.adjustedWindKmh || hourlyData[0]?.windSpeed || 0;
             const precip = hourlyData[0]?.precipitation || 0;
             const narrative = getWindNarrative(windDir, windSpeed, precip);
             const dirLabel = getWindDirectionLabel(windDir);
@@ -729,32 +738,27 @@ export default function ResortDetailScreen() {
             );
           })()}
           
-          {/* Snow Analysis Section */}
-          <View style={styles.snowAnalysisSection}>
-            <Text style={styles.snowAnalysisTitle}>ANÁLISIS DE NIEVE</Text>
-          </View>
-          
           <View style={styles.glassMetrics}>
             <View style={styles.glassBox}>
               <Text style={styles.metricLabel}>FORECAST</Text>
-              <Text style={styles.glassNumber}>{Math.round((conditions.byElevation[selectedElevation].snowfall24h || 0) / 0.75)}</Text>
+              <Text style={styles.glassNumber}>{Math.round((yesterdaySnowfall || 0) / 0.75)}</Text>
               <Text style={styles.glassUnit}>cm</Text>
             </View>
             <View style={styles.glassBox}>
               <Text style={styles.metricLabel}>REAL</Text>
-              <Text style={styles.glassNumber}>{Math.round(conditions.byElevation[selectedElevation].snowfall24h || 0)}</Text>
+              <Text style={styles.glassNumber}>{Math.round(yesterdaySnowfall || 0)}</Text>
               <Text style={styles.glassUnit}>cm</Text>
             </View>
             <View style={styles.glassBox}>
               <Text style={styles.metricLabel}>POWDER</Text>
-              <Text style={styles.glassNumber}>{Math.round(conditions.byElevation[selectedElevation].powderScore || 0)}/10</Text>
+              <Text style={styles.glassNumber}>{Math.round(hourlyData[0]?.powderScore || 0)}/10</Text>
             </View>
             <View style={styles.glassBox}>
               <Text style={styles.metricLabel}>TIPO</Text>
               <Text style={styles.glassNumber}>
-                {conditions.byElevation[selectedElevation].temperature < -5 ? 'PWD' :
-                 conditions.byElevation[selectedElevation].temperature >= -5 && conditions.byElevation[selectedElevation].temperature < 0 ? 'PCK' :
-                 conditions.byElevation[selectedElevation].temperature >= 0 && conditions.byElevation[selectedElevation].temperature < 2 ? 'DNS' : 'WET'}
+                {hourlyData[0]?.temperature < -5 ? 'PWD' :
+                 hourlyData[0]?.temperature >= -5 && hourlyData[0]?.temperature < 0 ? 'PCK' :
+                 hourlyData[0]?.temperature >= 0 && hourlyData[0]?.temperature < 2 ? 'DNS' : 'WET'}
               </Text>
             </View>
           </View>
@@ -766,7 +770,6 @@ export default function ResortDetailScreen() {
       {/* Weekly Forecast - Horizontal Scroll */}
       {dailyForecast.length > 0 && (
         <View style={styles.dailyForecastSection}>
-          <Text style={styles.sectionTitle}>Pronóstico 7 Días</Text>
           <ScrollView 
             horizontal 
             showsHorizontalScrollIndicator={false}
@@ -787,7 +790,7 @@ export default function ResortDetailScreen() {
                   snowfall={day.snowfall}
                   tempHigh={day.maxTemp}
                   tempLow={day.minTemp}
-                  icon={day.snowfall > 5 ? '🌨️' : day.snowfall > 0 ? '❄️' : '☀️'}
+                  icon={day.icon || '☀️'}
                   hourlyDetails={day.hourlyDetails || []}
                 />
               );
@@ -797,9 +800,12 @@ export default function ResortDetailScreen() {
       )}
 
       {/* Last 5 Days Snowfall History */}
-      {last5DaysSnowfall.length > 0 && (
-        <View style={styles.historySection}>
-          <Text style={styles.historySectionTitle}>Últimos 5 Días - Nevadas Pronosticadas</Text>
+      <View style={styles.historySection}>
+        <View style={styles.historyHeader}>
+          <Text style={styles.historyTitle}>NEVADAS CAÍDAS - ÚLTIMOS 5 DÍAS</Text>
+          <View style={styles.historyUnderline} />
+        </View>
+        {last5DaysSnowfall.length > 0 ? (
           <View style={styles.historyTable}>
             {last5DaysSnowfall.map((day, index) => (
               <View key={index} style={styles.historyRow}>
@@ -814,19 +820,14 @@ export default function ResortDetailScreen() {
               </View>
             ))}
           </View>
-        </View>
-      )}
+        ) : (
+          <View style={styles.historyEmpty}>
+            <Text style={styles.historyEmptyText}>Sin nevadas registradas aún</Text>
+            <Text style={styles.historyEmptySubtext}>El historial comenzará a acumularse desde hoy</Text>
+          </View>
+        )}
+      </View>
 
-      {hourlyData.length > 0 && (
-        <View style={styles.chartsSection}>
-          <TemperatureCurve 
-            hourlyData={hourlyData.slice(0, 24).map((h: any) => ({
-              time: new Date(h.time),
-              temperature: h.temperature,
-            }))}
-          />
-        </View>
-      )}
       </ScrollView>
 
       {/* Webcams Modal */}
@@ -1211,7 +1212,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   quickMetrics: {
-    gap: 10,
+    gap: 12,
   },
   quickMetricItem: {
     alignItems: 'flex-end',
@@ -1260,7 +1261,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginTop: 12,
+    marginTop: 20,
+    marginBottom: 16,
     marginHorizontal: 16,
     padding: 12,
     backgroundColor: 'rgba(255, 255, 255, 0.6)',
@@ -1519,8 +1521,69 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   windImpactText: {
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: 13,
+    lineHeight: 18,
+    color: '#334155',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#0c4a6e',
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: '#fff',
+    fontWeight: '600',
+  },
+  forecastHeader: {
+    marginBottom: 16,
+    paddingHorizontal: 20,
+  },
+  forecastTitle: {
+    fontSize: 18,
+    fontWeight: '700',
     color: '#0c4a6e',
+    letterSpacing: 1,
+    marginBottom: 8,
+  },
+  forecastUnderline: {
+    height: 3,
+    width: 60,
+    backgroundColor: '#0ea5e9',
+    borderRadius: 2,
+  },
+  historyHeader: {
+    marginBottom: 16,
+  },
+  historyTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#0c4a6e',
+    letterSpacing: 1,
+    marginBottom: 8,
+  },
+  historyUnderline: {
+    height: 3,
+    width: 60,
+    backgroundColor: '#0ea5e9',
+    borderRadius: 2,
+  },
+  historyEmpty: {
+    padding: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  historyEmptyText: {
+    fontSize: 16,
+    color: '#64748b',
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  historyEmptySubtext: {
+    fontSize: 14,
+    color: '#94a3b8',
+    textAlign: 'center',
   },
 });

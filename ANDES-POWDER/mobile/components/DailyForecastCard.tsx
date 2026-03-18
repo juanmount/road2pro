@@ -267,9 +267,11 @@ export function DailyForecastCard({
                               hour.windCategory === 'STRONG' && styles.windStrong,
                               hour.windCategory === 'MODERATE' && styles.windModerate,
                             ]}>{Math.round(hour.adjustedWindSpeed || hour.windSpeed)} km/h</Text>
+                            {/* Wind direction temporarily hidden until backend fix is deployed
                             {hour.windDirection !== undefined && (
                               <Text style={styles.hourWindDir}>{getWindDirectionLabel(hour.windDirection)}</Text>
                             )}
+                            */}
                           </View>
                           <Text style={styles.hourMetricText}>{Math.round(hour.humidity)}%</Text>
                           <Text style={styles.hourMetricText}>{hour.freezingLevel}m</Text>

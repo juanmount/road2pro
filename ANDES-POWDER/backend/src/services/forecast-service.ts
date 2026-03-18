@@ -187,12 +187,12 @@ class ForecastService {
             forecast_run_id, resort_id, elevation_band, elevation_meters,
             valid_time, forecast_hour,
             temperature_c, apparent_temp_c, precipitation_mm, snowfall_cm_raw,
-            wind_speed_kmh, wind_gust_kmh, humidity, cloud_cover, pressure_msl,
+            wind_speed_kmh, wind_gust_kmh, wind_direction, humidity, cloud_cover, pressure_msl,
             freezing_level_m, snow_line_m,
             snowfall_cm_corrected, phase_classification, snow_quality,
             powder_score, skiability_score, wind_impact,
             confidence_score, data_source
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25)`,
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26)`,
           [
             forecastRunId,
             forecast.resortId,
@@ -206,6 +206,7 @@ class ForecastService {
             forecast.snowfallCmRaw,
             forecast.windSpeedKmh,
             forecast.windGustKmh,
+            forecast.windDirection || null,
             forecast.humidity,
             forecast.cloudCover,
             forecast.pressure,
