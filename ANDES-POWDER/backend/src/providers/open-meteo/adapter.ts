@@ -115,6 +115,11 @@ export class OpenMeteoProvider implements ForecastProvider {
   }
   
   private parseHourlyData(hourly: any, times: Date[]): TimeSeriesPoint[] {
+    // Debug: Log if winddirection_10m exists in API response
+    if (times.length > 0) {
+      console.log('Wind direction from API - first 3 values:', hourly.winddirection_10m?.slice(0, 3));
+    }
+    
     return times.map((time, i) => ({
       time,
       temperature: hourly.temperature_2m[i] || 0,
