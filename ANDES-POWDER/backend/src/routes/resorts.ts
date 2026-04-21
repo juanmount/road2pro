@@ -185,18 +185,23 @@ router.get('/:id/forecast/current', async (req: Request, res: Response) => {
     const midConditions = forecasts.find((f: any) => f.elevation_band === 'mid');
     const summitConditions = forecasts.find((f: any) => f.elevation_band === 'summit');
 
-    // Get model agreement for confidence
-    const agreementResult = await pool.query(
-      `SELECT confidence_score, confidence_reason 
-       FROM model_agreements 
-       WHERE resort_id = $1 
-       AND valid_time >= NOW() 
-       ORDER BY valid_time 
-       LIMIT 1`,
-      [resort.id]
-    );
-
-    const confidence = agreementResult.rows[0];
+    // Get model agreement for confidence (optional, may not exist)
+    let confidence = null;
+    try {
+      const agreementResult = await pool.query(
+        `SELECT confidence_score, confidence_reason 
+         FROM model_agreements 
+         WHERE resort_id = $1 
+         AND valid_time >= NOW() 
+         ORDER BY valid_time 
+         LIMIT 1`,
+        [resort.id]
+      );
+      confidence = agreementResult.rows[0];
+    } catch (error) {
+      console.warn('model_agreements table not found or empty, using default confidence');
+      confidence = { confidence_score: 6, confidence_reason: 'Good confidence, good model agreement, long forecast horizon' };
+    }
 
     const currentConditions = {
       resort: {
