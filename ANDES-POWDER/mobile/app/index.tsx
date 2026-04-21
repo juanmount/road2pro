@@ -304,13 +304,6 @@ export default function HomeScreen() {
             style={styles.headerLogo}
             resizeMode="contain"
           />
-          <TouchableOpacity 
-            style={styles.season0Badge}
-            onPress={() => setShowSeason0Modal(true)}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.season0BadgeText}>SEASON 0</Text>
-          </TouchableOpacity>
         </View>
       </View>
       
@@ -320,7 +313,7 @@ export default function HomeScreen() {
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listContainer}
         showsVerticalScrollIndicator={false}
-        ListHeaderComponent={<ENSOCard />}
+        ListHeaderComponent={<ENSOCard onSeasonBadgePress={() => setShowSeason0Modal(true)} />}
       />
       
       {/* Season 0 Modal */}
@@ -355,29 +348,11 @@ const styles = StyleSheet.create({
   },
   headerContent: {
     alignItems: 'center',
-    position: 'relative',
   },
   headerLogo: {
     width: 300,
     height: 70,
     marginBottom: 12,
-  },
-  season0Badge: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    backgroundColor: 'rgba(56, 189, 248, 0.15)',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#38bdf8',
-  },
-  season0BadgeText: {
-    color: '#38bdf8',
-    fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 1,
   },
   headerSubtitle: {
     fontSize: 13,
