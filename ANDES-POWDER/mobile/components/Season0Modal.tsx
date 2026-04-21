@@ -79,7 +79,7 @@ export default function Season0Modal({ visible, onClose }: Season0ModalProps) {
               </View>
 
               <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Season 1 — Junio 2026</Text>
+                <Text style={styles.sectionTitle}>Season 1 — 2027</Text>
                 <Text style={styles.sectionText}>
                   Alertas inteligentes, favoritos, historial de precisión y features premium.
                 </Text>
