@@ -13,11 +13,13 @@ export default function Season0Card({ onPress }: Season0CardProps) {
       onPress={onPress}
       activeOpacity={0.9}
     >
-      <View style={styles.badgeContainer}>
-        <Text style={styles.badgeText}>SEASON 0</Text>
+      <View style={styles.header}>
+        <View style={styles.badgeContainer}>
+          <View style={styles.badgeDot} />
+          <Text style={styles.badgeText}>SEASON 0</Text>
+        </View>
       </View>
       <Text style={styles.title}>Early Access</Text>
-      <Text style={styles.subtitle}>Validación en curso</Text>
       <View style={styles.statusDots}>
         <View style={[styles.dot, styles.dotActive]} />
         <View style={[styles.dot, styles.dotCalibrating]} />
@@ -31,39 +33,51 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: 'rgba(15, 23, 42, 0.75)',
     borderRadius: 12,
-    padding: 10,
+    padding: 12,
     borderWidth: 1,
     borderColor: '#38bdf8',
-    gap: 6,
+    justifyContent: 'space-between',
+    minHeight: 100,
+  },
+  header: {
+    marginBottom: 8,
   },
   badgeContainer: {
-    backgroundColor: 'rgba(56, 189, 248, 0.15)',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#38bdf8',
+    backgroundColor: '#38bdf8',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 10,
     alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    shadowColor: '#38bdf8',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.4,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  badgeDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#fff',
   },
   badgeText: {
-    color: '#38bdf8',
-    fontSize: 9,
-    fontWeight: '700',
-    letterSpacing: 1.2,
+    color: '#0f172a',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 1.5,
   },
   title: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '700',
     color: '#fff',
-  },
-  subtitle: {
-    fontSize: 11,
-    color: 'rgba(255, 255, 255, 0.7)',
+    marginBottom: 8,
   },
   statusDots: {
     flexDirection: 'row',
     gap: 6,
-    marginTop: 4,
   },
   dot: {
     width: 6,
