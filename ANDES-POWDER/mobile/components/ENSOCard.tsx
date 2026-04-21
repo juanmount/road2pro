@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { useState, useEffect } from 'react';
 
 interface ENSOData {
@@ -9,10 +9,6 @@ interface ENSOData {
   consumerMessage: string;
   stormMultiplier: number;
   freezingLevelAdjustment: number;
-}
-
-interface ENSOCardProps {
-  onSeasonBadgePress: () => void;
 }
 
 const getPhaseLabel = (phase: string, intensity: string): string => {
@@ -28,7 +24,7 @@ const getPhaseColor = (phase: string): string => {
   return '#64748b';
 };
 
-export default function ENSOCard({ onSeasonBadgePress }: ENSOCardProps) {
+export default function ENSOCard() {
   const [ensoData, setEnsoData] = useState<ENSOData | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -64,20 +60,11 @@ export default function ENSOCard({ onSeasonBadgePress }: ENSOCardProps) {
   return (
     <View style={styles.card}>
       <View style={styles.header}>
-        <View style={styles.ensoInfo}>
+        <View>
           <Text style={styles.phase}>{phaseLabel}</Text>
           <Text style={styles.oni}>ONI: {ensoData.oni.toFixed(2)}°C</Text>
         </View>
-        <View style={styles.rightSection}>
-          <TouchableOpacity 
-            style={styles.season0Badge}
-            onPress={onSeasonBadgePress}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.season0Text}>SEASON 0</Text>
-          </TouchableOpacity>
-          <View style={[styles.indicator, { backgroundColor: phaseColor }]} />
-        </View>
+        <View style={[styles.indicator, { backgroundColor: phaseColor }]} />
       </View>
       
       {ensoData.phase !== 'neutral' && ensoData.stormMultiplier !== 1 && (
@@ -104,28 +91,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 6,
-  },
-  ensoInfo: {
-    flex: 1,
-  },
-  rightSection: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  season0Badge: {
-    backgroundColor: 'rgba(56, 189, 248, 0.15)',
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#38bdf8',
-  },
-  season0Text: {
-    color: '#38bdf8',
-    fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 1,
   },
   phase: {
     fontSize: 13,

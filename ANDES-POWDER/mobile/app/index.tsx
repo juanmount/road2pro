@@ -7,6 +7,7 @@ import { Resort, CurrentConditions } from '../types';
 import { getPowderScoreColor, getPowderScoreLabel } from '../utils/powder-score';
 import { getWeatherIcon } from '../utils/weather-icons';
 import ENSOCard from '../components/ENSOCard';
+import Season0Card from '../components/Season0Card';
 import OnboardingScreen from '../components/OnboardingScreen';
 import Season0Modal from '../components/Season0Modal';
 
@@ -313,7 +314,12 @@ export default function HomeScreen() {
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listContainer}
         showsVerticalScrollIndicator={false}
-        ListHeaderComponent={<ENSOCard onSeasonBadgePress={() => setShowSeason0Modal(true)} />}
+        ListHeaderComponent={
+          <>
+            <Season0Card onPress={() => setShowSeason0Modal(true)} />
+            <ENSOCard />
+          </>
+        }
       />
       
       {/* Season 0 Modal */}
