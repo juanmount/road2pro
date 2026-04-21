@@ -6,6 +6,9 @@ import observationsRouter from './routes/observations';
 import { getWeatherSyncScheduler } from './services/weather-sync-scheduler';
 import authRouter from './routes/auth';
 import favoritesRouter from './routes/favorites';
+import ensoRouter from './routes/enso';
+import pushRouter from './routes/push';
+import validationRouter from './routes/validation';
 import { forecastCronService } from './services/forecast-cron';
 import { initializeFirebase } from './config/firebase';
 
@@ -21,6 +24,7 @@ try {
   initializeFirebase();
 } catch (error) {
   console.warn('Firebase not initialized. Authentication features will be disabled.');
+  console.warn('Error details:', error);
 }
 
 app.get('/health', (req, res) => {
@@ -31,6 +35,9 @@ app.use('/api/resorts', resortsRouter);
 app.use('/api/observations', observationsRouter);
 app.use('/api/auth', authRouter);
 app.use('/api/favorites', favoritesRouter);
+app.use('/api/enso', ensoRouter);
+app.use('/api/push', pushRouter);
+app.use('/api/validation', validationRouter);
 
 // Admin endpoint to manually trigger forecast sync
 app.post('/api/admin/sync-forecasts', async (req, res) => {
