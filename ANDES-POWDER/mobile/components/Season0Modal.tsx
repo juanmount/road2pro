@@ -134,10 +134,10 @@ const styles = StyleSheet.create({
     width: width * 0.9,
     maxWidth: 500,
     maxHeight: '85%',
-    backgroundColor: 'rgba(26, 54, 93, 0.95)',
+    backgroundColor: '#1e3a5f',
     borderRadius: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(56, 189, 248, 0.3)',
+    borderWidth: 2,
+    borderColor: '#38bdf8',
     overflow: 'hidden',
   },
   scrollView: {
