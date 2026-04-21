@@ -39,15 +39,15 @@ export default function Season0Modal({ visible, onClose }: Season0ModalProps) {
         activeOpacity={1}
         onPress={handleClose}
       >
-        <TouchableOpacity 
+        <View 
           style={styles.modalContainer}
-          activeOpacity={1}
-          onPress={(e) => e.stopPropagation()}
+          onStartShouldSetResponder={() => true}
         >
           <ScrollView
             style={styles.scrollView}
             contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={false}
+            bounces={false}
           >
             {/* Header */}
             <View style={styles.header}>
@@ -117,7 +117,7 @@ export default function Season0Modal({ visible, onClose }: Season0ModalProps) {
               <Text style={styles.buttonText}>Entendido, explorar</Text>
             </TouchableOpacity>
           </ScrollView>
-        </TouchableOpacity>
+        </View>
       </TouchableOpacity>
     </Modal>
   );
@@ -141,10 +141,11 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   scrollView: {
-    flex: 1,
+    width: '100%',
   },
   scrollContent: {
     padding: 24,
+    paddingBottom: 40,
   },
   header: {
     alignItems: 'center',
