@@ -39,6 +39,23 @@ app.use('/api/enso', ensoRouter);
 app.use('/api/push', pushRouter);
 // app.use('/api/validation', validationRouter); // Temporarily disabled for deployment
 
+// Admin endpoint to clean old forecast data
+app.post('/api/admin/clean-old-forecasts', async (req, res) => {
+  try {
+    console.log('Cleaning old forecast data...');
+    const pool = (await import('./config/database')).default;
+    const result = await pool.query(`
+      DELETE FROM elevation_forecasts 
+      WHERE valid_time < NOW() - INTERVAL '7 days'
+    `);
+    console.log(`Deleted ${result.rowCount} old forecast rows`);
+    res.json({ success: true, deleted: result.rowCount });
+  } catch (error: any) {
+    console.error('Clean error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Admin endpoint to manually trigger forecast sync
 app.post('/api/admin/sync-forecasts', async (req, res) => {
   try {
