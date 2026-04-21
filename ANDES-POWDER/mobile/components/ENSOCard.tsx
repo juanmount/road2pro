@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { useState, useEffect } from 'react';
 
 interface ENSOData {
@@ -9,6 +9,10 @@ interface ENSOData {
   consumerMessage: string;
   stormMultiplier: number;
   freezingLevelAdjustment: number;
+}
+
+interface ENSOCardProps {
+  onPress: () => void;
 }
 
 const getPhaseLabel = (phase: string, intensity: string): string => {
@@ -24,7 +28,7 @@ const getPhaseColor = (phase: string): string => {
   return '#64748b';
 };
 
-export default function ENSOCard() {
+export default function ENSOCard({ onPress }: ENSOCardProps) {
   const [ensoData, setEnsoData] = useState<ENSOData | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -58,7 +62,11 @@ export default function ENSOCard() {
   const phaseLabel = getPhaseLabel(ensoData.phase, ensoData.intensity);
 
   return (
-    <View style={styles.card}>
+    <TouchableOpacity 
+      style={styles.card}
+      onPress={onPress}
+      activeOpacity={0.9}
+    >
       <View style={styles.header}>
         <View>
           <Text style={styles.phase}>{phaseLabel}</Text>
@@ -74,7 +82,8 @@ export default function ENSOCard() {
       )}
       
       <Text style={styles.source}>Fuente: NOAA Climate Prediction Center</Text>
-    </View>
+      <Text style={styles.tapHint}>Tap para más info →</Text>
+    </TouchableOpacity>
   );
 }
 
@@ -117,5 +126,12 @@ const styles = StyleSheet.create({
     fontSize: 9,
     color: '#64748b',
     fontStyle: 'italic',
+    marginTop: 6,
+  },
+  tapHint: {
+    fontSize: 10,
+    color: 'rgba(255, 255, 255, 0.5)',
+    fontStyle: 'italic',
+    marginTop: 4,
   },
 });

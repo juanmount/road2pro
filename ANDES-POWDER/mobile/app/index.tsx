@@ -7,6 +7,7 @@ import { Resort, CurrentConditions } from '../types';
 import { getPowderScoreColor, getPowderScoreLabel } from '../utils/powder-score';
 import { getWeatherIcon } from '../utils/weather-icons';
 import ENSOCard from '../components/ENSOCard';
+import ENSOModal from '../components/ENSOModal';
 import Season0Card from '../components/Season0Card';
 import OnboardingScreen from '../components/OnboardingScreen';
 import Season0Modal from '../components/Season0Modal';
@@ -44,6 +45,7 @@ export default function HomeScreen() {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [checkingOnboarding, setCheckingOnboarding] = useState(true);
   const [showSeason0Modal, setShowSeason0Modal] = useState(false);
+  const [showENSOModal, setShowENSOModal] = useState(false);
 
   useEffect(() => {
     checkOnboardingStatus();
@@ -320,7 +322,7 @@ export default function HomeScreen() {
               <Season0Card onPress={() => setShowSeason0Modal(true)} />
             </View>
             <View style={styles.cardHalf}>
-              <ENSOCard />
+              <ENSOCard onPress={() => setShowENSOModal(true)} />
             </View>
           </View>
         }
@@ -330,6 +332,12 @@ export default function HomeScreen() {
       <Season0Modal 
         visible={showSeason0Modal}
         onClose={() => setShowSeason0Modal(false)}
+      />
+      
+      {/* ENSO Modal */}
+      <ENSOModal 
+        visible={showENSOModal}
+        onClose={() => setShowENSOModal(false)}
       />
     </ImageBackground>
   );
