@@ -1,14 +1,26 @@
 import { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, ImageBackground, StatusBar, Image } from 'react-native';
 import { useRouter } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { resortsService } from '../services/resorts';
 import { Resort, CurrentConditions } from '../types';
 import { getPowderScoreColor, getPowderScoreLabel } from '../utils/powder-score';
 import { getWeatherIcon } from '../utils/weather-icons';
+import ENSOCard from '../components/ENSOCard';
+import OnboardingScreen from '../components/OnboardingScreen';
+import Season0Modal from '../components/Season0Modal';
 
 interface ResortWithConditions extends Resort {
-  conditions?: CurrentConditions;
-  currentPrecipitation?: number;
+  currentConditions?: {
+    temperature: number;
+    windSpeed: number;
+    windDirection: number;
+    precipitation: number;
+    phase: string;
+    cloudCover: number;
+    snowfall24h: number;
+  } | null;
+  todaySnowfall?: number;
 }
 
 // Resort background images mapping
@@ -28,10 +40,46 @@ export default function HomeScreen() {
   const [resorts, setResorts] = useState<ResortWithConditions[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [checkingOnboarding, setCheckingOnboarding] = useState(true);
+  const [showSeason0Modal, setShowSeason0Modal] = useState(false);
 
   useEffect(() => {
-    loadResorts();
+    checkOnboardingStatus();
   }, []);
+
+  useEffect(() => {
+    if (!checkingOnboarding && !showOnboarding) {
+      loadResorts();
+    }
+  }, [checkingOnboarding, showOnboarding]);
+
+  const checkOnboardingStatus = async () => {
+    try {
+      const completed = await AsyncStorage.getItem('onboarding_completed');
+      setShowOnboarding(completed !== 'true');
+      
+      // Check if Season 0 modal has been seen
+      if (completed === 'true') {
+        const season0Seen = await AsyncStorage.getItem('season0_modal_seen');
+        setShowSeason0Modal(season0Seen !== 'true');
+      }
+    } catch (error) {
+      console.error('Error checking onboarding status:', error);
+      setShowOnboarding(false);
+    } finally {
+      setCheckingOnboarding(false);
+    }
+  };
+
+  const handleOnboardingComplete = async () => {
+    setShowOnboarding(false);
+    // Show Season 0 modal after onboarding
+    const season0Seen = await AsyncStorage.getItem('season0_modal_seen');
+    if (season0Seen !== 'true') {
+      setShowSeason0Modal(true);
+    }
+  };
 
   const loadResorts = async () => {
     try {
@@ -39,17 +87,55 @@ export default function HomeScreen() {
       setError(null);
       const data = await resortsService.getAll();
       
-      // Load current conditions and hourly forecast for each resort
+      // Load forecasts for each resort
       const resortsWithConditions = await Promise.all(
         data.map(async (resort) => {
           try {
-            const conditions = await resortsService.getCurrentConditions(resort.id);
-            // Get first hour of hourly forecast for current precipitation
-            const hourlyForecast = await resortsService.getHourlyForecast(resort.id, 'mid', 24);
-            const currentPrecipitation = hourlyForecast[0]?.precipitation || 0;
-            return { ...resort, conditions, currentPrecipitation };
+            const hourlyForecast = await resortsService.getHourlyForecast(resort.id, 'mid', 48);
+            
+            if (!hourlyForecast || hourlyForecast.length === 0) {
+              console.log(`[HOME] No hourly forecast for ${resort.name} - skipping conditions`);
+              return resort;
+            }
+            
+            // Find hour closest to current time (same logic as LIVE card)
+            const now = new Date();
+            let closestHour = hourlyForecast[0];
+            let minDiff = Math.abs(new Date(hourlyForecast[0].time).getTime() - now.getTime());
+            
+            for (const hour of hourlyForecast) {
+              const hourTime = new Date(hour.time);
+              const diff = Math.abs(hourTime.getTime() - now.getTime());
+              if (diff < minDiff) {
+                minDiff = diff;
+                closestHour = hour;
+              }
+            }
+            
+            const currentHour = closestHour;
+            const currentConditions = {
+              temperature: currentHour.temperature,
+              windSpeed: currentHour.windSpeed,
+              windDirection: currentHour.windDirection,
+              precipitation: currentHour.precipitation,
+              phase: currentHour.phase,
+              cloudCover: currentHour.cloudCover,
+              snowfall24h: hourlyForecast.slice(0, 24).reduce((sum: number, h: any) => sum + (h.snowfall || 0), 0),
+            };
+            
+            // Calculate today's snowfall from hourly data (next 24 hours)
+            const todaySnowfall = hourlyForecast.slice(0, 24).reduce((sum: number, h: any) => sum + (h.snowfall || 0), 0);
+            
+            console.log(`[HOME] ${resort.name}: Using hour ${new Date(currentHour.time).toISOString()}`);
+            console.log(`[HOME] ${resort.name}: temp=${currentConditions.temperature}° wind=${currentConditions.windSpeed}km/h phase=${currentConditions.phase} cloudCover=${currentConditions.cloudCover}% today=${todaySnowfall}cm`);
+            
+            return { 
+              ...resort, 
+              currentConditions,
+              todaySnowfall 
+            };
           } catch (err) {
-            console.warn(`Failed to load conditions for ${resort.name}:`, err);
+            console.log(`[HOME] Failed to load forecast for ${resort.name}:`, err);
             return resort;
           }
         })
@@ -65,10 +151,10 @@ export default function HomeScreen() {
   };
 
   const renderResort = ({ item }: { item: ResortWithConditions }) => {
-    const currentTemp = item.conditions?.byElevation.mid?.temperature;
-    const cloudCover = item.conditions?.byElevation.mid?.cloudCover || 0;
-    const phase = item.conditions?.byElevation.mid?.phase || 'none';
-    const powderScore = item.conditions?.current?.powderScore || 0;
+    const currentTemp = item.currentConditions?.temperature;
+    const cloudCover = item.currentConditions?.cloudCover || 0;
+    const phase = item.currentConditions?.phase || 'none';
+    const powderScore = 0;
     
     return (
       <TouchableOpacity
@@ -88,6 +174,16 @@ export default function HomeScreen() {
                 <View style={styles.resortCardInfo}>
                   <Text style={styles.resortCardName}>{item.name}</Text>
                   <Text style={styles.resortCardRegion}>{item.region}, Argentina</Text>
+                  <Text style={styles.resortCardStats}>
+                    {(() => {
+                      const name = item.name.toLowerCase();
+                      if (name.includes('catedral')) return '120km • 53 pistas';
+                      if (name.includes('chapelco')) return '140km • 35 pistas';
+                      if (name.includes('bayo')) return '30km • 24 pistas';
+                      if (name.includes('castor')) return '35km • 28 pistas';
+                      return '35km • 28 pistas';
+                    })()}
+                  </Text>
                 </View>
                 {powderScore > 0 && (
                   <View style={[
@@ -101,37 +197,45 @@ export default function HomeScreen() {
               </View>
               
               {/* Current Conditions */}
-              {item.conditions && (
-                <View style={styles.currentConditions}>
-                  <View style={styles.tempDisplay}>
+              {item.currentConditions && (
+                <View style={styles.currentWeather}>
+                  <View style={styles.weatherLeft}>
                     <Text style={styles.weatherIcon}>
                       {getWeatherIcon({
                         hour: new Date().getHours(),
                         phase,
                         cloudCover,
-                        precipitation: item.currentPrecipitation || 0
+                        precipitation: item.currentConditions.precipitation || 0
                       })}
                     </Text>
-                    <Text style={styles.tempValue}>{Math.round(currentTemp || 0)}°</Text>
+                    <View>
+                      <Text style={styles.tempValue}>{Math.round(currentTemp || 0)}°</Text>
+                      <Text style={styles.tempLabel}>Actual</Text>
+                    </View>
                   </View>
-                  <View style={styles.quickStats}>
-                    <View style={styles.statItem}>
-                      <Text style={styles.statLabel}>Base</Text>
-                      <Text style={styles.statValue}>{item.baseElevation}m</Text>
-                    </View>
-                    <View style={styles.statDivider} />
-                    <View style={styles.statItem}>
-                      <Text style={styles.statLabel}>Summit</Text>
-                      <Text style={styles.statValue}>{item.summitElevation}m</Text>
-                    </View>
-                    <View style={styles.statDivider} />
-                    <View style={styles.statItem}>
-                      <Text style={styles.statLabel}>Snow 24h</Text>
-                      <Text style={styles.statValue}>{Math.round(item.conditions.byElevation.mid?.snowfall24h || 0)}cm</Text>
-                    </View>
+                  <View style={styles.weatherRight}>
+                    <Text style={styles.windValue}>💨 {Math.round(item.currentConditions.windSpeed || 0)} km/h</Text>
                   </View>
                 </View>
               )}
+              
+              {/* Forecast Stats */}
+              <View style={styles.quickStats}>
+                <View style={styles.statItem}>
+                  <Text style={styles.statLabel}>Hoy</Text>
+                  <Text style={styles.statValue}>{Math.round(item.todaySnowfall || 0)}cm</Text>
+                </View>
+                <View style={styles.statDivider} />
+                <View style={styles.statItem}>
+                  <Text style={styles.statLabel}>24h</Text>
+                  <Text style={styles.statValue}>{Math.round(item.currentConditions?.snowfall24h || 0)}cm</Text>
+                </View>
+                <View style={styles.statDivider} />
+                <View style={styles.statItem}>
+                  <Text style={styles.statLabel}>Summit</Text>
+                  <Text style={styles.statValue}>{item.summitElevation}m</Text>
+                </View>
+              </View>
               
               {/* View Details Arrow */}
               <View style={styles.viewDetailsContainer}>
@@ -144,6 +248,23 @@ export default function HomeScreen() {
       </TouchableOpacity>
     );
   };
+
+  if (checkingOnboarding) {
+    return (
+      <ImageBackground
+        source={require('../assets/Background_home.jpeg')}
+        style={styles.centerContainer}
+        imageStyle={styles.backgroundImage}
+      >
+        <StatusBar barStyle="light-content" />
+        <ActivityIndicator size="large" color="#38bdf8" />
+      </ImageBackground>
+    );
+  }
+
+  if (showOnboarding) {
+    return <OnboardingScreen onComplete={handleOnboardingComplete} />;
+  }
 
   if (loading) {
     return (
@@ -191,6 +312,13 @@ export default function HomeScreen() {
             style={styles.headerLogo}
             resizeMode="contain"
           />
+          <TouchableOpacity 
+            style={styles.season0Badge}
+            onPress={() => setShowSeason0Modal(true)}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.season0BadgeText}>SEASON 0</Text>
+          </TouchableOpacity>
         </View>
       </View>
       
@@ -200,6 +328,13 @@ export default function HomeScreen() {
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listContainer}
         showsVerticalScrollIndicator={false}
+        ListHeaderComponent={<ENSOCard />}
+      />
+      
+      {/* Season 0 Modal */}
+      <Season0Modal 
+        visible={showSeason0Modal}
+        onClose={() => setShowSeason0Modal(false)}
       />
     </ImageBackground>
   );
@@ -228,11 +363,29 @@ const styles = StyleSheet.create({
   },
   headerContent: {
     alignItems: 'center',
+    position: 'relative',
   },
   headerLogo: {
     width: 300,
     height: 70,
     marginBottom: 12,
+  },
+  season0Badge: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    backgroundColor: 'rgba(56, 189, 248, 0.15)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#38bdf8',
+  },
+  season0BadgeText: {
+    color: '#38bdf8',
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 1,
   },
   headerSubtitle: {
     fontSize: 13,
@@ -298,6 +451,12 @@ const styles = StyleSheet.create({
     color: '#cbd5e1',
     letterSpacing: 0.3,
   },
+  resortCardStats: {
+    fontSize: 12,
+    color: '#94a3b8',
+    letterSpacing: 0.3,
+    marginTop: 4,
+  },
   
   // Powder Score Badge
   powderScoreBadge: {
@@ -322,25 +481,45 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   
-  // Current Conditions
-  currentConditions: {
+  // Current Weather
+  currentWeather: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    marginBottom: 12,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.15)',
   },
-  tempDisplay: {
+  weatherLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 12,
   },
   weatherIcon: {
-    fontSize: 32,
+    fontSize: 36,
   },
   tempValue: {
-    fontSize: 36,
+    fontSize: 32,
     fontWeight: '700',
     color: '#fff',
   },
+  tempLabel: {
+    fontSize: 10,
+    color: '#94a3b8',
+    marginTop: 2,
+    textTransform: 'uppercase',
+  },
+  weatherRight: {
+    alignItems: 'flex-end',
+  },
+  windValue: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#cbd5e1',
+  },
+  
+  // Forecast Stats
   quickStats: {
     flexDirection: 'row',
     alignItems: 'center',
