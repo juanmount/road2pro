@@ -69,13 +69,8 @@ export default function HomeScreen() {
     }
   };
 
-  const handleOnboardingComplete = async () => {
+  const handleOnboardingComplete = () => {
     setShowOnboarding(false);
-    // Show Season 0 modal after onboarding
-    const season0Seen = await AsyncStorage.getItem('season0_modal_seen');
-    if (season0Seen !== 'true') {
-      setShowSeason0Modal(true);
-    }
   };
 
   const loadResorts = async () => {
@@ -139,14 +134,6 @@ export default function HomeScreen() {
       );
       
       setResorts(resortsWithConditions);
-      
-      // Check if we should show Season 0 modal after resorts load
-      setTimeout(async () => {
-        const season0Seen = await AsyncStorage.getItem('season0_modal_seen');
-        if (season0Seen !== 'true') {
-          setShowSeason0Modal(true);
-        }
-      }, 1000); // 1 second delay to let UI settle
     } catch (err) {
       setError('Failed to load resorts');
       console.error(err);
