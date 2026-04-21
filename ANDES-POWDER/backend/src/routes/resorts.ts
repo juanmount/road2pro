@@ -152,7 +152,7 @@ router.get('/:id/forecast/current', async (req: Request, res: Response) => {
         phase_classification as precipitation_type,
         snowfall_cm_corrected as snow_depth,
         wind_speed_kmh as wind_speed,
-        wind_direction_deg as wind_direction,
+        wind_direction,
         cloud_cover,
         powder_score
        FROM elevation_forecasts 
@@ -266,7 +266,7 @@ router.get('/:id/forecast/hourly', async (req: Request, res: Response) => {
         precipitation_mm,
         snowfall_cm_corrected,
         wind_speed_kmh,
-        wind_direction_deg,
+        wind_direction,
         cloud_cover,
         powder_score,
         freezing_level_m
