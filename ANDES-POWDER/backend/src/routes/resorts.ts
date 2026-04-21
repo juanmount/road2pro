@@ -273,6 +273,7 @@ router.get('/:id/forecast/hourly', async (req: Request, res: Response) => {
       FROM elevation_forecasts
       WHERE resort_id = $1::uuid
       AND elevation_band = $2
+      AND valid_time >= NOW()
       ORDER BY valid_time
       LIMIT $3`,
       [resort.id, elevationBand, hoursLimit]
@@ -285,7 +286,7 @@ router.get('/:id/forecast/hourly', async (req: Request, res: Response) => {
       temperature: parseFloat(row.temperature_c),
       precipitation: parseFloat(row.precipitation_mm || 0),
       windSpeed: parseFloat(row.wind_speed_kmh || 0),
-      windDirection: row.wind_direction_deg || 0,
+      windDirection: row.wind_direction || 0,
       humidity: 70,
       cloudCover: parseFloat(row.cloud_cover || 0),
       phase: row.snowfall_cm_corrected > 0 ? 'snow' : row.precipitation_mm > 0 ? 'rain' : 'none',
