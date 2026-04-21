@@ -635,6 +635,7 @@ router.get('/:id/forecast/daily', async (req: Request, res: Response) => {
       FROM elevation_forecasts
       WHERE resort_id IN (SELECT id FROM resorts WHERE slug = $1)
       AND elevation_band = $2
+      AND valid_time >= NOW()
       GROUP BY valid_time::date
       ORDER BY date
       LIMIT $3`,
