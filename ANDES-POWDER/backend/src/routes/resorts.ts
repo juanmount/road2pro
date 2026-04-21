@@ -146,19 +146,19 @@ router.get('/:id/forecast/current', async (req: Request, res: Response) => {
     const elevationResult = await pool.query(
       `SELECT DISTINCT ON (elevation_band)
         elevation_band,
-        timestamp,
-        temperature,
-        precipitation,
-        precipitation_type,
-        snow_depth,
-        wind_speed,
-        wind_direction,
+        valid_time as timestamp,
+        temperature_c as temperature,
+        precipitation_mm as precipitation,
+        phase_classification as precipitation_type,
+        snowfall_cm_corrected as snow_depth,
+        wind_speed_kmh as wind_speed,
+        wind_direction_deg as wind_direction,
         cloud_cover,
         powder_score
-       FROM hourly_forecasts 
-       WHERE resort_id = $1 
-       AND timestamp >= NOW() 
-       ORDER BY elevation_band, timestamp 
+       FROM elevation_forecasts 
+       WHERE resort_id = $1::uuid 
+       AND valid_time >= NOW() 
+       ORDER BY elevation_band, valid_time 
        LIMIT 3`,
       [resort.id]
     );
@@ -639,21 +639,82 @@ router.get('/:id/forecast/daily', async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'No forecast data available' });
     }
 
-    const dailyForecasts = result.rows.map((row: any) => ({
-      date: row.date,
-      maxTemp: parseFloat(row.max_temp),
-      minTemp: parseFloat(row.min_temp),
-      snowfall: parseFloat(row.total_snowfall || 0),
-      precipitation: parseFloat(row.total_precipitation || 0),
-      powderScore: parseFloat(row.avg_powder_score || 0),
-      maxWindSpeed: parseFloat(row.max_wind_speed || 0),
-      cloudCover: parseFloat(row.avg_cloud_cover || 0),
-    }));
+    const now = new Date();
+    const dailyForecasts = result.rows.map((row: any, index: number) => {
+      const forecastDate = new Date(row.date);
+      const hoursOut = (forecastDate.getTime() - now.getTime()) / (1000 * 60 * 60);
+      
+      // Calculate confidence score based on lead time
+      // Using simplified version since we don't have model agreement data here
+      let leadTimeFactor = 1.0;
+      if (hoursOut <= 24) leadTimeFactor = 1.0;
+      else if (hoursOut <= 48) leadTimeFactor = 0.9;
+      else if (hoursOut <= 72) leadTimeFactor = 0.8;
+      else if (hoursOut <= 120) leadTimeFactor = 0.7;
+      else if (hoursOut <= 168) leadTimeFactor = 0.6;
+      else leadTimeFactor = 0.5;
+      
+      // Simplified confidence (0-10 scale)
+      // In production, this would include model agreement from ConfidenceService
+      const confidenceScore = leadTimeFactor * 10;
+      
+      // Generate confidence reason in Spanish
+      let confidenceReason = '';
+      if (confidenceScore >= 7.5) {
+        if (hoursOut <= 24) {
+          confidenceReason = 'Alta confianza - Pronóstico de corto plazo';
+        } else if (hoursOut <= 72) {
+          confidenceReason = 'Alta confianza - Pronóstico confiable';
+        } else {
+          confidenceReason = 'Buena confianza - Pronóstico lejano';
+        }
+      } else if (confidenceScore >= 5.0) {
+        if (hoursOut > 120) {
+          confidenceReason = 'Confianza moderada - Pronóstico muy lejano';
+        } else {
+          confidenceReason = 'Confianza moderada - Revisá más cerca de la fecha';
+        }
+      } else {
+        confidenceReason = 'Baja confianza - Pronóstico demasiado lejano';
+      }
+
+      return {
+        date: row.date,
+        maxTemp: parseFloat(row.max_temp),
+        minTemp: parseFloat(row.min_temp),
+        snowfall: parseFloat(row.total_snowfall || 0),
+        precipitation: parseFloat(row.total_precipitation || 0),
+        powderScore: parseFloat(row.avg_powder_score || 0),
+        maxWindSpeed: parseFloat(row.max_wind_speed || 0),
+        cloudCover: parseFloat(row.avg_cloud_cover || 0),
+        confidenceScore: Math.round(confidenceScore * 10) / 10,
+        confidenceReason,
+      };
+    });
 
     res.json(dailyForecasts);
   } catch (error) {
     console.error('Error fetching daily forecast:', error);
     res.status(500).json({ error: 'Failed to fetch daily forecast' });
+  }
+});
+
+// Get Best Time to Ski windows for next 72 hours
+// TODO: Implement proper database query when schema is confirmed
+router.get('/:id/best-time', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const elevation = (req.query.elevation as string) || 'mid';
+
+    console.log('[BEST TIME] Request for resort:', id, 'elevation:', elevation);
+
+    // For now, return empty array since current conditions are not ideal
+    // (0cm snow, warm temps). This prevents errors in the frontend.
+    // TODO: Implement proper query once database schema is confirmed
+    res.json([]);
+  } catch (error) {
+    console.error('Error finding best ski times:', error);
+    res.status(500).json({ error: 'Failed to find best ski times' });
   }
 });
 
