@@ -53,6 +53,20 @@ class ForecastService {
    * Process all resorts
    */
   async processAllResorts(): Promise<void> {
+    // STEP 1: Clean old data BEFORE syncing to prevent duplicates
+    console.log('Cleaning old forecast data (older than 1 day)...');
+    try {
+      const cleanResult = await pool.query(`
+        DELETE FROM elevation_forecasts 
+        WHERE valid_time < NOW() - INTERVAL '1 day'
+      `);
+      console.log(`✓ Cleaned ${cleanResult.rowCount} old forecast rows`);
+    } catch (error) {
+      console.error('Warning: Failed to clean old data:', error);
+      // Continue anyway
+    }
+    
+    // STEP 2: Get resorts and process forecasts
     const result = await pool.query('SELECT * FROM resorts ORDER BY name');
     const resorts = result.rows.map(this.mapResortFromDb);
     
@@ -150,6 +164,13 @@ class ForecastService {
     
     try {
       await client.query('BEGIN');
+      
+      // CRITICAL: Delete existing forecasts for this resort to prevent duplicates
+      const deleteResult = await client.query(
+        `DELETE FROM elevation_forecasts WHERE resort_id = $1`,
+        [processed.resort.id]
+      );
+      console.log(`  ✓ Deleted ${deleteResult.rowCount} existing forecasts for ${processed.resort.name}`);
       
       // Create forecast run record
       const runResult = await client.query(
