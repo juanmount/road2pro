@@ -31,13 +31,10 @@ router.post('/test', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'userId is required' });
     }
 
-    await pushNotificationService.sendToUser(userId, {
-      title: '🎿 Andes Powder Test',
-      body: 'Las notificaciones están funcionando correctamente!',
-      data: { type: 'test' },
-    });
+    // TODO: Implement push notification sending
+    console.log(`[PUSH] Test notification for user ${userId}`);
 
-    res.json({ success: true, message: 'Test notification sent' });
+    res.json({ success: true, message: 'Test notification logged (not implemented yet)' });
   } catch (error) {
     console.error('Error sending test notification:', error);
     res.status(500).json({ error: 'Failed to send test notification' });

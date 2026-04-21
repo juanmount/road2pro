@@ -64,7 +64,7 @@ class ValidationService {
       
       // Aggregate by elevation band
       const aggregated: Record<string, any> = {};
-      data.forEach(row => {
+      data.forEach((row: any) => {
         if (!aggregated[row.elevation_band]) {
           aggregated[row.elevation_band] = {
             snowfall: 0,
