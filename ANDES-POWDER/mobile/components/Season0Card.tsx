@@ -13,18 +13,16 @@ export default function Season0Card({ onPress }: Season0CardProps) {
       onPress={onPress}
       activeOpacity={0.9}
     >
-      <View style={styles.content}>
-        <View style={styles.badgeContainer}>
-          <Text style={styles.badgeText}>SEASON 0</Text>
-        </View>
-        <Text style={styles.title}>Early Access — Validación en curso</Text>
-        <View style={styles.statusDots}>
-          <View style={[styles.dot, styles.dotActive]} />
-          <View style={[styles.dot, styles.dotCalibrating]} />
-          <View style={[styles.dot, styles.dotPending]} />
-        </View>
+      <View style={styles.badgeContainer}>
+        <Text style={styles.badgeText}>SEASON 0</Text>
       </View>
-      <Text style={styles.tapHint}>→</Text>
+      <Text style={styles.title}>Early Access</Text>
+      <Text style={styles.subtitle}>Validación en curso</Text>
+      <View style={styles.statusDots}>
+        <View style={[styles.dot, styles.dotActive]} />
+        <View style={[styles.dot, styles.dotCalibrating]} />
+        <View style={[styles.dot, styles.dotPending]} />
+      </View>
     </TouchableOpacity>
   );
 }
@@ -33,17 +31,9 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: 'rgba(15, 23, 42, 0.75)',
     borderRadius: 12,
-    padding: 12,
-    marginHorizontal: 16,
-    marginBottom: 12,
+    padding: 10,
     borderWidth: 1,
     borderColor: '#38bdf8',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  content: {
-    flex: 1,
     gap: 6,
   },
   badgeContainer: {
@@ -62,14 +52,18 @@ const styles = StyleSheet.create({
     letterSpacing: 1.2,
   },
   title: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#f1f5f9',
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#fff',
+  },
+  subtitle: {
+    fontSize: 11,
+    color: 'rgba(255, 255, 255, 0.7)',
   },
   statusDots: {
     flexDirection: 'row',
     gap: 6,
-    marginTop: 2,
+    marginTop: 4,
   },
   dot: {
     width: 6,
@@ -84,10 +78,5 @@ const styles = StyleSheet.create({
   },
   dotPending: {
     backgroundColor: '#64748b',
-  },
-  tapHint: {
-    color: 'rgba(255, 255, 255, 0.4)',
-    fontSize: 18,
-    fontWeight: '300',
   },
 });

@@ -82,9 +82,7 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: 'rgba(15, 23, 42, 0.75)',
     borderRadius: 12,
-    padding: 12,
-    marginHorizontal: 16,
-    marginBottom: 12,
+    padding: 10,
   },
   header: {
     flexDirection: 'row',

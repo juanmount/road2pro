@@ -315,10 +315,14 @@ export default function HomeScreen() {
         contentContainerStyle={styles.listContainer}
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={
-          <>
-            <Season0Card onPress={() => setShowSeason0Modal(true)} />
-            <ENSOCard />
-          </>
+          <View style={styles.cardsRow}>
+            <View style={styles.cardHalf}>
+              <Season0Card onPress={() => setShowSeason0Modal(true)} />
+            </View>
+            <View style={styles.cardHalf}>
+              <ENSOCard />
+            </View>
+          </View>
         }
       />
       
@@ -371,8 +375,18 @@ const styles = StyleSheet.create({
   // List
   listContainer: {
     paddingTop: 16,
-    paddingHorizontal: 16,
     paddingBottom: 32,
+  },
+  
+  // Cards Row
+  cardsRow: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingHorizontal: 16,
+    marginBottom: 12,
+  },
+  cardHalf: {
+    flex: 1,
   },
   
   // Resort Card
