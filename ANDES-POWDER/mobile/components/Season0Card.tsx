@@ -19,12 +19,15 @@ export default function Season0Card({ onPress }: Season0CardProps) {
           <Text style={styles.badgeText}>SEASON 0</Text>
         </View>
       </View>
-      <Text style={styles.title}>Early Access</Text>
-      <View style={styles.statusDots}>
-        <View style={[styles.dot, styles.dotActive]} />
-        <View style={[styles.dot, styles.dotCalibrating]} />
-        <View style={[styles.dot, styles.dotPending]} />
+      <View style={styles.content}>
+        <Text style={styles.title}>Early Access</Text>
+        <View style={styles.statusDots}>
+          <View style={[styles.dot, styles.dotActive]} />
+          <View style={[styles.dot, styles.dotCalibrating]} />
+          <View style={[styles.dot, styles.dotPending]} />
+        </View>
       </View>
+      <Text style={styles.tapHint}>Tap para más info →</Text>
     </TouchableOpacity>
   );
 }
@@ -41,6 +44,9 @@ const styles = StyleSheet.create({
   },
   header: {
     marginBottom: 8,
+  },
+  content: {
+    flex: 1,
   },
   badgeContainer: {
     backgroundColor: '#38bdf8',
@@ -92,5 +98,11 @@ const styles = StyleSheet.create({
   },
   dotPending: {
     backgroundColor: '#64748b',
+  },
+  tapHint: {
+    fontSize: 10,
+    color: 'rgba(255, 255, 255, 0.5)',
+    fontStyle: 'italic',
+    marginTop: 4,
   },
 });
