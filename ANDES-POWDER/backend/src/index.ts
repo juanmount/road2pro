@@ -8,7 +8,7 @@ import authRouter from './routes/auth';
 import favoritesRouter from './routes/favorites';
 import ensoRouter from './routes/enso';
 import pushRouter from './routes/push';
-import validationRouter from './routes/validation';
+// import validationRouter from './routes/validation'; // Temporarily disabled for deployment
 import { forecastCronService } from './services/forecast-cron';
 import { initializeFirebase } from './config/firebase';
 
@@ -37,7 +37,7 @@ app.use('/api/auth', authRouter);
 app.use('/api/favorites', favoritesRouter);
 app.use('/api/enso', ensoRouter);
 app.use('/api/push', pushRouter);
-app.use('/api/validation', validationRouter);
+// app.use('/api/validation', validationRouter); // Temporarily disabled for deployment
 
 // Admin endpoint to manually trigger forecast sync
 app.post('/api/admin/sync-forecasts', async (req, res) => {
