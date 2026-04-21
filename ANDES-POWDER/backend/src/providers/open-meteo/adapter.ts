@@ -22,7 +22,7 @@ export class OpenMeteoProvider implements ForecastProvider {
     const endpointMap: Record<string, string> = {
       'ecmwf-ifs': 'https://api.open-meteo.com/v1/ecmwf',
       'gfs': 'https://api.open-meteo.com/v1/gfs',
-      'gefs': 'https://api.open-meteo.com/v1/ensemble'
+      'gefs': 'https://api.open-meteo.com/v1/gem'  // GEM (Global Ensemble Model) replaces old ensemble endpoint
     };
     
     const baseUrl = endpointMap[model];
