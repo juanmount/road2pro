@@ -56,6 +56,20 @@ app.post('/api/admin/clean-old-forecasts', async (req, res) => {
   }
 });
 
+// Admin endpoint to clean ALL forecast data (nuclear option)
+app.post('/api/admin/clean-all-forecasts', async (req, res) => {
+  try {
+    console.log('NUCLEAR: Cleaning ALL forecast data...');
+    const pool = (await import('./config/database')).default;
+    const result = await pool.query(`DELETE FROM elevation_forecasts`);
+    console.log(`Deleted ${result.rowCount} total forecast rows`);
+    res.json({ success: true, deleted: result.rowCount, message: 'All forecasts deleted' });
+  } catch (error: any) {
+    console.error('Clean all error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Admin endpoint to manually trigger forecast sync
 app.post('/api/admin/sync-forecasts', async (req, res) => {
   try {
