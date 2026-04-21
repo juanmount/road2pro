@@ -54,44 +54,40 @@ export default function Season0Modal({ visible, onClose }: Season0ModalProps) {
               <View style={styles.badgeContainer}>
                 <Text style={styles.badgeText}>SEASON 0</Text>
               </View>
-              <Text style={styles.title}>Bienvenido a la Primera Temporada</Text>
+              <Text style={styles.title}>Early Access</Text>
+              <Text style={styles.subtitle}>
+                Primera temporada de validación científica
+              </Text>
             </View>
 
             {/* Content */}
             <View style={styles.content}>
-              <Text style={styles.subtitle}>
-                Andes Powder está en su primera temporada abierta de validación.
-              </Text>
-
               <View style={styles.section}>
-                <Text style={styles.sectionTitle}>📊 Pronósticos en Validación</Text>
+                <Text style={styles.sectionTitle}>Algoritmos en Calibración</Text>
                 <Text style={styles.sectionText}>
-                  Nuestros algoritmos científicos (Storm Crossing, Snow Reality, ENSO Integration) 
-                  se están calibrando con datos reales de esta temporada.
+                  Storm Crossing Engine, Snow Reality y ENSO Integration se están 
+                  validando con datos reales de esta temporada.
                 </Text>
               </View>
 
               <View style={styles.section}>
-                <Text style={styles.sectionTitle}>✅ Funciones Core Disponibles</Text>
+                <Text style={styles.sectionTitle}>Funcionalidades Disponibles</Text>
                 <Text style={styles.sectionText}>
-                  • Pronósticos por elevación (Base/Mid/Summit){'\n'}
-                  • Viento ajustado por altura{'\n'}
-                  • Freezing level en tiempo real{'\n'}
-                  • Análisis de condiciones para 4 resorts
+                  Pronósticos por elevación, viento ajustado, freezing level en tiempo real 
+                  y análisis completo para 4 resorts patagónicos.
                 </Text>
               </View>
 
               <View style={styles.section}>
-                <Text style={styles.sectionTitle}>🚀 Próxima Temporada: Premium</Text>
+                <Text style={styles.sectionTitle}>Season 1 — Junio 2026</Text>
                 <Text style={styles.sectionText}>
-                  Alertas inteligentes, favoritos, historial de precisión y más funciones 
-                  llegarán en Season 1 (Junio 2026).
+                  Alertas inteligentes, favoritos, historial de precisión y features premium.
                 </Text>
               </View>
 
               <View style={styles.feedbackBox}>
                 <Text style={styles.feedbackText}>
-                  💬 Tu feedback es clave para mejorar el producto
+                  Tu feedback es fundamental para el desarrollo del producto
                 </Text>
               </View>
             </View>
@@ -114,7 +110,7 @@ export default function Season0Modal({ visible, onClose }: Season0ModalProps) {
               onPress={handleClose}
               activeOpacity={0.8}
             >
-              <Text style={styles.buttonText}>Entendido, explorar</Text>
+              <Text style={styles.buttonText}>Continuar</Text>
             </TouchableOpacity>
           </ScrollView>
         </View>
@@ -167,21 +163,23 @@ const styles = StyleSheet.create({
     letterSpacing: 1.5,
   },
   title: {
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: '700',
     color: '#fff',
     textAlign: 'center',
-    lineHeight: 32,
+    letterSpacing: 0.5,
+    marginBottom: 8,
   },
   content: {
     marginBottom: 24,
   },
   subtitle: {
-    fontSize: 16,
-    color: 'rgba(255, 255, 255, 0.9)',
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.7)',
     textAlign: 'center',
-    marginBottom: 24,
-    lineHeight: 24,
+    marginBottom: 32,
+    lineHeight: 20,
+    letterSpacing: 0.3,
   },
   section: {
     marginBottom: 20,
