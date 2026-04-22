@@ -39,7 +39,7 @@ class TuyaWeatherService {
       });
 
       if (response.success) {
-        return response.result.properties;
+        return (response.result as any).properties;
       } else {
         throw new Error(`Failed to get device status: ${response.msg}`);
       }
