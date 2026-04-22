@@ -17,7 +17,7 @@ steps:
       - '--image'
       - 'gcr.io/$PROJECT_ID/andes-powder-backend'
       - '--region'
-      - 'us-central1'
+      - 'southamerica-west1'
       - '--platform'
       - 'managed'
       - '--allow-unauthenticated'
