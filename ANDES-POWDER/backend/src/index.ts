@@ -9,6 +9,7 @@ import favoritesRouter from './routes/favorites';
 import ensoRouter from './routes/enso';
 import pushRouter from './routes/push';
 import validationRouter from './routes/validation';
+import weatherStationRouter from './routes/weather-station';
 import { forecastCronService } from './services/forecast-cron';
 import { initializeFirebase } from './config/firebase';
 
@@ -38,6 +39,7 @@ app.use('/api/favorites', favoritesRouter);
 app.use('/api/enso', ensoRouter);
 app.use('/api/push', pushRouter);
 app.use('/api/validation', validationRouter);
+app.use('/api/weather-station', weatherStationRouter);
 
 // Admin endpoint to clean old forecast data
 app.post('/api/admin/clean-old-forecasts', async (req, res) => {
