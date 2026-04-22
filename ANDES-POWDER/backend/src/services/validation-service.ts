@@ -4,23 +4,26 @@ import pool from '../config/database';
 
 interface ForecastComparison {
   resort_id: string;
+  resort_name: string;
   forecast_date: string;
-  days_ahead: number;
+  target_date: string;
   ap_snowfall_base?: number;
   ap_snowfall_mid?: number;
   ap_snowfall_summit?: number;
-  ap_wind?: number;
-  ap_temp?: number;
+  ap_wind_base?: number;
+  ap_wind_summit?: number;
+  ap_temp_base?: number;
+  ap_temp_summit?: number;
   ap_freezing_level?: number;
-  ap_storm_crossing?: number;
-  ts_snowfall_summit?: number;
-  ts_temp?: number;
+  ap_storm_crossing_score?: number;
+  ts_precipitation?: number;
   ts_freezing_level?: number;
+  ts_source_url?: string;
   mf_snowfall_base?: number;
-  mf_snowfall_mid?: number;
   mf_snowfall_summit?: number;
   mf_wind?: number;
   mf_temp?: number;
+  mf_source_url?: string;
 }
 
 interface ValidationData {
@@ -201,39 +204,41 @@ export class ValidationService {
     try {
       const query = `
         INSERT INTO forecast_validations (
-          resort_id, forecast_date, days_ahead,
+          resort_id, resort_name, forecast_date, target_date,
           ap_snowfall_base, ap_snowfall_mid, ap_snowfall_summit,
-          ap_wind, ap_temp, ap_freezing_level, ap_storm_crossing,
-          ts_snowfall_summit, ts_temp, ts_freezing_level,
-          mf_snowfall_base, mf_snowfall_mid, mf_snowfall_summit,
-          mf_wind, mf_temp,
-          status
+          ap_wind_base, ap_wind_summit, ap_temp_base, ap_temp_summit,
+          ap_freezing_level, ap_storm_crossing_score,
+          ts_precipitation, ts_freezing_level, ts_source_url,
+          mf_snowfall_base, mf_snowfall_summit, mf_wind, mf_temp, mf_source_url
         ) VALUES (
           $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
-          $11, $12, $13, $14, $15, $16, $17, $18, 'pending_validation'
+          $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21
         )
         RETURNING id
       `;
 
       const values = [
         comparison.resort_id,
+        comparison.resort_name,
         comparison.forecast_date,
-        comparison.days_ahead,
+        comparison.target_date,
         comparison.ap_snowfall_base,
         comparison.ap_snowfall_mid,
         comparison.ap_snowfall_summit,
-        comparison.ap_wind,
-        comparison.ap_temp,
+        comparison.ap_wind_base,
+        comparison.ap_wind_summit,
+        comparison.ap_temp_base,
+        comparison.ap_temp_summit,
         comparison.ap_freezing_level,
-        comparison.ap_storm_crossing,
-        comparison.ts_snowfall_summit,
-        comparison.ts_temp,
+        comparison.ap_storm_crossing_score,
+        comparison.ts_precipitation,
         comparison.ts_freezing_level,
+        comparison.ts_source_url,
         comparison.mf_snowfall_base,
-        comparison.mf_snowfall_mid,
         comparison.mf_snowfall_summit,
         comparison.mf_wind,
-        comparison.mf_temp
+        comparison.mf_temp,
+        comparison.mf_source_url
       ];
 
       const result = await pool.query(query, values);
@@ -301,13 +306,14 @@ export class ValidationService {
     console.log('[VALIDATION] Starting weekly forecast comparison...');
 
     const resorts = [
-      { id: 'catedral', slug: 'cerro-catedral', peakId: 'Cerro-Catedral' },
-      { id: 'chapelco', slug: 'cerro-chapelco', peakId: 'Cerro-Chapelco' },
-      { id: 'bayo', slug: 'cerro-bayo', peakId: 'Cerro-Bayo' },
-      { id: 'castor', slug: 'cerro-castor', peakId: 'Cerro-Castor' }
+      { id: 'catedral', name: 'Cerro Catedral', slug: 'cerro-catedral', peakId: 'Cerro-Catedral' },
+      { id: 'chapelco', name: 'Cerro Chapelco', slug: 'cerro-chapelco', peakId: 'Cerro-Chapelco' },
+      { id: 'bayo', name: 'Cerro Bayo', slug: 'cerro-bayo', peakId: 'Cerro-Bayo' },
+      { id: 'castor', name: 'Cerro Castor', slug: 'cerro-castor', peakId: 'Cerro-Castor' }
     ];
 
     const daysAhead = [1, 3, 7]; // Compare 1-day, 3-day, 7-day forecasts
+    const forecastDate = new Date().toISOString().split('T')[0];
 
     for (const resort of resorts) {
       for (const days of daysAhead) {
@@ -328,19 +334,20 @@ export class ValidationService {
         if (apForecast) {
           const comparison: ForecastComparison = {
             resort_id: resort.id,
-            forecast_date: targetDateStr,
-            days_ahead: days,
+            resort_name: resort.name,
+            forecast_date: forecastDate,
+            target_date: targetDateStr,
             ap_snowfall_base: apForecast.snowfall_base,
             ap_snowfall_mid: apForecast.snowfall_mid,
             ap_snowfall_summit: apForecast.snowfall_summit,
-            ap_wind: apForecast.wind,
-            ap_temp: apForecast.temp,
+            ap_wind_base: apForecast.wind,
+            ap_wind_summit: apForecast.wind,
+            ap_temp_base: apForecast.temp,
+            ap_temp_summit: apForecast.temp,
             ap_freezing_level: apForecast.freezing_level,
-            ts_snowfall_summit: tsForecast?.snowfall_summit,
-            ts_temp: tsForecast?.temp,
+            ts_precipitation: tsForecast?.snowfall_summit,
             ts_freezing_level: tsForecast?.freezing_level,
             mf_snowfall_base: mfForecast?.snowfall_base,
-            mf_snowfall_mid: mfForecast?.snowfall_mid,
             mf_snowfall_summit: mfForecast?.snowfall_summit,
             mf_wind: mfForecast?.wind,
             mf_temp: mfForecast?.temp
