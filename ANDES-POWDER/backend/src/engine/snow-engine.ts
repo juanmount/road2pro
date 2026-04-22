@@ -124,7 +124,7 @@ export class SnowEngine {
     
     // 7. Compute Snow Reality adjustments
     console.log('  → Computing snow reality adjustments...');
-    const snowRealityForecasts = this.computeSnowReality(
+    const snowRealityForecasts = await this.computeSnowReality(
       elevationForecasts,
       resort
     );
@@ -525,44 +525,44 @@ export class SnowEngine {
   /**
    * Compute snow reality adjustments for all elevation forecasts
    */
-  private computeSnowReality(
+  private async computeSnowReality(
     elevationForecasts: { base: ElevationForecast[]; mid: ElevationForecast[]; summit: ElevationForecast[] },
     resort: Resort
   ) {
     const allReality: import('../domain/models').SnowRealityForecast[] = [];
 
     // Process base elevation
-    elevationForecasts.base.forEach(forecast => {
-      const reality = this.snowRealityEngine.computeRealityAdjustments(
+    for (const forecast of elevationForecasts.base) {
+      const reality = await this.snowRealityEngine.computeRealityAdjustments(
         forecast,
         'base',
         resort.baseElevation,
         forecast.snowfallCmCorrected
       );
       allReality.push(reality);
-    });
+    }
 
     // Process mid elevation
-    elevationForecasts.mid.forEach(forecast => {
-      const reality = this.snowRealityEngine.computeRealityAdjustments(
+    for (const forecast of elevationForecasts.mid) {
+      const reality = await this.snowRealityEngine.computeRealityAdjustments(
         forecast,
         'mid',
         resort.midElevation,
         forecast.snowfallCmCorrected
       );
       allReality.push(reality);
-    });
+    }
 
     // Process summit elevation
-    elevationForecasts.summit.forEach(forecast => {
-      const reality = this.snowRealityEngine.computeRealityAdjustments(
+    for (const forecast of elevationForecasts.summit) {
+      const reality = await this.snowRealityEngine.computeRealityAdjustments(
         forecast,
         'summit',
         resort.summitElevation,
         forecast.snowfallCmCorrected
       );
       allReality.push(reality);
-    });
+    }
 
     // Aggregate to daily forecasts
     return this.snowRealityEngine.aggregateDailyReality(allReality);
