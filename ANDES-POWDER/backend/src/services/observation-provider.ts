@@ -24,7 +24,7 @@ export class ObservationProvider {
     try {
       // Get observations from last 2 hours
       const result = await pool.query(
-        `SELECT elevation_band, value_numeric, observed_at, source, reliability
+        `SELECT elevation_band, value_numeric, observed_at, source
          FROM observations
          WHERE resort_id = $1
          AND observation_type = 'temperature'
@@ -41,7 +41,7 @@ export class ObservationProvider {
         temperature: {},
         observedAt: result.rows[0].observed_at,
         source: result.rows[0].source,
-        reliability: result.rows[0].reliability
+        reliability: 'high' // Default to high for now
       };
 
       // Group by elevation band (take most recent for each)
