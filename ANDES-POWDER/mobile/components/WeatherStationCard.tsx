@@ -89,17 +89,26 @@ export default function WeatherStationCard() {
 
         <View style={styles.dataItem}>
           <Text style={styles.dataValue}>
-            {data.wind_speed ? `${data.wind_speed.toFixed(0)}` : '-'}
+            {data.wind_speed ? `${data.wind_speed.toFixed(0)}` : '0'}
           </Text>
           <Text style={styles.dataLabel}>Viento km/h</Text>
         </View>
 
-        {data.wind_direction !== undefined && (
+        <View style={styles.divider} />
+
+        <View style={styles.dataItem}>
+          <Text style={styles.dataValue}>
+            {data.wind_direction !== undefined ? getWindDirection(data.wind_direction) : '-'}
+          </Text>
+          <Text style={styles.dataLabel}>Dirección</Text>
+        </View>
+
+        {data.pressure && (
           <>
             <View style={styles.divider} />
             <View style={styles.dataItem}>
-              <Text style={styles.dataValue}>{getWindDirection(data.wind_direction)}</Text>
-              <Text style={styles.dataLabel}>Dirección</Text>
+              <Text style={styles.dataValue}>{data.pressure.toFixed(0)}</Text>
+              <Text style={styles.dataLabel}>Presión hPa</Text>
             </View>
           </>
         )}
