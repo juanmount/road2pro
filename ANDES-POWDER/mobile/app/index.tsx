@@ -11,6 +11,7 @@ import ENSOModal from '../components/ENSOModal';
 import Season0Card from '../components/Season0Card';
 import OnboardingScreen from '../components/OnboardingScreen';
 import Season0Modal from '../components/Season0Modal';
+import WeatherStationCard from '../components/WeatherStationCard';
 
 interface ResortWithConditions extends Resort {
   currentConditions?: {
@@ -317,12 +318,15 @@ export default function HomeScreen() {
         contentContainerStyle={styles.listContainer}
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={
-          <View style={styles.cardsRow}>
-            <View style={styles.cardHalf}>
-              <Season0Card onPress={() => setShowSeason0Modal(true)} />
-            </View>
-            <View style={styles.cardHalf}>
-              <ENSOCard onPress={() => setShowENSOModal(true)} />
+          <View>
+            <WeatherStationCard />
+            <View style={styles.cardsRow}>
+              <View style={styles.cardHalf}>
+                <Season0Card onPress={() => setShowSeason0Modal(true)} />
+              </View>
+              <View style={styles.cardHalf}>
+                <ENSOCard onPress={() => setShowENSOModal(true)} />
+              </View>
             </View>
           </View>
         }
