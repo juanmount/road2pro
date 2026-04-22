@@ -4,42 +4,42 @@
  */
 
 import { WindImpact, SnowQuality } from '../domain/models';
+import { powderScoreCalculator } from '../services/powder-score';
 
 export class ScoreCalculator {
   /**
-   * Calculate powder score (0-10)
+   * Calculate powder score (0-10) - Using improved algorithm
    */
   calculatePowderScore(
     snowfall24h: number,
     temperature: number,
     windSpeed: number,
-    freezeQuality: string
-  ): number {
-    let score = 0;
-    
-    // Snowfall component (0-5 points)
-    if (snowfall24h >= 30) score += 5;
-    else if (snowfall24h >= 20) score += 4;
-    else if (snowfall24h >= 10) score += 3;
-    else if (snowfall24h >= 5) score += 2;
-    else if (snowfall24h >= 2) score += 1;
-    
-    // Temperature component (0-2 points)
-    if (temperature <= -5) score += 2;
-    else if (temperature <= 0) score += 1;
-    else if (temperature > 2) score -= 1;
-    
-    // Wind component (0-2 points)
-    if (windSpeed < 15) score += 2;
-    else if (windSpeed < 30) score += 1;
-    else if (windSpeed > 50) score -= 1;
-    
-    // Freeze quality component (0-1 point)
-    if (freezeQuality === 'excellent' || freezeQuality === 'good') {
-      score += 1;
+    freezeQuality: string,
+    options?: {
+      snowfall6h?: number;
+      snowfall12h?: number;
+      snowfall48h?: number;
+      windGust?: number;
+      cloudCover?: number;
+      freezingLevel?: number;
+      elevation?: number;
+      precipitationType?: 'snow' | 'rain' | 'mixed' | 'none';
     }
-    
-    return Math.max(0, Math.min(10, score));
+  ): number {
+    return powderScoreCalculator.calculate({
+      snowfall24h,
+      snowfall48h: options?.snowfall48h || 0,
+      snowfall6h: options?.snowfall6h,
+      snowfall12h: options?.snowfall12h,
+      temperature,
+      overnightMinTemp: temperature - 2, // Approximate if not provided
+      windSpeed,
+      windGust: options?.windGust || windSpeed * 1.3,
+      precipitationType: options?.precipitationType || 'snow',
+      cloudCover: options?.cloudCover,
+      freezingLevel: options?.freezingLevel,
+      elevation: options?.elevation
+    });
   }
   
   /**

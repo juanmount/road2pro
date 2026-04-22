@@ -8,6 +8,9 @@ import { DailyForecastCard } from '../../../components/DailyForecastCard';
 import { SnowfallChart } from '../../../components/SnowfallChart';
 import { TemperatureCurve } from '../../../components/TemperatureCurve';
 import { WebcamsModal } from '../../../components/WebcamsModal';
+import { WeeklySummary } from '../../../components/WeeklySummary';
+import BestTimeCard from '../../../components/BestTimeCard';
+import ENSOCard from '../../../components/ENSOCard';
 import { getWeatherIcon } from '../../../utils/weather-icons';
 import { getWindNarrative, getWindDirectionLabel, getWindExplanation, getWindTrend, getSkiSeason } from '../../../utils/wind-narrative';
 
@@ -18,12 +21,14 @@ export default function ResortDetailScreen() {
   const [conditions, setConditions] = useState<CurrentConditions | null>(null);
   const [selectedElevation, setSelectedElevation] = useState<ElevationBand>('mid');
   const [hourlyData, setHourlyData] = useState<any[]>([]);
-  const [yesterdaySnowfall, setYesterdaySnowfall] = useState<number>(0);
+  const [todayRealSnowfall, setTodayRealSnowfall] = useState<number>(0);
+  const [todayForecastSnowfall, setTodayForecastSnowfall] = useState<number>(0);
   const [last5DaysSnowfall, setLast5DaysSnowfall] = useState<any[]>([]);
   const [dailyForecast, setDailyForecast] = useState<any[]>([]);
   const [stormCrossingData, setStormCrossingData] = useState<any>(null);
   const [snowRealityData, setSnowRealityData] = useState<any>(null);
   const [windImpactData, setWindImpactData] = useState<any>(null);
+  const [bestTimeWindows, setBestTimeWindows] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [webcamsVisible, setWebcamsVisible] = useState(false);
   const [windExplanationVisible, setWindExplanationVisible] = useState(false);
@@ -42,15 +47,15 @@ export default function ResortDetailScreen() {
       console.log('[LOAD] Resort data loaded:', resortData?.name);
       setResort(resortData);
       
-      // Skip current conditions endpoint - we'll use first hourly forecast as current
-      // try {
-      //   const conditionsData = await resortsService.getCurrentConditions(id);
-      //   console.log('Conditions loaded');
-      //   setConditions(conditionsData);
-      // } catch (error) {
-      //   console.warn('Failed to load conditions:', error);
-      //   setConditions(null);
-      // }
+      // Fetch current conditions with elevation-specific data
+      try {
+        const conditionsData = await resortsService.getCurrentConditions(id);
+        console.log('[LOAD] Current conditions loaded:', conditionsData);
+        setConditions(conditionsData);
+      } catch (error) {
+        console.warn('[LOAD] Failed to load current conditions:', error);
+        setConditions(null);
+      }
       
       let hourlyForecast: any[] = [];
       try {
@@ -84,18 +89,60 @@ export default function ResortDetailScreen() {
         console.log('[DEBUG] Sunday snowfall values:', sundayHours.map((h: any) => h.snowfall));
       }
       
-      // Calculate yesterday's total snowfall (complete day)
-      const yesterday = new Date();
-      yesterday.setDate(yesterday.getDate() - 1);
-      const yesterdayHours = hourlyForecast.filter((h: any) => {
-        const date = new Date(h.time);
-        return date.getDate() === yesterday.getDate() && 
-               date.getMonth() === yesterday.getMonth() &&
-               date.getFullYear() === yesterday.getFullYear();
+      // Calculate today's forecast snowfall (next 24 hours from now)
+      const currentTime = new Date();
+      const next24Hours = hourlyForecast.filter((h: any) => {
+        const hourTime = new Date(h.time);
+        const hoursFromNow = (hourTime.getTime() - currentTime.getTime()) / (1000 * 60 * 60);
+        return hoursFromNow >= 0 && hoursFromNow <= 24;
       });
-      const yesterdayTotal = yesterdayHours.reduce((sum: number, h: any) => sum + (h.snowfall || 0), 0);
-      setYesterdaySnowfall(yesterdayTotal);
-      console.log(`[YESTERDAY] Total snowfall: ${yesterdayTotal.toFixed(2)} cm from ${yesterdayHours.length} hours`);
+      const todayForecastSnowfall = next24Hours.reduce((sum: number, h: any) => sum + (h.snowfall || 0), 0);
+      
+      // Calculate today's REAL snowfall (with Snow Reality Engine adjustments)
+      const elevationMeters = !resort ? 1600 : (
+        selectedElevation === 'base' ? resort.baseElevation : 
+        selectedElevation === 'mid' ? resort.midElevation : 
+        resort.summitElevation
+      );
+      
+      let todayRealSnowfall = 0;
+      next24Hours.forEach((h: any) => {
+        const hourSnow = h.snowfall || 0;
+        if (hourSnow > 0) {
+          const freezingLevel = h.freezingLevel || 3000;
+          const margin = freezingLevel - elevationMeters;
+          const windSpeed = h.windSpeed || 0;
+          
+          // Freezing level filter
+          let baseAdjustment = 1.0;
+          if (margin <= -300) baseAdjustment = 0.95;
+          else if (margin <= -100) baseAdjustment = 0.88;
+          else if (margin <= 50) baseAdjustment = 0.45;
+          else if (margin <= 150) baseAdjustment = 0.20;
+          else if (margin <= 250) baseAdjustment = 0.08;
+          else baseAdjustment = 0;
+          
+          if (baseAdjustment > 0) {
+            // Wind loss (elevation-adjusted for Patagonia)
+            const elevationWindMultiplier = selectedElevation === 'summit' ? 2.0 : 
+                                            selectedElevation === 'mid' ? 1.5 : 1.0;
+            const effectiveWind = windSpeed * elevationWindMultiplier;
+            let windLoss = 0;
+            if (effectiveWind > 60) windLoss = 0.35;
+            else if (effectiveWind > 40) windLoss = 0.25;
+            else if (effectiveWind > 25) windLoss = 0.15;
+            else if (effectiveWind > 15) windLoss = 0.08;
+            else windLoss = 0.03;
+            
+            const adjusted = hourSnow * baseAdjustment * (1 - windLoss);
+            todayRealSnowfall += adjusted;
+          }
+        }
+      });
+      
+      setTodayRealSnowfall(todayRealSnowfall);
+      setTodayForecastSnowfall(todayForecastSnowfall);
+      console.log(`[TODAY] Forecast: ${todayForecastSnowfall.toFixed(1)}cm, Real (adjusted): ${todayRealSnowfall.toFixed(1)}cm from ${next24Hours.length} hours`);
       
       // Fetch snowfall history from snowfall_history table
       try {
@@ -110,17 +157,37 @@ export default function ResortDetailScreen() {
       
       setHourlyData(hourlyForecast);
       
+      // Save to AsyncStorage for Hourly Forecast screen to use
+      try {
+        const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+        await AsyncStorage.setItem(
+          `hourly-forecast-${id}-${selectedElevation}`,
+          JSON.stringify(hourlyForecast)
+        );
+        console.log('[CACHE] Saved hourly forecast to AsyncStorage');
+      } catch (error) {
+        console.warn('[CACHE] Failed to save to AsyncStorage:', error);
+      }
+      
+      // Debug: Log first hour data
+      if (hourlyForecast && hourlyForecast.length > 0) {
+        console.log('[LIVE CARD] First hour:', {
+          time: hourlyForecast[0].time,
+          wind: hourlyForecast[0].windSpeed,
+          freezing: hourlyForecast[0].freezingLevel,
+          temp: hourlyForecast[0].temperature
+        });
+      }
+      
       // Use hourly forecast to build daily forecast (more reliable than backend endpoint)
-      // Filter only future hours
-      const now = new Date();
-      const futureHours = hourlyForecast.filter((h: any) => new Date(h.time) > now);
-      
+      // Include ALL hours (past and future) to show precipitation that already happened
       console.log('[DAILY FORECAST] Total hourly data:', hourlyForecast.length);
-      console.log('[DAILY FORECAST] Future hours:', futureHours.length);
       
-      // Group future hourly data by day
+      // Group ALL hourly data by day (including past hours with precipitation)
       const dailyMap = new Map<string, any[]>();
-      futureHours.forEach((h: any) => {
+      const now = new Date(); // Keep this for confidence calculation
+      
+      hourlyForecast.forEach((h: any) => {
         const date = new Date(h.time);
         const dateKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
         if (!dailyMap.has(dateKey)) {
@@ -131,16 +198,20 @@ export default function ResortDetailScreen() {
       
       console.log('[DAILY FORECAST] Days with data:', Array.from(dailyMap.keys()));
       
-      // Build daily forecast from hourly data - always show 7 days starting from tomorrow
+      // Build daily forecast from hourly data - show 7 days starting from TODAY (no past days)
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       
-      // Create 7 days starting from today if we don't have enough data
+      console.log('[DAILY FORECAST] Today date:', today.toISOString(), 'Day:', today.getDate(), 'Month:', today.getMonth() + 1);
+      
+      // Create 7 days starting from today
       const dailyFromHourly: any[] = [];
       for (let i = 0; i < 7; i++) {
         const targetDate = new Date(today);
         targetDate.setDate(today.getDate() + i);
         const dateKey = `${targetDate.getFullYear()}-${String(targetDate.getMonth() + 1).padStart(2, '0')}-${String(targetDate.getDate()).padStart(2, '0')}`;
+        
+        console.log(`[DAILY FORECAST] Day ${i}: targetDate=${targetDate.toISOString()}, dateKey=${dateKey}`);
         
         const hours = dailyMap.get(dateKey) || [];
         
@@ -153,32 +224,87 @@ export default function ResortDetailScreen() {
           const maxWindSpeed = Math.max(...hours.map(h => h.windSpeed || 0));
           const avgCloudCover = hours.reduce((sum, h) => sum + (h.cloudCover || 0), 0) / hours.length;
           
-          const hourlyDetails = hours.map((h: any) => ({
-            time: new Date(h.time),
-            temperature: h.temperature,
-            precipitation: h.precipitation,
-            snowfall: h.snowfall || 0,
-            windSpeed: h.windSpeed,
-            windDirection: h.windDirection,
-            humidity: h.humidity || 70,
-            freezingLevel: h.freezingLevel || 2000,
-            phase: h.phase || 'unknown',
-            icon: getWeatherIcon({
+          const hourlyDetails = hours.map((h: any, idx: number) => {
+            const icon = getWeatherIcon({
               hour: new Date(h.time).getHours(),
               phase: h.phase || 'none',
               cloudCover: h.cloudCover || 0,
               precipitation: h.precipitation || 0
-            })
-          }));
-          
-          // Calculate icon for the day (use afternoon hour as representative)
-          const afternoonHour = hours.find(h => new Date(h.time).getHours() === 15) || hours[Math.floor(hours.length / 2)];
-          const dayIcon = getWeatherIcon({
-            hour: new Date(afternoonHour.time).getHours(),
-            phase: afternoonHour.phase || 'none',
-            cloudCover: afternoonHour.cloudCover || 0,
-            precipitation: afternoonHour.precipitation || 0
+            });
+            
+            // Debug first 3 hours
+            if (idx < 3) {
+              console.log(`[HOURLY DETAIL ${idx}] Phase: ${h.phase}, Precip: ${h.precipitation}mm, Temp: ${h.temperature}°C, Icon: ${icon}`);
+            }
+            
+            return {
+              time: new Date(h.time),
+              temperature: h.temperature,
+              precipitation: h.precipitation,
+              snowfall: h.snowfall || 0,
+              windSpeed: h.windSpeed,
+              windDirection: h.windDirection,
+              humidity: h.humidity || 70,
+              freezingLevel: h.freezingLevel || 2000,
+              phase: h.phase || 'unknown',
+              icon: icon
+            };
           });
+          
+          // Calculate icon for the day
+          // For TODAY: use current hour to match LIVE card
+          // For future days: use afternoon hour (3 PM) as representative
+          let representativeHour;
+          if (i === 0) {
+            // Today - find hour closest to current time
+            const currentHour = new Date().getHours();
+            representativeHour = hours.find(h => new Date(h.time).getHours() === currentHour) 
+                              || hours.find(h => new Date(h.time).getHours() === currentHour - 1)
+                              || hours.find(h => new Date(h.time).getHours() === currentHour + 1)
+                              || hours[0];
+            console.log(`[TODAY ICON] Using hour ${new Date(representativeHour.time).getHours()} (current: ${currentHour})`);
+          } else {
+            // Future days - use 3 PM or middle of day
+            representativeHour = hours.find(h => new Date(h.time).getHours() === 15) || hours[Math.floor(hours.length / 2)];
+          }
+          
+          const dayIcon = getWeatherIcon({
+            hour: new Date(representativeHour.time).getHours(),
+            phase: representativeHour.phase || 'none',
+            cloudCover: representativeHour.cloudCover || 0,
+            precipitation: representativeHour.precipitation || 0
+          });
+          
+          // Calculate confidence score based on lead time
+          const hoursOut = (targetDate.getTime() - now.getTime()) / (1000 * 60 * 60);
+          let leadTimeFactor = 1.0;
+          if (hoursOut <= 24) leadTimeFactor = 1.0;
+          else if (hoursOut <= 48) leadTimeFactor = 0.9;
+          else if (hoursOut <= 72) leadTimeFactor = 0.8;
+          else if (hoursOut <= 120) leadTimeFactor = 0.7;
+          else if (hoursOut <= 168) leadTimeFactor = 0.6;
+          else leadTimeFactor = 0.5;
+          
+          const confidenceScore = leadTimeFactor * 10;
+          
+          let confidenceReason = '';
+          if (confidenceScore >= 7.5) {
+            if (hoursOut <= 24) {
+              confidenceReason = 'Alta confianza - Pronóstico de corto plazo';
+            } else if (hoursOut <= 72) {
+              confidenceReason = 'Alta confianza - Pronóstico confiable';
+            } else {
+              confidenceReason = 'Buena confianza - Pronóstico lejano';
+            }
+          } else if (confidenceScore >= 5.0) {
+            if (hoursOut > 120) {
+              confidenceReason = 'Confianza moderada - Pronóstico muy lejano';
+            } else {
+              confidenceReason = 'Confianza moderada - Revisá más cerca de la fecha';
+            }
+          } else {
+            confidenceReason = 'Baja confianza - Pronóstico demasiado lejano';
+          }
           
           dailyFromHourly.push({
             date: dateKey,
@@ -189,7 +315,9 @@ export default function ResortDetailScreen() {
             maxWindSpeed,
             cloudCover: avgCloudCover,
             icon: dayIcon,
-            hourlyDetails
+            hourlyDetails,
+            confidenceScore: Math.round(confidenceScore * 10) / 10,
+            confidenceReason
           });
         } else {
           // No data for this day, create placeholder with zeros
@@ -208,18 +336,132 @@ export default function ResortDetailScreen() {
       
       console.log('[DAILY FORECAST] Built from hourly data:', dailyFromHourly.length, 'days');
       console.log('[DAILY FORECAST] Sample day:', dailyFromHourly[0]);
-      setDailyForecast(dailyFromHourly);
       
-      // NOTE: Storm Crossing, Snow Reality, and Wind Impact engines are active
-      // in the backend forecast processor but not yet exposed via API endpoints.
-      // The adjustments are already applied to the snowfall values in hourly forecasts.
+      // FILTER OUT PAST DAYS - only show from today onwards
+      const todayDate = new Date();
+      todayDate.setHours(0, 0, 0, 0);
+      const filteredForecast = dailyFromHourly.filter(day => {
+        const dayDate = new Date(day.date);
+        return dayDate >= todayDate;
+      });
       
-      // TODO: Implement API endpoints for these engines if we want to show detailed breakdowns
-      // For now, the effects are already included in the snowfall calculations
+      console.log('[DAILY FORECAST] After filtering past days:', filteredForecast.length, 'days');
+      console.log('[DAILY FORECAST] First day after filter:', filteredForecast[0]?.date);
       
-      setStormCrossingData(null);
+      setDailyForecast(filteredForecast);
+      
+      // Calculate Storm Crossing Score for each day (Patagonian-specific)
+      const stormCrossingByDay = filteredForecast.map((day, idx) => {
+        const dayHours = day.hourlyDetails || [];
+        
+        if (dayHours.length === 0 || !resort) return null;
+        
+        // CRITICAL: Use adjusted snowfall from filteredForecast (after Snow Engine)
+        // This ensures Storm Crossing badge only shows when there's REAL snow after adjustments
+        const adjustedSnowfall = day.snowfall || 0;
+        const totalPrecipitation = dayHours.reduce((sum: number, h: any) => sum + (h.precipitation || 0), 0);
+        
+        // If no adjusted snowfall, don't show Storm Crossing Score
+        // (Snow Engine already removed it due to wind/rain/temp factors)
+        if (adjustedSnowfall < 0.5) {
+          console.log(`[STORM CROSSING] Day ${idx}: No real snow after adjustments (${adjustedSnowfall.toFixed(1)}cm) - skipping score`);
+          return null;
+        }
+        
+        console.log(`[STORM CROSSING] Day ${idx}: ${adjustedSnowfall.toFixed(1)}cm adjusted snow, ${totalPrecipitation.toFixed(1)}mm precip - calculating score...`);
+        
+        // Calculate average conditions for the day
+        const avgHumidity = dayHours.reduce((sum, h) => sum + (h.humidity || 70), 0) / dayHours.length;
+        const avgWind = dayHours.reduce((sum, h) => sum + h.windSpeed, 0) / dayHours.length;
+        const avgFrz = dayHours.reduce((sum, h) => sum + h.freezingLevel, 0) / dayHours.length;
+        const avgTemp = dayHours.reduce((sum, h) => sum + h.temperature, 0) / dayHours.length;
+        
+        // STORM CROSSING ALGORITHM (simplified frontend version)
+        let score = 50; // Base score
+        let factors = [];
+        
+        // 1. Humidity (Pacific moisture indicator)
+        if (avgHumidity > 75) {
+          score += 20;
+          factors.push('High humidity (Pacific moisture)');
+        } else if (avgHumidity > 60) {
+          score += 10;
+          factors.push('Moderate humidity');
+        } else {
+          score -= 10;
+          factors.push('Dry air (weak system)');
+        }
+        
+        // 2. Freezing Level (snow vs rain)
+        const elevationMeters = selectedElevation === 'base' ? resort.baseElevation : 
+                               selectedElevation === 'mid' ? resort.midElevation : 
+                               resort.summitElevation;
+        const frzMargin = avgFrz - elevationMeters;
+        
+        if (frzMargin < -200) {
+          score += 15;
+          factors.push('Deep cold (excellent snow quality)');
+        } else if (frzMargin < 100) {
+          score += 10;
+          factors.push('Good freezing level');
+        } else if (frzMargin > 500) {
+          score -= 20;
+          factors.push('High freezing level (rain risk)');
+        }
+        
+        // 3. Wind Direction (westerly = favorable for crossing)
+        const westWindHours = dayHours.filter(h => {
+          const dir = h.windDirection || 0;
+          return dir >= 240 && dir <= 330; // W to NW
+        }).length;
+        const westWindRatio = westWindHours / dayHours.length;
+        
+        if (westWindRatio > 0.6) {
+          score += 15;
+          factors.push('Westerly flow (favorable crossing)');
+        } else if (westWindRatio < 0.3) {
+          score -= 10;
+          factors.push('Unfavorable wind direction');
+        }
+        
+        // 4. Snowfall consistency (persistent vs sporadic)
+        const snowHours = dayHours.filter(h => h.snowfall > 0.1).length;
+        if (snowHours > dayHours.length * 0.5) {
+          score += 10;
+          factors.push('Persistent snowfall');
+        }
+        
+        // Clamp score 0-100
+        score = Math.max(0, Math.min(100, score));
+        
+        // Determine category
+        let category: 'LOW' | 'MEDIUM' | 'HIGH';
+        if (score >= 70) category = 'HIGH';
+        else if (score >= 40) category = 'MEDIUM';
+        else category = 'LOW';
+        
+        return {
+          score: Math.round(score),
+          category,
+          explanation: factors.join(', ')
+        };
+      });
+      
+      setStormCrossingData(stormCrossingByDay);
       setSnowRealityData(null);
       setWindImpactData(null);
+      
+      // Fetch Best Time to Ski windows
+      try {
+        const bestTimeData = await resortsService.getBestTimeToSki(id, selectedElevation);
+        setBestTimeWindows(bestTimeData || []);
+        if (bestTimeData && bestTimeData.length > 0) {
+          console.log('[BEST TIME] Found', bestTimeData.length, 'optimal ski windows');
+        }
+      } catch (error) {
+        // Silently handle - empty array is expected when conditions aren't ideal
+        setBestTimeWindows([]);
+      }
       
     } catch (err) {
       console.error('[LOAD ERROR] Error loading resort data:', err);
@@ -291,8 +533,8 @@ export default function ResortDetailScreen() {
       const isWinter = currentMonth >= 6 && currentMonth <= 8; // Jun-Aug
       
       // Elevation-specific wind multiplier (Patagonian winds are brutal at summit)
-      const elevationWindMultiplier = selectedElevation === 'summit' ? 1.8 : 
-                                      selectedElevation === 'mid' ? 1.3 : 1.0;
+      const elevationWindMultiplier = selectedElevation === 'summit' ? 2.0 : 
+                                      selectedElevation === 'mid' ? 1.5 : 1.0;
       
       let realSnowfall = 0;
       let debugInfo: any[] = [];
@@ -426,18 +668,12 @@ export default function ResortDetailScreen() {
       });
       
       // Helper function to calculate wind impact for hourly data
+      // Note: windSpeed already comes specific for selected elevation band
+      // We only need to apply the model correction factor
       const calculateHourlyWindImpact = (windSpeed: number, temp: number) => {
-        if (!resort) return { adjustedWind: windSpeed, category: 'CALM' as const };
-        
-        // Adjust wind for elevation (simplified)
-        const elevationMeters = selectedElevation === 'base' ? resort.baseElevation : 
-                                selectedElevation === 'mid' ? resort.midElevation : 
-                                resort.summitElevation;
-        const BASE_ELEVATION = 840;
-        const WIND_INCREASE_RATE = 0.0004;
-        const elevationDiff = elevationMeters - BASE_ELEVATION;
-        const multiplier = 1 + (elevationDiff * WIND_INCREASE_RATE);
-        const adjustedWind = Math.round(windSpeed * multiplier);
+        // Models tend to underestimate mountain wind by ~20-30%
+        const modelCorrectionFactor = 1.25;
+        const adjustedWind = Math.round(windSpeed * modelCorrectionFactor);
         
         // Determine category
         let category: 'CALM' | 'MODERATE' | 'STRONG' | 'EXTREME' = 'CALM';
@@ -504,20 +740,73 @@ export default function ResortDetailScreen() {
 
   const dailyForecasts = getDailyForecasts();
 
-  // Get current wind impact for selected elevation
-  const getCurrentWindImpact = () => {
-    if (!windImpactData?.forecasts) return null;
+  // Get current hour data - use first future hour to match hourly forecast display
+  const getCurrentHourData = () => {
+    if (!hourlyData || hourlyData.length === 0) return null;
     
-    // Find today's forecast for selected elevation
-    const today = new Date().toISOString().split('T')[0];
-    const windForecast = windImpactData.forecasts.find((f: any) => 
-      f.validTime.startsWith(today) && f.elevation === selectedElevation
-    );
+    // Find the hour closest to current time (within ±30 minutes)
+    const now = new Date();
+    const currentHourTimestamp = now.getTime();
     
-    return windForecast?.analysis || null;
+    // Find the closest hour to now
+    let closestHour = hourlyData[0];
+    let minDiff = Math.abs(new Date(hourlyData[0].time).getTime() - currentHourTimestamp);
+    
+    for (const hour of hourlyData) {
+      const hourTime = new Date(hour.time).getTime();
+      const diff = Math.abs(hourTime - currentHourTimestamp);
+      
+      if (diff < minDiff) {
+        minDiff = diff;
+        closestHour = hour;
+      }
+    }
+    
+    console.log('[getCurrentHourData] Current time:', now.toISOString());
+    console.log('[getCurrentHourData] Using closest hour:', new Date(closestHour.time).toISOString());
+    console.log('[getCurrentHourData] Data:', {
+      temp: closestHour.temperature,
+      wind: closestHour.windSpeed,
+      freezing: closestHour.freezingLevel,
+      phase: closestHour.phase,
+      cloudCover: closestHour.cloudCover
+    });
+    
+    return closestHour;
   };
 
-  const currentWindImpact = getCurrentWindImpact();
+  // Calculate wind adjustment
+  // Note: hourlyData already comes specific for selected elevation band
+  // Show raw values from DB without correction to match hourly forecast
+  const getAdjustedWind = () => {
+    // Prioritize conditions.byElevation for elevation-specific wind data
+    let windSpeed = 0;
+    if (conditions?.byElevation?.[selectedElevation]?.windSpeed) {
+      windSpeed = conditions.byElevation[selectedElevation].windSpeed;
+      console.log(`[WIND] Using conditions.byElevation.${selectedElevation}.windSpeed:`, windSpeed);
+    } else {
+      const currentHour = getCurrentHourData();
+      if (!currentHour) return null;
+      windSpeed = currentHour.windSpeed || 0;
+      console.log('[WIND] Using hourly forecast windSpeed:', windSpeed);
+    }
+    
+    // Don't apply correction - show raw DB values
+    const adjustedWindKmh = windSpeed;
+    
+    // Determine category
+    let category = 'CALM';
+    if (adjustedWindKmh >= 50) category = 'EXTREME';
+    else if (adjustedWindKmh >= 30) category = 'STRONG';
+    else if (adjustedWindKmh >= 15) category = 'MODERATE';
+    
+    return {
+      adjustedWindKmh,
+      category
+    };
+  };
+
+  const currentWindImpact = getAdjustedWind();
 
   return (
     <ImageBackground
@@ -554,8 +843,8 @@ export default function ResortDetailScreen() {
                     if (season === 'pre-season') {
                       return (
                         <View style={styles.seasonBadge}>
-                          <Ionicons name="snow-outline" size={12} color="#f59e0b" />
-                          <Text style={styles.seasonBadgeText}>PRE-TEMPORADA · Acumulando Base</Text>
+                          <Ionicons name="snow-outline" size={10} color="#94a3b8" />
+                          <Text style={styles.seasonBadgeText}>Pre-temporada</Text>
                         </View>
                       );
                     } else if (season === 'off-season') {
@@ -569,7 +858,16 @@ export default function ResortDetailScreen() {
                     return null;
                   })()}
                   <Text style={styles.headerLocation}>{resort.region}, Argentina</Text>
-                  <Text style={styles.headerStatsText}>120km esquiables • 53 pistas</Text>
+                  <Text style={styles.headerStatsText}>
+                    {(() => {
+                      const name = resort.name.toLowerCase();
+                      if (name.includes('catedral')) return '120km esquiables • 53 pistas';
+                      if (name.includes('chapelco')) return '140km esquiables • 35 pistas';
+                      if (name.includes('bayo')) return '30km esquiables • 24 pistas';
+                      if (name.includes('castor')) return '35km esquiables • 28 pistas';
+                      return '35km esquiables • 28 pistas';
+                    })()}
+                  </Text>
                 </View>
                 <View style={styles.headerRightInfo}>
                   <Image 
@@ -621,7 +919,7 @@ export default function ResortDetailScreen() {
                 {elevation === 'base' ? 'BASE' : elevation === 'mid' ? 'MID' : 'SUMMIT'}
               </Text>
               <Text style={[styles.elevationButtonMeters, selectedElevation === elevation && styles.elevationButtonMetersActive]}>
-                {elevation === 'base' ? resort.baseElevation : elevation === 'mid' ? resort.midElevation : resort.summitElevation}
+                {resort ? (elevation === 'base' ? resort.baseElevation : elevation === 'mid' ? resort.midElevation : resort.summitElevation) : '---'}
               </Text>
               <Text style={[styles.elevationButtonUnit, selectedElevation === elevation && styles.elevationButtonUnitActive]}>
                 METERS
@@ -631,7 +929,11 @@ export default function ResortDetailScreen() {
         ))}
       </View>
 
-      {hourlyData.length > 0 && (
+      {(() => {
+        const currentHour = getCurrentHourData();
+        if (!currentHour) return null;
+        
+        return (
         <View style={styles.liveCard}>
           <ImageBackground
             source={require('../../../assets/nieve-catedral-live.jpg')}
@@ -640,9 +942,9 @@ export default function ResortDetailScreen() {
           >
             <View style={[
               styles.liveCardOverlay,
-              hourlyData[0].phase === 'snow' && styles.liveCardSnow,
-              hourlyData[0].phase === 'rain' && styles.liveCardRain,
-              (!hourlyData[0].phase || hourlyData[0].phase === 'none') && styles.liveCardClear,
+              currentHour.phase === 'snow' && styles.liveCardSnow,
+              currentHour.phase === 'rain' && styles.liveCardRain,
+              (!currentHour.phase || currentHour.phase === 'none') && styles.liveCardClear,
             ]} />
           <View style={styles.liveCardContent}>
           <View style={styles.liveHeader}>
@@ -657,11 +959,14 @@ export default function ResortDetailScreen() {
             </TouchableOpacity>
             <View style={styles.elevationInfo}>
               <Text style={styles.elevationText}>
-                {selectedElevation === 'base' ? 'BASE' : selectedElevation === 'mid' ? 'MID' : 'SUMMIT'} • {selectedElevation === 'base' ? resort.baseElevation : selectedElevation === 'mid' ? resort.midElevation : resort.summitElevation}m
+                {selectedElevation === 'base' ? 'BASE' : selectedElevation === 'mid' ? 'MID' : 'SUMMIT'} • {resort ? (selectedElevation === 'base' ? resort.baseElevation : selectedElevation === 'mid' ? resort.midElevation : resort.summitElevation) : '---'}m
               </Text>
-              <Text style={styles.freezingLevel}>
-                Frz {Math.round(hourlyData[0]?.freezingLevel || 2000)}m
-              </Text>
+              <View style={styles.freezingLevelBadge}>
+                <Ionicons name="snow-outline" size={12} color="#fff" style={{ marginRight: 4 }} />
+                <Text style={styles.freezingLevel}>
+                  Frz {Math.round(currentHour.freezingLevel || 2000)}m
+                </Text>
+              </View>
             </View>
           </View>
           
@@ -670,12 +975,12 @@ export default function ResortDetailScreen() {
               <Text style={styles.weatherIcon}>
                 {getWeatherIcon({
                   hour: new Date().getHours(),
-                  phase: hourlyData[0]?.phase || 'none',
-                  cloudCover: hourlyData[0]?.cloudCover || 0,
-                  precipitation: hourlyData[0]?.precipitation || 0
+                  phase: currentHour.phase || 'none',
+                  cloudCover: currentHour.cloudCover || 0,
+                  precipitation: currentHour.precipitation || 0
                 })}
               </Text>
-              <Text style={styles.bigTemp}>{Math.round(hourlyData[0]?.temperature || 0)}°</Text>
+              <Text style={styles.bigTemp}>{Math.round(currentHour.temperature || 0)}°</Text>
               <Text style={styles.tempUnit}>C</Text>
             </View>
             <View style={styles.quickMetrics}>
@@ -687,14 +992,14 @@ export default function ResortDetailScreen() {
                     currentWindImpact?.category === 'EXTREME' && styles.windExtreme,
                     currentWindImpact?.category === 'STRONG' && styles.windStrong,
                     currentWindImpact?.category === 'MODERATE' && styles.windModerate,
-                  ]}>{Math.round(currentWindImpact?.adjustedWindKmh || hourlyData[0]?.windSpeed || 0)}</Text>
+                  ]}>{Math.round(currentWindImpact?.adjustedWindKmh || currentHour.windSpeed || 0)}</Text>
                   <Text style={styles.quickUnit}>km/h</Text>
                 </View>
               </View>
               <View style={styles.quickMetricItem}>
                 <Text style={styles.quickLabel}>HUMIDITY</Text>
                 <View style={styles.quickValueRow}>
-                  <Text style={styles.quickValue}>{Math.round(hourlyData[0]?.humidity || 50)}</Text>
+                  <Text style={styles.quickValue}>{Math.round(currentHour.humidity || 50)}</Text>
                   <Text style={styles.quickUnit}>%</Text>
                 </View>
               </View>
@@ -703,9 +1008,9 @@ export default function ResortDetailScreen() {
           
           {/* Wind Narrative - Separate compact section */}
           {(() => {
-            const windDir = hourlyData[0]?.windDirection || 270;
-            const windSpeed = currentWindImpact?.adjustedWindKmh || hourlyData[0]?.windSpeed || 0;
-            const precip = hourlyData[0]?.precipitation || 0;
+            const windDir = currentHour.windDirection || 270;
+            const windSpeed = currentWindImpact?.adjustedWindKmh || currentHour.windSpeed || 0;
+            const precip = currentHour.precipitation || 0;
             const narrative = getWindNarrative(windDir, windSpeed, precip);
             const dirLabel = getWindDirectionLabel(windDir);
             
@@ -738,33 +1043,101 @@ export default function ResortDetailScreen() {
             );
           })()}
           
+          {/* Snow metrics - show when there's snowfall, otherwise show comparison data */}
           <View style={styles.glassMetrics}>
-            <View style={styles.glassBox}>
-              <Text style={styles.metricLabel}>FORECAST</Text>
-              <Text style={styles.glassNumber}>{Math.round((yesterdaySnowfall || 0) / 0.75)}</Text>
-              <Text style={styles.glassUnit}>cm</Text>
-            </View>
-            <View style={styles.glassBox}>
-              <Text style={styles.metricLabel}>REAL</Text>
-              <Text style={styles.glassNumber}>{Math.round(yesterdaySnowfall || 0)}</Text>
-              <Text style={styles.glassUnit}>cm</Text>
-            </View>
-            <View style={styles.glassBox}>
-              <Text style={styles.metricLabel}>POWDER</Text>
-              <Text style={styles.glassNumber}>{Math.round(hourlyData[0]?.powderScore || 0)}/10</Text>
-            </View>
-            <View style={styles.glassBox}>
-              <Text style={styles.metricLabel}>TIPO</Text>
-              <Text style={styles.glassNumber}>
-                {hourlyData[0]?.temperature < -5 ? 'PWD' :
-                 hourlyData[0]?.temperature >= -5 && hourlyData[0]?.temperature < 0 ? 'PCK' :
-                 hourlyData[0]?.temperature >= 0 && hourlyData[0]?.temperature < 2 ? 'DNS' : 'WET'}
-              </Text>
-            </View>
+            {todayForecastSnowfall > 0 ? (
+              <>
+                <View style={styles.glassBox}>
+                  <Text style={styles.metricLabel}>PRONÓSTICO</Text>
+                  <Text style={styles.glassNumber}>{Math.round(todayForecastSnowfall)}</Text>
+                  <Text style={styles.glassUnit}>cm</Text>
+                </View>
+                <View style={styles.glassBox}>
+                  <Text style={styles.metricLabel}>REAL</Text>
+                  <Text style={styles.glassNumber}>{Math.round(todayRealSnowfall)}</Text>
+                  <Text style={styles.glassUnit}>cm</Text>
+                </View>
+                <View style={styles.glassBox}>
+                  <Text style={styles.metricLabel}>CALIDAD</Text>
+                  <Text style={styles.glassNumber}>{Math.round(currentHour.powderScore || 0)}/10</Text>
+                </View>
+                <View style={styles.glassBox}>
+                  <Text style={styles.metricLabel}>TIPO</Text>
+                  <Text style={styles.glassNumber}>
+                    {currentHour.temperature < -5 ? 'POLVO' :
+                     currentHour.temperature >= -5 && currentHour.temperature < 0 ? 'COMPACTA' :
+                     currentHour.temperature >= 0 && currentHour.temperature < 2 ? 'PESADA' : 'MOJADA'}
+                  </Text>
+                </View>
+              </>
+            ) : (
+              <>
+                {(() => {
+                  // Show TODAY's comparison: raw Open-Meteo vs our adjusted forecast
+                  // This is educational and shows why we're different
+                  
+                  // Get today's hourly data to calculate raw snowfall
+                  const now = new Date();
+                  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                  const todayEnd = new Date(todayStart);
+                  todayEnd.setDate(todayEnd.getDate() + 1);
+                  
+                  const todayHours = hourlyData.filter(h => {
+                    const hourTime = new Date(h.time);
+                    return hourTime >= todayStart && hourTime < todayEnd;
+                  });
+                  
+                  // Calculate RAW snowfall (what Open-Meteo says without adjustments)
+                  const rawTodaySnowfall = todayHours.reduce((sum: number, h: any) => sum + (h.snowfall || 0), 0);
+                  
+                  // Our adjusted forecast is already in todayForecastSnowfall
+                  const adjustedTodaySnowfall = todayForecastSnowfall;
+                  
+                  // Calculate adjustment percentage
+                  const adjustmentPercent = rawTodaySnowfall > 0 
+                    ? Math.round(((rawTodaySnowfall - adjustedTodaySnowfall) / rawTodaySnowfall) * 100)
+                    : 0;
+                  
+                  // Calculate next 7 days total
+                  const next7Days = dailyForecast.slice(0, 7);
+                  const total7Days = next7Days.reduce((sum: number, day: any) => sum + (day.snowfall || 0), 0);
+                  
+                  return (
+                    <>
+                      <View style={styles.glassBox}>
+                        <Text style={styles.metricLabel}>GENÉRICO</Text>
+                        <Text style={styles.glassNumber}>{Math.round(rawTodaySnowfall * 10) / 10}</Text>
+                        <Text style={styles.glassUnit}>cm</Text>
+                      </View>
+                      <View style={styles.glassBox}>
+                        <Text style={styles.metricLabel}>ANDES</Text>
+                        <Text style={styles.glassNumber}>{Math.round(adjustedTodaySnowfall * 10) / 10}</Text>
+                        <Text style={styles.glassUnit}>cm</Text>
+                      </View>
+                      <View style={styles.glassBox}>
+                        <Text style={styles.metricLabel}>AJUSTE</Text>
+                        <Text style={styles.glassNumber}>{adjustmentPercent > 0 ? `-${adjustmentPercent}` : adjustmentPercent}%</Text>
+                      </View>
+                      <View style={styles.glassBox}>
+                        <Text style={styles.metricLabel}>PRÓX 7D</Text>
+                        <Text style={styles.glassNumber}>{Math.round(total7Days * 10) / 10}</Text>
+                        <Text style={styles.glassUnit}>cm</Text>
+                      </View>
+                    </>
+                  );
+                })()}
+              </>
+            )}
           </View>
           </View>
           </ImageBackground>
         </View>
+        );
+      })()}
+
+      {/* Best Time to Ski */}
+      {bestTimeWindows.length > 0 && (
+        <BestTimeCard windows={bestTimeWindows} />
       )}
 
       {/* Weekly Forecast - Horizontal Scroll */}
@@ -792,6 +1165,9 @@ export default function ResortDetailScreen() {
                   tempLow={day.minTemp}
                   icon={day.icon || '☀️'}
                   hourlyDetails={day.hourlyDetails || []}
+                  stormCrossing={stormCrossingData?.[index] || undefined}
+                  confidenceScore={day.confidenceScore}
+                  confidenceReason={day.confidenceReason}
                 />
               );
             })}
@@ -799,34 +1175,20 @@ export default function ResortDetailScreen() {
         </View>
       )}
 
-      {/* Last 5 Days Snowfall History */}
-      <View style={styles.historySection}>
-        <View style={styles.historyHeader}>
-          <Text style={styles.historyTitle}>NEVADAS CAÍDAS - ÚLTIMOS 5 DÍAS</Text>
-          <View style={styles.historyUnderline} />
-        </View>
-        {last5DaysSnowfall.length > 0 ? (
-          <View style={styles.historyTable}>
-            {last5DaysSnowfall.map((day, index) => (
-              <View key={index} style={styles.historyRow}>
-                <View style={styles.historyDateColumn}>
-                  <Text style={styles.historyDayName}>{day.dayName.toUpperCase()}</Text>
-                  <Text style={styles.historyDate}>{day.dayNumber} {day.month}</Text>
-                </View>
-                <View style={styles.historySnowColumn}>
-                  <Text style={styles.historySnowValue}>{Math.round(day.snowfall)}</Text>
-                  <Text style={styles.historySnowUnit}>cm</Text>
-                </View>
-              </View>
-            ))}
-          </View>
-        ) : (
-          <View style={styles.historyEmpty}>
-            <Text style={styles.historyEmptyText}>Sin nevadas registradas aún</Text>
-            <Text style={styles.historyEmptySubtext}>El historial comenzará a acumularse desde hoy</Text>
-          </View>
-        )}
-      </View>
+      {/* Weekly Summary - Total snowfall, bar chart, and best day recommendation */}
+      {dailyForecast.length > 0 && (
+        <WeeklySummary 
+          days={dailyForecast.map(day => ({
+            date: day.date,
+            dayName: new Date(day.date).toLocaleDateString('es-AR', { weekday: 'short' }),
+            snowfall: day.snowfall || 0,
+            temperature: day.maxTemp || 0,
+            windSpeed: day.maxWindSpeed || 0,
+            powderScore: day.powderScore || 0
+          }))}
+          elevation={selectedElevation}
+        />
+      )}
 
       </ScrollView>
 
@@ -839,7 +1201,8 @@ export default function ResortDetailScreen() {
 
       {/* Wind Explanation Modal */}
       {(() => {
-        const windDir = hourlyData[0]?.windDirection || 270;
+        const currentHour = getCurrentHourData();
+        const windDir = currentHour?.windDirection || 270;
         const windSpeed = currentWindImpact?.adjustedWindKmh || conditions?.byElevation[selectedElevation]?.windSpeed || 0;
         const futureWindDir = hourlyData[6]?.windDirection || hourlyData[8]?.windDirection;
         const explanation = getWindExplanation(windDir, windSpeed, futureWindDir);
@@ -858,6 +1221,25 @@ export default function ResortDetailScreen() {
                   <TouchableOpacity onPress={() => setWindExplanationVisible(false)} style={styles.closeButton}>
                     <Ionicons name="close" size={28} color="#64748b" />
                   </TouchableOpacity>
+                </View>
+                
+                {/* Current Wind Condition */}
+                <View style={styles.currentWindBox}>
+                  <View style={styles.currentWindHeader}>
+                    <Ionicons name="speedometer-outline" size={20} color="#0c4a6e" />
+                    <Text style={styles.currentWindLabel}>Condición Actual</Text>
+                  </View>
+                  <View style={styles.currentWindData}>
+                    <View style={styles.currentWindItem}>
+                      <Text style={styles.currentWindValue}>{Math.round(windSpeed)}</Text>
+                      <Text style={styles.currentWindUnit}>km/h</Text>
+                    </View>
+                    <View style={styles.currentWindDivider} />
+                    <View style={styles.currentWindItem}>
+                      <Text style={styles.currentWindDirection}>{getWindDirectionLabel(windDir)}</Text>
+                      <Text style={styles.currentWindDegrees}>{Math.round(windDir)}°</Text>
+                    </View>
+                  </View>
                 </View>
                 
                 <ScrollView style={styles.windModalScroll} showsVerticalScrollIndicator={false}>
@@ -954,18 +1336,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: 'rgba(245, 158, 11, 0.2)',
+    backgroundColor: 'rgba(148, 163, 184, 0.12)',
     paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
+    paddingVertical: 3,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(148, 163, 184, 0.25)',
     marginBottom: 6,
     alignSelf: 'flex-start',
   },
   seasonBadgeText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#f59e0b',
-    letterSpacing: 0.5,
+    fontSize: 9,
+    fontWeight: '600',
+    color: '#94a3b8',
+    letterSpacing: 0.3,
   },
   headerLocation: {
     fontSize: 14,
@@ -1178,11 +1562,22 @@ const styles = StyleSheet.create({
     marginBottom: 4,
     letterSpacing: 0.5,
   },
+  freezingLevelBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(56, 189, 248, 0.25)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.4)',
+    marginTop: 4,
+  },
   freezingLevel: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#38bdf8',
-    letterSpacing: 0.3,
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#fff',
+    letterSpacing: 0.5,
   },
   mainDisplay: {
     flexDirection: 'row',
@@ -1329,8 +1724,10 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 8,
     alignItems: 'center',
+    justifyContent: 'center',
     borderWidth: 1,
     borderColor: 'rgba(12, 74, 110, 0.2)',
+    minHeight: 80,
   },
   metricLabel: {
     fontSize: 7,
@@ -1338,13 +1735,16 @@ const styles = StyleSheet.create({
     color: '#0c4a6e',
     letterSpacing: 0.6,
     marginBottom: 4,
+    textAlign: 'center',
   },
   glassNumber: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: '800',
     color: '#0c4a6e',
     letterSpacing: -0.5,
     marginBottom: 1,
+    textAlign: 'center',
+    lineHeight: 26,
   },
   glassUnit: {
     fontSize: 10,
@@ -1471,7 +1871,66 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
+    marginBottom: 16,
+  },
+  currentWindBox: {
+    backgroundColor: '#f0f9ff',
+    marginHorizontal: 20,
     marginBottom: 20,
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#bae6fd',
+  },
+  currentWindHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+  },
+  currentWindLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0c4a6e',
+    letterSpacing: 0.5,
+  },
+  currentWindData: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+  },
+  currentWindItem: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  currentWindValue: {
+    fontSize: 32,
+    fontWeight: '800',
+    color: '#0c4a6e',
+    letterSpacing: -1,
+  },
+  currentWindUnit: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#0369a1',
+    marginTop: 2,
+  },
+  currentWindDirection: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#0c4a6e',
+    letterSpacing: 0.5,
+  },
+  currentWindDegrees: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#0369a1',
+    marginTop: 2,
+  },
+  currentWindDivider: {
+    width: 1,
+    height: 40,
+    backgroundColor: '#bae6fd',
   },
   windModalTitle: {
     fontSize: 18,

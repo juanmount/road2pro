@@ -319,7 +319,6 @@ export default function HomeScreen() {
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={
           <View>
-            <WeatherStationCard />
             <View style={styles.cardsRow}>
               <View style={styles.cardHalf}>
                 <Season0Card onPress={() => setShowSeason0Modal(true)} />
@@ -328,6 +327,7 @@ export default function HomeScreen() {
                 <ENSOCard onPress={() => setShowENSOModal(true)} />
               </View>
             </View>
+            <WeatherStationCard />
           </View>
         }
       />

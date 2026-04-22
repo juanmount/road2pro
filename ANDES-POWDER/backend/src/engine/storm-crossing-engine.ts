@@ -12,6 +12,7 @@
 import { Resort, ModelAgreement, NormalizedForecast, StormCrossingProbability, CrossingCategory } from '../domain/models';
 import { chileanWeatherService, ChileanStormIndicators } from '../services/chilean-weather-service';
 import { observationProvider } from '../services/observation-provider';
+import { ENSOService } from '../services/enso-service';
 
 
 /**
@@ -49,6 +50,8 @@ export class StormCrossingEngine {
     chileanStormIntensity: 0.20,
     chileanPressureDiff: 0.15,
   };
+  
+  private ensoService = new ENSOService();
   
   /**
    * Compute storm crossing probability for a specific time point
@@ -102,7 +105,17 @@ export class StormCrossingEngine {
     );
     
     // Apply precipitation bias penalty
-    const finalScore = Math.max(0, Math.min(100, totalScore - (100 - precipBiasScore) * 0.2));
+    let finalScore = Math.max(0, Math.min(100, totalScore - (100 - precipBiasScore) * 0.2));
+    
+    // Apply ENSO adjustment
+    try {
+      const ensoData = await this.ensoService.getCurrentENSOData();
+      finalScore = Math.round(finalScore * ensoData.stormMultiplier);
+      finalScore = Math.max(0, Math.min(100, finalScore));
+    } catch (error) {
+      console.warn('Failed to apply ENSO adjustment to storm crossing:', error);
+      // Continue without ENSO adjustment
+    }
     
     // Determine category
     const category = this.determineCategory(finalScore);

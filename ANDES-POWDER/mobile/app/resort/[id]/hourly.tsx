@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useNavigation } from 'expo-router';
 import { resortsService } from '../../../services/resorts';
 import { HourlyForecast, ElevationBand } from '../../../types';
 import { 
@@ -19,25 +19,67 @@ const getWindDirectionArrow = (degrees: number): string => {
 };
 
 export default function HourlyForecastScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const params = useLocalSearchParams<{ id: string; elevation?: string }>();
+  const { id } = params;
+  const initialElevation = (params.elevation as ElevationBand) || 'mid';
+  const navigation = useNavigation();
+  
   const [forecasts, setForecasts] = useState<HourlyForecast[]>([]);
-  const [selectedElevation, setSelectedElevation] = useState<ElevationBand>('mid');
+  const [selectedElevation, setSelectedElevation] = useState<ElevationBand>(initialElevation);
   const [loading, setLoading] = useState(true);
+  const [resort, setResort] = useState<any>(null);
 
   useEffect(() => {
-    loadHourlyForecast();
+    loadResortAndForecast();
   }, [id, selectedElevation]);
+  
+  // Reload when screen comes into focus to get fresh cached data
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      console.log('[HOURLY SCREEN] Screen focused, reloading data');
+      loadResortAndForecast();
+    });
+    return unsubscribe;
+  }, [selectedElevation]);
 
-  const loadHourlyForecast = async () => {
+  const loadResortAndForecast = async () => {
     try {
       setLoading(true);
-      const data = await resortsService.getHourlyForecast(id, selectedElevation, 48);
-      setForecasts(data);
+      const resortData = await resortsService.getById(id);
+      setResort(resortData);
+      
+      // ONLY load from AsyncStorage - never make API call
+      // This ensures we always use the same data as the LIVE card
+      const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+      const cachedKey = `hourly-forecast-${id}-${selectedElevation}`;
+      const cachedData = await AsyncStorage.getItem(cachedKey);
+      
+      if (cachedData) {
+        const data = JSON.parse(cachedData);
+        console.log('[HOURLY SCREEN] ✅ Using CACHED data from AsyncStorage:', data.length, 'hours');
+        console.log('[HOURLY SCREEN] First hour:', {
+          time: data[0]?.time,
+          temp: data[0]?.temperature,
+          wind: data[0]?.windSpeed,
+          freezing: data[0]?.freezingLevel
+        });
+        setForecasts(data);
+      } else {
+        console.error('[HOURLY SCREEN] ❌ No cached data found! Go back to main screen first.');
+        setForecasts([]);
+      }
     } catch (err) {
       console.error('Error loading hourly forecast:', err);
+      setForecasts([]);
     } finally {
       setLoading(false);
     }
+  };
+
+  // Don't adjust wind - just display what comes from DB
+  // The LIVE card applies 1.25x correction, but hourly forecast should show raw values
+  const getAdjustedWindSpeed = (windSpeed: number): number => {
+    return windSpeed;
   };
 
   const formatHour = (timestamp: Date) => {
@@ -149,7 +191,7 @@ export default function HourlyForecastScreen() {
 
                 <View style={styles.dataColumn}>
                   <Text style={styles.windText}>
-                    {formatWind(forecast.windSpeed)}
+                    {formatWind(getAdjustedWindSpeed(forecast.windSpeed))}
                   </Text>
                   {forecast.windDirection !== undefined && (
                     <Text style={styles.detailText}>

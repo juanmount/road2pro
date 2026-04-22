@@ -5,7 +5,7 @@
 
 interface WeatherIconParams {
   hour: number; // 0-23
-  phase: string; // 'none', 'snow', 'rain', 'mixed'
+  phase: string; // 'none', 'snow', 'rain', 'mixed', 'cloudy'
   cloudCover: number; // 0-100
   precipitation: number; // mm
 }
@@ -16,31 +16,17 @@ export function getWeatherIcon(params: WeatherIconParams): string {
   // Determine if it's day or night (sunrise ~6am, sunset ~8pm)
   const isDaytime = hour >= 6 && hour < 20;
   
-  // If there's precipitation, show that first
-  if (precipitation > 0.1) {
-    if (phase === 'snow') {
-      // Heavy snow with clouds if high precipitation or high cloud cover
-      if (precipitation > 0.5 || cloudCover > 70) {
-        return '🌨️'; // Heavy snow with clouds
-      }
-      return '❄️'; // Light snow
-    } else if (phase === 'rain') {
-      return '🌧️'; // Rain
-    } else if (phase === 'mixed') {
-      return '🌨️'; // Mixed/Sleet
-    }
+  // Active precipitation - ALWAYS show weather icons when phase indicates precipitation
+  // Phase is calculated based on temperature and precipitation, so trust it
+  if (phase === 'snow') {
+    return '❄️'; // Snow
+  } else if (phase === 'rain') {
+    return '🌧️'; // Rain
+  } else if (phase === 'mixed') {
+    return '🌨️'; // Mixed/Sleet
   }
   
-  // Light precipitation (trace amounts)
-  if (precipitation > 0 && precipitation <= 0.1) {
-    if (phase === 'snow') {
-      return '❄️'; // Very light snow
-    } else if (phase === 'rain') {
-      return '🌧️'; // Light rain
-    }
-  }
-  
-  // No precipitation - show sun/moon with cloud variations
+  // No active precipitation - show sun/moon with cloud variations
   if (isDaytime) {
     // Daytime icons
     if (cloudCover < 20) {
@@ -57,7 +43,7 @@ export function getWeatherIcon(params: WeatherIconParams): string {
     if (cloudCover < 50) {
       return '🌙'; // Clear night - moon alone
     } else {
-      return '🌙☁️'; // Cloudy night - moon with cloud
+      return '☁️'; // Cloudy night
     }
   }
 }

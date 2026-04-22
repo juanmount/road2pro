@@ -5,9 +5,21 @@
 
 import { NormalizedForecast, ConfidenceScore, ModelAgreement, ElevationBand } from '../domain/models';
 
+export type ConfidenceLevel = 'HIGH' | 'MEDIUM' | 'LOW';
+
 export class ConfidenceService {
   /**
+   * Get confidence category from score
+   */
+  getConfidenceLevel(score: number): ConfidenceLevel {
+    if (score >= 7.5) return 'HIGH';
+    if (score >= 5.0) return 'MEDIUM';
+    return 'LOW';
+  }
+  
+  /**
    * Calculate confidence for a specific time point and elevation
+   * Returns score 0-10 and category (HIGH/MEDIUM/LOW)
    */
   calculateConfidence(
     ecmwf: NormalizedForecast | undefined,
@@ -28,63 +40,97 @@ export class ConfidenceService {
         agreement: 0,
         spread: 1,
         horizon: 0,
-        reason: 'Insufficient model data available'
+        reason: 'Datos insuficientes'
       };
     }
     
-    // Calculate snowfall agreement
+    // 1. Model Agreement (50% weight) - Most important
     const snowfallAgreement = this.calculateSnowfallAgreement(
       ecmwfData?.snowfall,
       gfsData?.snowfall,
       gefsData?.snowfall
     );
     
-    // Calculate temperature agreement
     const tempAgreement = this.calculateTemperatureAgreement(
       ecmwfData?.temperature,
       gfsData?.temperature
     );
     
-    // Calculate freezing level agreement
     const freezingAgreement = this.calculateFreezingLevelAgreement(
       ecmwfData?.freezingLevel,
       gfsData?.freezingLevel
     );
     
-    // Overall agreement (weighted average)
-    const overallAgreement = (
-      snowfallAgreement * 0.5 +  // Snowfall is most important
-      tempAgreement * 0.3 +       // Temperature is important
-      freezingAgreement * 0.2     // Freezing level matters for phase
+    // Weighted model agreement
+    const modelAgreement = (
+      snowfallAgreement * 0.5 +  // Snowfall is most critical
+      tempAgreement * 0.3 +       // Temperature affects phase
+      freezingAgreement * 0.2     // Freezing level for snow/rain
     );
     
-    // Ensemble spread penalty (if GEFS available)
-    const spreadPenalty = gefsData ? this.calculateSpreadPenalty(gefsData) : 0;
+    // 2. Lead Time Factor (30% weight)
+    // Confidence degrades with forecast horizon
+    const hoursOut = timeIndex;
+    const leadTimeFactor = this.calculateLeadTimeFactor(hoursOut);
     
-    // Time horizon penalty (further out = less confident)
-    const hoursOut = timeIndex; // Assuming hourly data
-    const horizonPenalty = Math.min(hoursOut / 168, 0.3); // Max 30% penalty at 7 days
+    // 3. Ensemble Spread (20% weight) - if available
+    const ensembleSpreadFactor = gefsData ? this.calculateEnsembleSpreadFactor(gefsData) : 0.8;
     
-    // Calculate final confidence score (0-10)
-    const baseConfidence = overallAgreement;
-    const adjusted = baseConfidence * (1 - spreadPenalty * 0.3) * (1 - horizonPenalty);
-    const score = Math.max(0, Math.min(10, adjusted * 10));
+    // 4. Calculate final confidence (0-1 scale)
+    const confidenceRaw = (
+      modelAgreement * 0.50 +
+      leadTimeFactor * 0.30 +
+      ensembleSpreadFactor * 0.20
+    );
     
-    // Generate reason
+    // Convert to 0-10 scale
+    const score = Math.max(0, Math.min(10, confidenceRaw * 10));
+    
+    // Generate human-readable reason
     const reason = this.generateConfidenceReason(
       score,
-      overallAgreement,
-      spreadPenalty,
-      horizonPenalty
+      modelAgreement,
+      leadTimeFactor,
+      ensembleSpreadFactor,
+      hoursOut
     );
     
     return {
       score,
-      agreement: overallAgreement,
-      spread: spreadPenalty,
-      horizon: horizonPenalty,
+      agreement: modelAgreement,
+      spread: 1 - ensembleSpreadFactor,
+      horizon: 1 - leadTimeFactor,
       reason
     };
+  }
+  
+  /**
+   * Calculate lead time factor (1.0 = near term, 0.0 = far future)
+   */
+  private calculateLeadTimeFactor(hoursOut: number): number {
+    // Confidence degradation curve
+    // 0-24h: 1.0 (excellent)
+    // 24-48h: 0.9 (very good)
+    // 48-72h: 0.8 (good)
+    // 72-120h: 0.7 (fair)
+    // 120-168h: 0.6 (moderate)
+    // 168h+: 0.5 (low)
+    
+    if (hoursOut <= 24) return 1.0;
+    if (hoursOut <= 48) return 0.9;
+    if (hoursOut <= 72) return 0.8;
+    if (hoursOut <= 120) return 0.7;
+    if (hoursOut <= 168) return 0.6;
+    return 0.5;
+  }
+  
+  /**
+   * Calculate ensemble spread factor (1.0 = tight spread, 0.0 = wide spread)
+   */
+  private calculateEnsembleSpreadFactor(gefsData: any): number {
+    // TODO: Implement when GEFS ensemble members are available
+    // For now, return neutral factor
+    return 0.8;
   }
   
   /**
@@ -178,49 +224,44 @@ export class ConfidenceService {
   }
   
   /**
-   * Generate human-readable confidence reason
+   * Generate human-readable confidence reason in Spanish
    */
   private generateConfidenceReason(
     score: number,
-    agreement: number,
-    spread: number,
-    horizon: number
+    modelAgreement: number,
+    leadTimeFactor: number,
+    ensembleSpreadFactor: number,
+    hoursOut: number
   ): string {
-    const reasons: string[] = [];
-    
-    // Overall confidence level
-    if (score >= 8) {
-      reasons.push('High confidence');
-    } else if (score >= 6) {
-      reasons.push('Good confidence');
-    } else if (score >= 4) {
-      reasons.push('Moderate confidence');
+    // Determine confidence level
+    if (score >= 7.5) {
+      // HIGH confidence
+      if (hoursOut <= 24) {
+        return 'Alta confianza - Modelos coinciden, pronóstico de corto plazo';
+      } else if (hoursOut <= 72) {
+        return 'Alta confianza - Modelos coinciden';
+      } else {
+        return 'Buena confianza - Modelos coinciden, pero pronóstico lejano';
+      }
+    } else if (score >= 5.0) {
+      // MEDIUM confidence
+      if (modelAgreement < 0.7) {
+        return 'Confianza moderada - Modelos difieren levemente';
+      } else if (hoursOut > 120) {
+        return 'Confianza moderada - Pronóstico muy lejano';
+      } else {
+        return 'Confianza moderada - Revisá más cerca de la fecha';
+      }
     } else {
-      reasons.push('Low confidence');
+      // LOW confidence
+      if (modelAgreement < 0.5) {
+        return 'Baja confianza - Modelos no coinciden';
+      } else if (hoursOut > 168) {
+        return 'Baja confianza - Pronóstico demasiado lejano';
+      } else {
+        return 'Baja confianza - Mucha incertidumbre';
+      }
     }
-    
-    // Model agreement
-    if (agreement >= 0.9) {
-      reasons.push('excellent model agreement');
-    } else if (agreement >= 0.7) {
-      reasons.push('good model agreement');
-    } else if (agreement >= 0.5) {
-      reasons.push('fair model agreement');
-    } else {
-      reasons.push('models disagree');
-    }
-    
-    // Ensemble spread
-    if (spread > 0.3) {
-      reasons.push('high ensemble uncertainty');
-    }
-    
-    // Time horizon
-    if (horizon > 0.2) {
-      reasons.push('long forecast horizon');
-    }
-    
-    return reasons.join(', ');
   }
   
   /**

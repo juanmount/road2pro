@@ -1,4 +1,5 @@
 import { ElevationForecast } from '../domain/models';
+import { ENSOService } from '../services/enso-service';
 
 export interface SnowRealityAdjustments {
   windLoss: number;
@@ -21,20 +22,22 @@ export interface SnowRealityForecast {
 }
 
 export class SnowRealityEngine {
+  private ensoService = new ENSOService();
+  
   /**
    * Compute real snow accumulation adjustments for a forecast period
    */
-  computeRealityAdjustments(
+  async computeRealityAdjustments(
     forecast: ElevationForecast,
     elevation: 'base' | 'mid' | 'summit',
     elevationMeters: number,
     forecastSnowfall: number
-  ): SnowRealityForecast {
+  ): Promise<SnowRealityForecast> {
     if (forecastSnowfall <= 0) {
       return this.createNoSnowResult(forecast, elevation, elevationMeters);
     }
 
-    const adjustments = this.calculateAdjustments(
+    const adjustments = await this.calculateAdjustments(
       forecast,
       elevation,
       elevationMeters,
@@ -59,14 +62,14 @@ export class SnowRealityEngine {
     };
   }
 
-  private calculateAdjustments(
+  private async calculateAdjustments(
     forecast: ElevationForecast,
     elevation: 'base' | 'mid' | 'summit',
     elevationMeters: number,
     forecastSnowfall: number
-  ): SnowRealityAdjustments {
+  ): Promise<SnowRealityAdjustments> {
     const windLoss = this.calculateWindLoss(forecast, elevation);
-    const rainContamination = this.calculateRainContamination(forecast, elevationMeters);
+    const rainContamination = await this.calculateRainContamination(forecast, elevationMeters);
     const densityAdjustment = this.calculateDensityAdjustment(forecast, elevationMeters);
     const solarMelt = this.calculateSolarMelt(forecast);
     const sublimation = this.calculateSublimation(forecast);
@@ -105,8 +108,17 @@ export class SnowRealityEngine {
    * Calculate rain contamination loss (0-50%)
    * Rain mixed with snow reduces accumulation quality
    */
-  private calculateRainContamination(forecast: ElevationForecast, elevationMeters: number): number {
-    const freezingLevel = forecast.freezingLevelM || 3000;
+  private async calculateRainContamination(forecast: ElevationForecast, elevationMeters: number): Promise<number> {
+    let freezingLevel = forecast.freezingLevelM || 3000;
+    
+    // Apply ENSO freezing level adjustment
+    try {
+      const ensoData = await this.ensoService.getCurrentENSOData();
+      freezingLevel += ensoData.freezingLevelAdjustment;
+    } catch (error) {
+      console.warn('Failed to apply ENSO freezing level adjustment:', error);
+    }
+    
     const temp = forecast.temperatureC || 0;
     const elevationMargin = freezingLevel - elevationMeters;
 

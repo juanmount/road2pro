@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, LayoutAnimation, Platform, UIManager, ImageBackground, Modal } from 'react-native';
 import { StormCrossingBadge } from './StormCrossingBadge';
+import { ConfidenceBadge } from './ConfidenceBadge';
 import { getWindDirectionLabel } from '../utils/wind-narrative';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -64,6 +65,8 @@ interface DailyForecastCardProps {
   stormCrossing?: StormCrossing;
   snowReality?: SnowReality;
   windImpact?: WindImpact;
+  confidenceScore?: number;
+  confidenceReason?: string;
   onExpandChange?: (expanded: boolean) => void;
 }
 
@@ -79,6 +82,8 @@ export function DailyForecastCard({
   stormCrossing,
   snowReality,
   windImpact,
+  confidenceScore,
+  confidenceReason,
   onExpandChange
 }: DailyForecastCardProps) {
   const [showDayModal, setShowDayModal] = useState(false);
@@ -160,8 +165,15 @@ export function DailyForecastCard({
         <Text style={styles.snowMetricUnit}>cm</Text>
       </View>
       
+      {/* Confidence Badge */}
+      {confidenceScore !== undefined && snowfall > 0 && (
+        <View style={styles.confidenceBadgeContainer}>
+          <ConfidenceBadge score={confidenceScore} compact={true} />
+        </View>
+      )}
+      
       {/* Info Row */}
-      {(snowReality || stormCrossing) && snowfall > 0 && (
+      {(snowReality || stormCrossing) && (
         <View style={styles.infoRow}>
           {snowReality && (
             <TouchableOpacity 
@@ -185,13 +197,17 @@ export function DailyForecastCard({
           
           {stormCrossing && (
             <View style={styles.infoItem}>
-              <Text style={styles.infoLabel}>Storm</Text>
+              <Text style={styles.infoLabel}>Prob. Tormenta</Text>
               <Text style={[
                 styles.infoValue,
                 stormCrossing.category === 'HIGH' && styles.stormColorHigh,
                 stormCrossing.category === 'MEDIUM' && styles.stormColorMedium,
                 stormCrossing.category === 'LOW' && styles.stormColorLow,
-              ]}>~{stormCrossing.score}</Text>
+              ]}>
+                {stormCrossing.category === 'HIGH' ? 'ALTA' : 
+                 stormCrossing.category === 'MEDIUM' ? 'MODERADA' : 
+                 'BAJA'}
+              </Text>
             </View>
           )}
         </View>
@@ -224,7 +240,18 @@ export function DailyForecastCard({
                 </Text>
               </View>
               
-              {stormCrossing && snowfall > 0 && (
+              {confidenceScore !== undefined && snowfall > 0 && (
+                <View style={styles.confidenceSection}>
+                  <Text style={styles.sectionTitle}>Confianza del Pronóstico</Text>
+                  <ConfidenceBadge 
+                    score={confidenceScore}
+                    reason={confidenceReason}
+                    compact={false}
+                  />
+                </View>
+              )}
+              
+              {stormCrossing && (
                 <View style={styles.stormCrossingSection}>
                   <Text style={styles.sectionTitle}>Storm Crossing Analysis</Text>
                   <StormCrossingBadge 
@@ -267,11 +294,9 @@ export function DailyForecastCard({
                               hour.windCategory === 'STRONG' && styles.windStrong,
                               hour.windCategory === 'MODERATE' && styles.windModerate,
                             ]}>{Math.round(hour.adjustedWindSpeed || hour.windSpeed)} km/h</Text>
-                            {/* Wind direction temporarily hidden until backend fix is deployed
                             {hour.windDirection !== undefined && (
                               <Text style={styles.hourWindDir}>{getWindDirectionLabel(hour.windDirection)}</Text>
                             )}
-                            */}
                           </View>
                           <Text style={styles.hourMetricText}>{Math.round(hour.humidity)}%</Text>
                           <Text style={styles.hourMetricText}>{hour.freezingLevel}m</Text>
@@ -1047,8 +1072,22 @@ const styles = StyleSheet.create({
   },
   adjustmentValue: {
     fontSize: 14,
-    fontWeight: '700',
-    color: '#ef4444',
+    fontWeight: '600',
+    color: '#0f172a',
+  },
+  confidenceBadgeContainer: {
+    alignItems: 'center',
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  confidenceSection: {
+    marginVertical: 16,
+    padding: 16,
+    backgroundColor: '#f8fafc',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    alignItems: 'center',
   },
   realityExplanation: {
     fontSize: 14,

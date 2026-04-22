@@ -21,78 +21,104 @@ export const resortsService = {
   async getHourlyForecast(
     id: string,
     elevation: 'base' | 'mid' | 'summit' = 'mid',
-    hours: number = 24
-  ): Promise<any> {
-    try {
-      // Get resort UUID first
-      const resortResponse = await api.get(`/resorts/${id}`);
-      const resortId = resortResponse.data.id;
+    hours: number = 168
+  ): Promise<any[]> {
+    console.log('[SIMPLE] Fetching hourly forecast for', elevation);
+    
+    // Get resort data
+    const resortResponse = await api.get(`/resorts/${id}`);
+    const resort = resortResponse.data;
+    
+    const elevationMeters = elevation === 'base' ? resort.baseElevation : 
+                           elevation === 'mid' ? resort.midElevation : 
+                           resort.summitElevation;
+    
+    // Fetch from Open-Meteo with past_days=1 to get historical data
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${resort.latitude}&longitude=${resort.longitude}&hourly=temperature_2m,precipitation,snowfall,windspeed_10m,winddirection_10m,relativehumidity_2m,freezinglevel_height,cloudcover&forecast_days=7&past_days=1&timezone=auto&models=best_match`;
+    
+    console.log('[SIMPLE] Calling Open-Meteo...');
+    const response = await fetch(url);
+    const data = await response.json();
+    
+    console.log('[SIMPLE] Got', data.hourly.time.length, 'hours from API');
+    console.log('[SIMPLE] First hour:', data.hourly.time[0]);
+    console.log('[SIMPLE] Last hour:', data.hourly.time[data.hourly.time.length - 1]);
+    console.log('[SIMPLE] Freezing level samples:', {
+      first: data.hourly.freezinglevel_height[0],
+      mid: data.hourly.freezinglevel_height[Math.floor(data.hourly.time.length / 2)],
+      last: data.hourly.freezinglevel_height[data.hourly.time.length - 1]
+    });
+    
+    // Start from index 0 to process ALL hours including past_days data
+    // This ensures we get yesterday and today's data
+    const startIndex = 0;
+    
+    console.log('[SIMPLE] Starting from index 0 to include all historical data');
+    
+    // Process hours
+    const forecast = [];
+    let totalPrecip = 0;
+    let totalSnow = 0;
+    
+    for (let i = 0; i < hours && (startIndex + i) < data.hourly.time.length; i++) {
+      const idx = startIndex + i;
       
-      // Query Supabase directly - only get future forecasts from most recent run
-      const now = new Date().toISOString();
-      console.log('[SUPABASE QUERY] Fetching forecast for resort:', resortId, 'elevation:', elevation, 'from:', now);
+      const baseTemp = data.hourly.temperature_2m[idx];
+      const precip = data.hourly.precipitation[idx] || 0;
       
-      // First, get the most recent forecast run ID
-      const { data: latestRun } = await supabase
-        .from('elevation_forecasts')
-        .select('forecast_run_id, created_at')
-        .eq('resort_id', resortId)
-        .eq('elevation_band', elevation)
-        .order('created_at', { ascending: false })
-        .limit(1);
+      // Adjust temperature for elevation (-6.5°C per 1000m)
+      const tempAdjust = -(elevationMeters - 840) * 0.0065;
+      const temp = baseTemp + tempAdjust;
       
-      if (!latestRun || latestRun.length === 0) {
-        console.log('[SUPABASE] No forecast runs found');
-        return [];
+      // Calculate snow based on adjusted temperature
+      let snowfall = 0;
+      let phase = 'clear';
+      
+      if (precip > 0.01) {
+        if (temp <= -1) {
+          // All snow
+          snowfall = precip * 1.0;
+          phase = 'snow';
+        } else if (temp > -1 && temp <= 2) {
+          // Mixed
+          const snowRatio = (2 - temp) / 3;
+          snowfall = precip * snowRatio * 1.0;
+          phase = 'mixed';
+        } else {
+          // Rain
+          snowfall = 0;
+          phase = 'rain';
+        }
+        
+        totalPrecip += precip;
+        totalSnow += snowfall;
+        
+        if (i < 5) {
+          const freezing = data.hourly.freezinglevel_height[idx];
+          console.log(`[SIMPLE] Hour ${i}: ${temp.toFixed(1)}°C, ${precip.toFixed(2)}mm → ${snowfall.toFixed(2)}cm ${phase}, Freezing: ${freezing}m`);
+        }
       }
       
-      const latestRunId = latestRun[0].forecast_run_id;
-      console.log('[SUPABASE] Using forecast run:', latestRunId, 'created:', latestRun[0].created_at);
-      
-      // Now get all future forecasts from that run
-      const { data, error } = await supabase
-        .from('elevation_forecasts')
-        .select('*')
-        .eq('resort_id', resortId)
-        .eq('elevation_band', elevation)
-        .eq('forecast_run_id', latestRunId)
-        .gte('valid_time', now)
-        .order('valid_time', { ascending: true })
-        .limit(hours);
-      
-      if (error) {
-        console.error('[SUPABASE ERROR]', error);
-        return [];
-      }
-      
-      console.log('[SUPABASE RESULT] Received', data?.length || 0, 'rows');
-      if (data && data.length > 0) {
-        console.log('[SUPABASE SAMPLE] First row:', {
-          time: data[0].valid_time,
-          temp: data[0].temperature_c,
-          wind: data[0].wind_speed_kmh,
-          snow: data[0].snowfall_cm_corrected
-        });
-      }
-      
-      // Map to expected format
-      return (data || []).map((row: any) => ({
-        time: row.valid_time,
-        temperature: parseFloat(row.temperature_c),
-        precipitation: parseFloat(row.precipitation_mm || 0),
-        windSpeed: parseFloat(row.wind_speed_kmh || 0),
-        windDirection: row.wind_direction || 0,
-        humidity: 70,
-        cloudCover: parseFloat(row.cloud_cover || 0),
-        phase: row.snowfall_cm_corrected > 0 ? 'snow' : row.precipitation_mm > 0 ? 'rain' : 'none',
-        powderScore: parseFloat(row.powder_score || 0),
-        snowfall: parseFloat(row.snowfall_cm_corrected || 0),
-        freezingLevel: row.freezing_level_m ? parseInt(row.freezing_level_m) : 2000,
-      }));
-    } catch (error) {
-      console.error('Error fetching hourly forecast from Supabase:', error);
-      return [];
+      forecast.push({
+        time: data.hourly.time[idx],
+        temperature: Math.round(temp * 10) / 10,
+        precipitation: precip,
+        snowfall: Math.round(snowfall * 10) / 10,
+        windSpeed: Math.round(data.hourly.windspeed_10m[idx] || 0),
+        windDirection: data.hourly.winddirection_10m[idx] || 0,
+        humidity: data.hourly.relativehumidity_2m[idx] || 70,
+        cloudCover: data.hourly.cloudcover[idx] || 0,
+        freezingLevel: Math.floor(data.hourly.freezinglevel_height[idx] || 2000),
+        phase: phase,
+        powderScore: 0
+      });
     }
+    
+    console.log('[SIMPLE] Processed', forecast.length, 'hours');
+    console.log('[SIMPLE] Total precip:', totalPrecip.toFixed(2), 'mm');
+    console.log('[SIMPLE] Total snow:', totalSnow.toFixed(2), 'cm');
+    
+    return forecast;
   },
 
   async getSnowfallHistory(
@@ -101,11 +127,9 @@ export const resortsService = {
     days: number = 5
   ): Promise<any[]> {
     try {
-      // Get resort UUID first
       const resortResponse = await api.get(`/resorts/${id}`);
       const resortId = resortResponse.data.id;
       
-      // Query snowfall_history table
       const { data, error } = await supabase
         .from('snowfall_history')
         .select('*')
@@ -119,9 +143,6 @@ export const resortsService = {
         return [];
       }
       
-      console.log('[HISTORY] Retrieved', data?.length || 0, 'days of snowfall history');
-      
-      // Map to expected format
       return (data || []).map((row: any) => {
         const date = new Date(row.date);
         return {
@@ -150,10 +171,7 @@ export const resortsService = {
     return response.data;
   },
 
-  async getStormCrossing(
-    id: string,
-    hours: number = 168
-  ): Promise<any> {
+  async getStormCrossing(id: string, hours: number = 168): Promise<any> {
     const response = await api.get(`/resorts/${id}/storm-crossing`, {
       params: { hours },
     });
@@ -167,6 +185,13 @@ export const resortsService = {
 
   async getWindImpact(id: string): Promise<any> {
     const response = await api.get(`/resorts/${id}/wind-impact`);
+    return response.data;
+  },
+
+  async getBestTimeToSki(id: string, elevation: 'base' | 'mid' | 'summit' = 'mid'): Promise<any> {
+    const response = await api.get(`/resorts/${id}/best-time`, {
+      params: { elevation }
+    });
     return response.data;
   },
 };
