@@ -124,22 +124,24 @@ export class SnowRealityEngine {
 
     let contaminationLoss = 0;
 
-    // Less aggressive losses - allow for more realistic accumulation
-    if (elevationMargin < 100) {
-      contaminationLoss = 25 + Math.random() * 10;  // Reduced from 40-50%
-    } else if (elevationMargin < 300) {
-      contaminationLoss = 15 + Math.random() * 8;   // Reduced from 20-30%
-    } else if (elevationMargin < 600) {
-      contaminationLoss = 5 + Math.random() * 5;    // Reduced from 8-15%
+    // STRICT: If >300m above freezing level, it's all rain (100% loss)
+    if (elevationMargin > 300) {
+      return 100;  // Complete rain, no snow
+    } else if (elevationMargin > 150) {
+      contaminationLoss = 70 + Math.random() * 20;  // 70-90% loss (mostly rain)
+    } else if (elevationMargin > 50) {
+      contaminationLoss = 40 + Math.random() * 20;  // 40-60% loss (mixed)
+    } else if (elevationMargin < 100) {
+      contaminationLoss = 25 + Math.random() * 10;  // 25-35% loss (mostly snow)
     } else {
-      contaminationLoss = 0 + Math.random() * 3;
+      contaminationLoss = 15 + Math.random() * 8;   // 15-23% loss (good snow)
     }
 
     if (temp > -1) {
-      contaminationLoss += 8;  // Reduced from 10%
+      contaminationLoss += 8;
     }
 
-    return Math.min(40, Math.round(contaminationLoss));  // Max 40% instead of 50%
+    return Math.min(100, Math.round(contaminationLoss));
   }
 
   /**
