@@ -12,7 +12,8 @@ export class SnowAccumulationCalculator {
     snowRatio: number,
     temperature: number
   ): number {
-    if (snowRatio === 0) return 0;
+    // No snow if ratio is 0 or too low (< 15% is essentially rain)
+    if (snowRatio < 0.15) return 0;
     
     // Base conversion: 1mm precip = ~1cm snow (10:1 ratio)
     const baseRatio = 10;

@@ -51,8 +51,8 @@ export class PhaseClassifier {
       if (wetBulb > 2 || margin > 200) {
         return { phase: 'rain', confidence: 'high', snowRatio: 0.0 };
       }
-      // Medium confidence if marginal
-      return { phase: 'rain', confidence: 'medium', snowRatio: 0.1 };
+      // Medium confidence if marginal - still rain, no snow
+      return { phase: 'rain', confidence: 'medium', snowRatio: 0.0 };
     }
     
     if (phase === 'mixed') {
@@ -95,8 +95,15 @@ export class PhaseClassifier {
     // Adjust ratio based on position relative to freezing level
     if (elevationMargin < -100) {
       ratio = Math.min(1.0, ratio + 0.2); // Boost snow ratio if well below freezing level
-    } else if (elevationMargin > 100) {
-      ratio = Math.max(0.0, ratio - 0.2); // Reduce snow ratio if well above freezing level
+    } else if (elevationMargin > 300) {
+      // Well above freezing level (>300m) = no snow
+      ratio = 0.0;
+    } else if (elevationMargin > 150) {
+      // 150-300m above = minimal snow (max 10%)
+      ratio = Math.min(0.1, ratio * 0.2);
+    } else if (elevationMargin > 50) {
+      // 50-150m above = reduced snow
+      ratio = Math.max(0.0, ratio - 0.4);
     }
     
     return Math.max(0, Math.min(1, ratio));
