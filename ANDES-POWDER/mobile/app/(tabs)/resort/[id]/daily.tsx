@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
-import { resortsService } from '../../../services/resorts';
-import { DailyForecast, ElevationBand } from '../../../types';
+import { resortsService } from '../../../../services/resorts';
+import { DailyForecast, ElevationBand } from '../../../../types';
 import { 
   getPowderScoreColor, 
   getPowderScoreLabel,
@@ -10,7 +10,7 @@ import {
   formatSnowfall,
   formatWind,
   getFreezeQualityLabel
-} from '../../../utils/powder-score';
+} from '../../../../utils/powder-score';
 
 export default function DailyForecastScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
