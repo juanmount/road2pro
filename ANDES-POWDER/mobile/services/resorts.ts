@@ -34,7 +34,8 @@ export const resortsService = {
                            resort.summitElevation;
     
     // Fetch from Open-Meteo with past_days=1 to get historical data
-    const url = `https://api.open-meteo.com/v1/forecast?latitude=${resort.latitude}&longitude=${resort.longitude}&hourly=temperature_2m,precipitation,snowfall,windspeed_10m,winddirection_10m,relativehumidity_2m,freezinglevel_height,cloudcover&forecast_days=7&past_days=1&timezone=auto&models=best_match`;
+    // forecast_days=8 to get today + 7 future days (total 8 days forward)
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${resort.latitude}&longitude=${resort.longitude}&hourly=temperature_2m,precipitation,snowfall,windspeed_10m,winddirection_10m,relativehumidity_2m,freezinglevel_height,cloudcover&forecast_days=8&past_days=1&timezone=auto&models=best_match`;
     
     console.log('[SIMPLE] Calling Open-Meteo...');
     const response = await fetch(url);
