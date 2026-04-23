@@ -47,6 +47,12 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
+          href: null, // Hidden redirect
+        }}
+      />
+      <Tabs.Screen
+        name="cerros"
+        options={{
           title: 'Cerros',
           tabBarIcon: ({ color, size, focused }) => (
             <Ionicons 
@@ -103,13 +109,6 @@ export default function TabLayout() {
               style={focused ? styles.iconGlow : undefined}
             />
           ),
-        }}
-      />
-      <Tabs.Screen
-        name="resort/[id]/index"
-        options={{
-          href: null, // Hide from tab bar
-          title: 'Detalle del Cerro',
         }}
       />
     </Tabs>
