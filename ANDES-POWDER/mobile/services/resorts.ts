@@ -72,18 +72,25 @@ export const resortsService = {
       const tempAdjust = -(elevationMeters - 840) * 0.0065;
       const temp = baseTemp + tempAdjust;
       
-      // Calculate snow based on adjusted temperature
+      // Calculate snow based on freezing level AND temperature
       let snowfall = 0;
       let phase = 'clear';
       
       if (precip > 0.01) {
-        if (temp <= -1) {
-          // All snow
+        const freezingLevel = data.hourly.freezinglevel_height[idx] || 2000;
+        const elevationMargin = freezingLevel - elevationMeters;
+        
+        // STRICT: If >300m above freezing level, it's all rain
+        if (elevationMargin > 300) {
+          snowfall = 0;
+          phase = 'rain';
+        } else if (temp <= -1 && elevationMargin < 100) {
+          // All snow (cold + below freezing level)
           snowfall = precip * 1.0;
           phase = 'snow';
-        } else if (temp > -1 && temp <= 2) {
-          // Mixed
-          const snowRatio = (2 - temp) / 3;
+        } else if (temp > -1 && temp <= 2 && elevationMargin < 200) {
+          // Mixed (marginal temp + near freezing level)
+          const snowRatio = Math.max(0, (2 - temp) / 3) * Math.max(0, (200 - elevationMargin) / 200);
           snowfall = precip * snowRatio * 1.0;
           phase = 'mixed';
         } else {
