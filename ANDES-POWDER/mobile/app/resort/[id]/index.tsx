@@ -342,11 +342,13 @@ export default function ResortDetailScreen() {
       todayDate.setHours(0, 0, 0, 0);
       const filteredForecast = dailyFromHourly.filter(day => {
         const dayDate = new Date(day.date);
+        dayDate.setHours(0, 0, 0, 0);
         return dayDate >= todayDate;
-      });
+      }).slice(0, 7); // Limit to 7 days AFTER filtering
       
       console.log('[DAILY FORECAST] After filtering past days:', filteredForecast.length, 'days');
       console.log('[DAILY FORECAST] First day after filter:', filteredForecast[0]?.date);
+      console.log('[DAILY FORECAST] Last day after filter:', filteredForecast[filteredForecast.length - 1]?.date);
       
       setDailyForecast(filteredForecast);
       
@@ -726,7 +728,8 @@ export default function ResortDetailScreen() {
       days.push(dayData);
     });
     
-    return days.slice(0, 7);
+    // Don't limit here - let the filter handle it to ensure 7 days after filtering
+    return days;
   };
 
   if (loading || !resort) {

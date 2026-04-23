@@ -24,10 +24,12 @@ export default function WeatherStationCard() {
 
   const fetchWeatherStationData = async () => {
     try {
-      // Use localhost for development, production URL for release
-      const API_URL = __DEV__ 
-        ? 'http://localhost:3000/api/weather-station/current'
-        : 'https://road2pro-784570271418.southamerica-west1.run.app/api/weather-station/current';
+      // TEMPORARY: Force production for testing
+      const FORCE_PRODUCTION = true;
+      
+      const API_URL = (FORCE_PRODUCTION || !__DEV__)
+        ? 'https://road2pro-production.up.railway.app/api/weather-station/current'
+        : 'http://localhost:3000/api/weather-station/current';
       
       const response = await fetch(API_URL);
       if (response.ok) {

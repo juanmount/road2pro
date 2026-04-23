@@ -46,7 +46,7 @@ function RootLayoutNav() {
         }} 
       />
       <Stack.Screen 
-        name="index" 
+        name="(tabs)" 
         options={{ 
           headerShown: false,
         }} 
