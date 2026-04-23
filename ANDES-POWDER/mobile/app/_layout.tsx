@@ -51,14 +51,6 @@ function RootLayoutNav() {
           headerShown: false,
         }} 
       />
-      <Stack.Screen 
-        name="resort/[id]/index" 
-        options={{ 
-          headerShown: false,
-          presentation: 'card',
-          animation: 'slide_from_right',
-        }} 
-      />
     </Stack>
   );
 }

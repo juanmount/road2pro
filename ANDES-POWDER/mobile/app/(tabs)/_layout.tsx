@@ -1,4 +1,4 @@
-import { Tabs } from 'expo-router';
+import { Tabs, usePathname } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { StyleSheet, Platform } from 'react-native';
@@ -6,18 +6,25 @@ import { StyleSheet, Platform } from 'react-native';
 export default function TabLayout() {
   return (
     <Tabs
-      screenOptions={{
+      screenOptions={({ route }) => ({
         headerShown: false,
-        tabBarStyle: {
-          position: 'absolute',
-          bottom: 0,
-          left: 0,
-          right: 0,
-          elevation: 0,
-          backgroundColor: 'transparent',
-          borderTopWidth: 0,
-          height: Platform.OS === 'ios' ? 88 : 68,
-        },
+        tabBarStyle: ((route) => {
+          // Hide tab bar on resort detail screen
+          const routeName = route.name;
+          if (routeName.includes('resort')) {
+            return { display: 'none' };
+          }
+          return {
+            position: 'absolute',
+            bottom: 0,
+            left: 0,
+            right: 0,
+            elevation: 0,
+            backgroundColor: 'transparent',
+            borderTopWidth: 0,
+            height: Platform.OS === 'ios' ? 88 : 68,
+          };
+        })(route),
         tabBarBackground: () => (
           <BlurView
             intensity={80}
@@ -35,7 +42,7 @@ export default function TabLayout() {
         tabBarItemStyle: {
           paddingTop: 8,
         },
-      }}
+      })}
     >
       <Tabs.Screen
         name="index"
@@ -96,6 +103,13 @@ export default function TabLayout() {
               style={focused ? styles.iconGlow : undefined}
             />
           ),
+        }}
+      />
+      <Tabs.Screen
+        name="resort/[id]/index"
+        options={{
+          href: null, // Hide from tab bar
+          title: 'Detalle del Cerro',
         }}
       />
     </Tabs>
