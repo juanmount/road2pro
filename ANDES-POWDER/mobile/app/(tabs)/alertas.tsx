@@ -1,12 +1,79 @@
-import { View, Text, StyleSheet, ScrollView, Switch } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Switch, TouchableOpacity, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import notificationService from '../../services/notifications';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function AlertasScreen() {
   const [snowAlerts, setSnowAlerts] = useState(true);
   const [windAlerts, setWindAlerts] = useState(false);
   const [stormAlerts, setStormAlerts] = useState(true);
+  const [pushToken, setPushToken] = useState<string | null>(null);
+  const [permissionGranted, setPermissionGranted] = useState(false);
+
+  useEffect(() => {
+    loadPreferences();
+    setupNotifications();
+  }, []);
+
+  const loadPreferences = async () => {
+    try {
+      const prefs = await AsyncStorage.getItem('notificationPreferences');
+      if (prefs) {
+        const { snowAlerts: snow, windAlerts: wind, stormAlerts: storm } = JSON.parse(prefs);
+        setSnowAlerts(snow);
+        setWindAlerts(wind);
+        setStormAlerts(storm);
+      }
+    } catch (error) {
+      console.error('Error loading preferences:', error);
+    }
+  };
+
+  const setupNotifications = async () => {
+    const token = await notificationService.registerForPushNotifications();
+    if (token) {
+      setPushToken(token);
+      setPermissionGranted(true);
+      
+      // Save to backend
+      await notificationService.savePushToken(token, {
+        snowAlerts,
+        stormAlerts,
+        windAlerts,
+      });
+    }
+  };
+
+  const updatePreference = async (
+    key: 'snowAlerts' | 'windAlerts' | 'stormAlerts',
+    value: boolean
+  ) => {
+    const newPrefs = {
+      snowAlerts: key === 'snowAlerts' ? value : snowAlerts,
+      windAlerts: key === 'windAlerts' ? value : windAlerts,
+      stormAlerts: key === 'stormAlerts' ? value : stormAlerts,
+    };
+
+    // Update local state
+    if (key === 'snowAlerts') setSnowAlerts(value);
+    if (key === 'windAlerts') setWindAlerts(value);
+    if (key === 'stormAlerts') setStormAlerts(value);
+
+    // Save to AsyncStorage
+    await AsyncStorage.setItem('notificationPreferences', JSON.stringify(newPrefs));
+
+    // Update backend
+    if (permissionGranted) {
+      await notificationService.updatePreferences(newPrefs);
+    }
+  };
+
+  const testNotification = async () => {
+    await notificationService.scheduleTestNotification();
+    Alert.alert('Notificación de prueba', 'Recibirás una notificación en 2 segundos');
+  };
 
   return (
     <LinearGradient
@@ -35,7 +102,7 @@ export default function AlertasScreen() {
             </View>
             <Switch
               value={snowAlerts}
-              onValueChange={setSnowAlerts}
+              onValueChange={(value) => updatePreference('snowAlerts', value)}
               trackColor={{ false: '#334155', true: '#63b3ed' }}
               thumbColor={snowAlerts ? '#fff' : '#94a3b8'}
             />
@@ -53,7 +120,7 @@ export default function AlertasScreen() {
             </View>
             <Switch
               value={stormAlerts}
-              onValueChange={setStormAlerts}
+              onValueChange={(value) => updatePreference('stormAlerts', value)}
               trackColor={{ false: '#334155', true: '#8b5cf6' }}
               thumbColor={stormAlerts ? '#fff' : '#94a3b8'}
             />
@@ -71,12 +138,29 @@ export default function AlertasScreen() {
             </View>
             <Switch
               value={windAlerts}
-              onValueChange={setWindAlerts}
+              onValueChange={(value) => updatePreference('windAlerts', value)}
               trackColor={{ false: '#334155', true: '#f59e0b' }}
               thumbColor={windAlerts ? '#fff' : '#94a3b8'}
             />
           </View>
         </View>
+
+        {/* Test Notification Button */}
+        {permissionGranted && (
+          <TouchableOpacity style={styles.testButton} onPress={testNotification}>
+            <Ionicons name="notifications" size={20} color="#fff" />
+            <Text style={styles.testButtonText}>Probar Notificación</Text>
+          </TouchableOpacity>
+        )}
+
+        {!permissionGranted && (
+          <View style={styles.permissionWarning}>
+            <Ionicons name="warning" size={24} color="#f59e0b" />
+            <Text style={styles.permissionText}>
+              Permisos de notificaciones no otorgados. Actívalos en Configuración.
+            </Text>
+          </View>
+        )}
 
         {/* Recent Alerts */}
         <View style={styles.section}>
@@ -158,6 +242,38 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#94a3b8',
     lineHeight: 18,
+  },
+  testButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#63b3ed',
+    borderRadius: 12,
+    padding: 16,
+    marginTop: 16,
+    gap: 8,
+  },
+  testButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  permissionWarning: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(245, 158, 11, 0.1)',
+    borderRadius: 12,
+    padding: 16,
+    marginTop: 16,
+    borderWidth: 1,
+    borderColor: '#f59e0b',
+    gap: 12,
+  },
+  permissionText: {
+    flex: 1,
+    fontSize: 14,
+    color: '#f59e0b',
+    lineHeight: 20,
   },
   emptyState: {
     alignItems: 'center',

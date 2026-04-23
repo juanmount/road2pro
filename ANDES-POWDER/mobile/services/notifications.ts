@@ -1,0 +1,153 @@
+import * as Notifications from 'expo-notifications';
+import * as Device from 'expo-device';
+import { Platform } from 'react-native';
+import Constants from 'expo-constants';
+import api from '../config/api';
+
+// Configure notification behavior
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: true,
+  }),
+});
+
+export interface NotificationPreferences {
+  snowAlerts: boolean;
+  stormAlerts: boolean;
+  windAlerts: boolean;
+}
+
+class NotificationService {
+  private expoPushToken: string | null = null;
+
+  /**
+   * Request notification permissions and get push token
+   */
+  async registerForPushNotifications(): Promise<string | null> {
+    if (!Device.isDevice) {
+      console.log('Push notifications only work on physical devices');
+      return null;
+    }
+
+    try {
+      // Check existing permissions
+      const { status: existingStatus } = await Notifications.getPermissionsAsync();
+      let finalStatus = existingStatus;
+
+      // Request permissions if not granted
+      if (existingStatus !== 'granted') {
+        const { status } = await Notifications.requestPermissionsAsync();
+        finalStatus = status;
+      }
+
+      if (finalStatus !== 'granted') {
+        console.log('Permission not granted for push notifications');
+        return null;
+      }
+
+      // Get push token
+      const projectId = Constants.expoConfig?.extra?.eas?.projectId;
+      
+      const tokenData = await Notifications.getExpoPushTokenAsync({
+        projectId: projectId || 'your-project-id', // Fallback
+      });
+
+      this.expoPushToken = tokenData.data;
+      console.log('Expo Push Token:', this.expoPushToken);
+
+      // Configure notification channel for Android
+      if (Platform.OS === 'android') {
+        await Notifications.setNotificationChannelAsync('default', {
+          name: 'default',
+          importance: Notifications.AndroidImportance.MAX,
+          vibrationPattern: [0, 250, 250, 250],
+          lightColor: '#63b3ed',
+        });
+      }
+
+      return this.expoPushToken;
+    } catch (error) {
+      console.error('Error registering for push notifications:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Save push token to backend
+   */
+  async savePushToken(token: string, preferences: NotificationPreferences): Promise<void> {
+    try {
+      await api.post('/notifications/register', {
+        token,
+        platform: Platform.OS,
+        preferences,
+      });
+      console.log('Push token saved to backend');
+    } catch (error) {
+      console.error('Error saving push token:', error);
+    }
+  }
+
+  /**
+   * Update notification preferences
+   */
+  async updatePreferences(preferences: NotificationPreferences): Promise<void> {
+    if (!this.expoPushToken) {
+      console.log('No push token available');
+      return;
+    }
+
+    try {
+      await api.put('/notifications/preferences', {
+        token: this.expoPushToken,
+        preferences,
+      });
+      console.log('Notification preferences updated');
+    } catch (error) {
+      console.error('Error updating preferences:', error);
+    }
+  }
+
+  /**
+   * Get current push token
+   */
+  getToken(): string | null {
+    return this.expoPushToken;
+  }
+
+  /**
+   * Add notification received listener
+   */
+  addNotificationReceivedListener(
+    callback: (notification: Notifications.Notification) => void
+  ) {
+    return Notifications.addNotificationReceivedListener(callback);
+  }
+
+  /**
+   * Add notification response listener (when user taps notification)
+   */
+  addNotificationResponseListener(
+    callback: (response: Notifications.NotificationResponse) => void
+  ) {
+    return Notifications.addNotificationResponseReceivedListener(callback);
+  }
+
+  /**
+   * Schedule a local notification (for testing)
+   */
+  async scheduleTestNotification(): Promise<void> {
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title: '❄️ Nevada Importante',
+        body: 'Se pronostican 15cm en Cerro Catedral en las próximas 24 horas',
+        data: { resortId: 'cerro-catedral' },
+      },
+      trigger: { seconds: 2 },
+    });
+  }
+}
+
+export default new NotificationService();

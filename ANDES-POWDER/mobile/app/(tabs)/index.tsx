@@ -2,16 +2,16 @@ import { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, ImageBackground, StatusBar, Image } from 'react-native';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { resortsService } from '../services/resorts';
-import { Resort, CurrentConditions } from '../types';
-import { getPowderScoreColor, getPowderScoreLabel } from '../utils/powder-score';
-import { getWeatherIcon } from '../utils/weather-icons';
-import ENSOCard from '../components/ENSOCard';
-import ENSOModal from '../components/ENSOModal';
-import Season0Card from '../components/Season0Card';
-import OnboardingScreen from '../components/OnboardingScreen';
-import Season0Modal from '../components/Season0Modal';
-import WeatherStationCard from '../components/WeatherStationCard';
+import { resortsService } from '../../services/resorts';
+import { Resort, CurrentConditions } from '../../types';
+import { getPowderScoreColor, getPowderScoreLabel } from '../../utils/powder-score';
+import { getWeatherIcon } from '../../utils/weather-icons';
+import ENSOCard from '../../components/ENSOCard';
+import ENSOModal from '../../components/ENSOModal';
+import Season0Card from '../../components/Season0Card';
+import OnboardingScreen from '../../components/OnboardingScreen';
+import Season0Modal from '../../components/Season0Modal';
+import WeatherStationCard from '../../components/WeatherStationCard';
 
 interface ResortWithConditions extends Resort {
   currentConditions?: {
@@ -28,10 +28,10 @@ interface ResortWithConditions extends Resort {
 
 // Resort background images mapping
 const resortImages: Record<string, any> = {
-  'cerro-catedral': require('../assets/cerro-catedral-bg.jpg'),
-  'cerro-castor': require('../assets/cerro-castor-bg.jpg'),
-  'cerro-chapelco': require('../assets/cerro-chapelco-bg.jpg'),
-  'las-lenas': require('../assets/cerro-lenas-bg.jpg'),
+  'cerro-catedral': require('../../assets/cerro-catedral-bg.jpg'),
+  'cerro-castor': require('../../assets/cerro-castor-bg.jpg'),
+  'cerro-chapelco': require('../../assets/cerro-chapelco-bg.jpg'),
+  'las-lenas': require('../../assets/cerro-lenas-bg.jpg'),
 };
 
 const getResortImage = (slug: string) => {
@@ -248,7 +248,7 @@ export default function HomeScreen() {
   if (checkingOnboarding) {
     return (
       <ImageBackground
-        source={require('../assets/Background_home.jpeg')}
+        source={require('../../assets/Background_home.jpeg')}
         style={styles.centerContainer}
         imageStyle={styles.backgroundImage}
       >
@@ -265,7 +265,7 @@ export default function HomeScreen() {
   if (loading) {
     return (
       <ImageBackground
-        source={require('../assets/Background_home.jpeg')}
+        source={require('../../assets/Background_home.jpeg')}
         style={styles.centerContainer}
         imageStyle={styles.backgroundImage}
       >
@@ -279,7 +279,7 @@ export default function HomeScreen() {
   if (error) {
     return (
       <ImageBackground
-        source={require('../assets/Background_home.jpeg')}
+        source={require('../../assets/Background_home.jpeg')}
         style={styles.centerContainer}
         imageStyle={styles.backgroundImage}
       >
@@ -294,7 +294,7 @@ export default function HomeScreen() {
 
   return (
     <ImageBackground
-      source={require('../assets/Background_home.jpeg')}
+      source={require('../../assets/Background_home.jpeg')}
       style={styles.container}
       imageStyle={styles.backgroundImage}
     >
@@ -304,7 +304,7 @@ export default function HomeScreen() {
       <View style={styles.header}>
         <View style={styles.headerContent}>
           <Image 
-            source={require('../assets/Logo_horizontal.png')} 
+            source={require('../../assets/Logo_horizontal.png')} 
             style={styles.headerLogo}
             resizeMode="contain"
           />
