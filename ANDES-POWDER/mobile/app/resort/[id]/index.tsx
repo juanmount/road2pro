@@ -1063,8 +1063,8 @@ export default function ResortDetailScreen() {
                   // Calculate RAW snowfall (what Open-Meteo says without adjustments)
                   const rawTodaySnowfall = todayHours.reduce((sum: number, h: any) => sum + (h.snowfall || 0), 0);
                   
-                  // Our adjusted forecast is already in todayForecastSnowfall
-                  const adjustedTodaySnowfall = todayForecastSnowfall;
+                  // Our adjusted forecast uses Snow Reality Engine
+                  const adjustedTodaySnowfall = todayRealSnowfall;
                   
                   // Calculate adjustment percentage
                   const adjustmentPercent = rawTodaySnowfall > 0 
