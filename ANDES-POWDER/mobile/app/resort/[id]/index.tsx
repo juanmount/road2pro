@@ -1043,37 +1043,10 @@ export default function ResortDetailScreen() {
             );
           })()}
           
-          {/* Snow metrics - show when there's snowfall, otherwise show comparison data */}
+          {/* Snow metrics - always show comparison data for consistency */}
           <View style={styles.glassMetrics}>
-            {todayForecastSnowfall > 0 ? (
-              <>
-                <View style={styles.glassBox}>
-                  <Text style={styles.metricLabel}>PRONÓSTICO</Text>
-                  <Text style={styles.glassNumber}>{Math.round(todayForecastSnowfall)}</Text>
-                  <Text style={styles.glassUnit}>cm</Text>
-                </View>
-                <View style={styles.glassBox}>
-                  <Text style={styles.metricLabel}>REAL</Text>
-                  <Text style={styles.glassNumber}>{Math.round(todayRealSnowfall)}</Text>
-                  <Text style={styles.glassUnit}>cm</Text>
-                </View>
-                <View style={styles.glassBox}>
-                  <Text style={styles.metricLabel}>CALIDAD</Text>
-                  <Text style={styles.glassNumber}>{Math.round(currentHour.powderScore || 0)}/10</Text>
-                </View>
-                <View style={styles.glassBox}>
-                  <Text style={styles.metricLabel}>TIPO</Text>
-                  <Text style={styles.glassNumber}>
-                    {currentHour.temperature < -5 ? 'POLVO' :
-                     currentHour.temperature >= -5 && currentHour.temperature < 0 ? 'COMPACTA' :
-                     currentHour.temperature >= 0 && currentHour.temperature < 2 ? 'PESADA' : 'MOJADA'}
-                  </Text>
-                </View>
-              </>
-            ) : (
-              <>
-                {(() => {
-                  // Show TODAY's comparison: raw Open-Meteo vs our adjusted forecast
+            {(() => {
+              // Show TODAY's comparison: raw Open-Meteo vs our adjusted forecast
                   // This is educational and shows why we're different
                   
                   // Get today's hourly data to calculate raw snowfall
@@ -1125,9 +1098,7 @@ export default function ResortDetailScreen() {
                       </View>
                     </>
                   );
-                })()}
-              </>
-            )}
+            })()}
           </View>
           </View>
           </ImageBackground>
