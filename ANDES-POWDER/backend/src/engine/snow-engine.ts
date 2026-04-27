@@ -388,7 +388,11 @@ export class SnowEngine {
       precipitationMm: corrected.precipitationCorrected,
       snowfallCmRaw: rawSnowfall,
       windSpeedKmh: corrected.windSpeedCorrected,
-      windGustKmh: data.windGust,
+      windGustKmh: (() => {
+        if (!data.windGust) return corrected.windSpeedCorrected * 1.3;
+        const gustCorrectionFactor = data.windSpeed ? corrected.windSpeedCorrected / data.windSpeed : 1;
+        return Math.max(Math.round(data.windGust * gustCorrectionFactor), corrected.windSpeedCorrected);
+      })(),
       windDirection: data.windDirection,
       humidity: data.humidity,
       cloudCover: data.cloudCover,
