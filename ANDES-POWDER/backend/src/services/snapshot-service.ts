@@ -157,7 +157,7 @@ export class SnapshotService {
       [
         resortId, eventDate, snapshot.id,
         validation.forecastedSnow.base, validation.forecastedSnow.mid, validation.forecastedSnow.summit,
-        validation.observedSnow.base, validation.observedSnow.mid, validation.observedSnow.summit,
+        validation.observedSnow?.base || 0, validation.observedSnow?.mid || 0, validation.observedSnow?.summit || 0,
         observationType, observationSource, notes,
         accuracy.baseError, accuracy.midError, accuracy.summitError, accuracy.overallMAE
       ]
@@ -207,7 +207,7 @@ export class SnapshotService {
     
     const metrics: AccuracyMetrics = {
       resortId,
-      period: 'custom',
+      period: 'season' as const,
       startDate,
       endDate,
       totalForecasts: validations.length,
