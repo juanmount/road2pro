@@ -494,6 +494,35 @@ export class SnowEngine {
       hybrid.freezingLevels = [...hybrid.freezingLevels, ...additionalLevels].slice(0, 168);
     }
     
+    // PRECIPITATION MAX MERGE: Use maximum precipitation across all models
+    // If any model predicts rain/snow, we show it (conservative approach)
+    // GFS is accurate for wind/temp in Patagonia, but ECMWF often captures precipitation events better
+    const allModels = [ecmwf, gfs, gefs].filter(Boolean);
+    if (allModels.length > 1) {
+      for (const elevation of ['base', 'mid', 'summit'] as const) {
+        hybrid[elevation] = hybrid[elevation].map((point: any) => {
+          const pointTime = new Date(point.time).getTime();
+          let maxPrecip = point.precipitation || 0;
+          let maxSnowfall = point.snowfall || 0;
+          
+          // Check all available models for higher precipitation at this time
+          for (const model of allModels) {
+            const modelData = model![elevation] || [];
+            const match = modelData.find((mp: any) => 
+              Math.abs(new Date(mp.time).getTime() - pointTime) < 1800000 // within 30 min
+            );
+            if (match) {
+              maxPrecip = Math.max(maxPrecip, match.precipitation || 0);
+              maxSnowfall = Math.max(maxSnowfall, match.snowfall || 0);
+            }
+          }
+          
+          return { ...point, precipitation: maxPrecip, snowfall: maxSnowfall };
+        });
+      }
+      console.log('    → Precipitation merged: using max across all available models');
+    }
+    
     return hybrid;
   }
   
