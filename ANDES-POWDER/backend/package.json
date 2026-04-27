@@ -6,8 +6,9 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
-    "start": "npm run migrate && node dist/index.js",
+    "start": "node dist/scripts/run-migrations.js && node dist/index.js",
     "migrate": "tsx scripts/run-migrations.ts",
+    "migrate:prod": "node dist/scripts/run-migrations.js",
     "db:migrate": "psql $DATABASE_URL -f database/schema.sql",
     "cron:forecast": "tsx src/services/forecast-cron.ts",
     "lint": "eslint src --ext .ts",

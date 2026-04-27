@@ -19,7 +19,7 @@ async function runMigrations() {
   try {
     console.log('🔄 Starting database migrations...');
     
-    const migrationsDir = path.join(__dirname, '../database/migrations');
+    const migrationsDir = path.join(__dirname, '../../database/migrations');
     const migrationFiles = fs.readdirSync(migrationsDir)
       .filter(f => f.endsWith('.sql'))
       .sort();
