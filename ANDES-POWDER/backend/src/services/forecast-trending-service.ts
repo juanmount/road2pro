@@ -164,7 +164,7 @@ export class ForecastTrendingService {
       console.log('[TRENDING] Starting daily snapshot for all resorts...');
 
       const result = await pool.query(
-        `SELECT id FROM resorts WHERE is_active = true`
+        `SELECT id FROM resorts`
       );
 
       const resorts = result.rows as any[];
