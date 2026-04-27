@@ -36,7 +36,7 @@ export class ForecastTrendingService {
         const result = await pool.query(
           `SELECT 
             DATE(valid_time) as forecast_date,
-            SUM(snowfall_cm) as total_snowfall,
+            SUM(snowfall_cm_corrected) as total_snowfall,
             SUM(precipitation_mm) as total_precipitation,
             MAX(temperature_c) as max_temp,
             MIN(temperature_c) as min_temp,
