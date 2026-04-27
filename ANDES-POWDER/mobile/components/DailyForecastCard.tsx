@@ -55,6 +55,12 @@ interface WindImpact {
   warnings: string[];
 }
 
+interface TrendingData {
+  change: number;
+  changePercent: number;
+  trend: 'increase' | 'decrease' | 'stable';
+}
+
 interface DailyForecastCardProps {
   day: string;
   date: string;
@@ -69,6 +75,7 @@ interface DailyForecastCardProps {
   windImpact?: WindImpact;
   confidenceScore?: number;
   confidenceReason?: string;
+  trending?: TrendingData;
   onExpandChange?: (expanded: boolean) => void;
 }
 
@@ -86,6 +93,7 @@ export function DailyForecastCard({
   windImpact,
   confidenceScore,
   confidenceReason,
+  trending,
   onExpandChange
 }: DailyForecastCardProps) {
   const [showDayModal, setShowDayModal] = useState(false);
@@ -191,6 +199,21 @@ export function DailyForecastCard({
           {Math.round(snowfall)}
         </Text>
         <Text style={styles.snowMetricUnit}>cm</Text>
+        
+        {/* Trending Badge */}
+        {trending && trending.trend !== 'stable' && Math.abs(trending.change) >= 1 && (
+          <View style={[
+            styles.trendingBadge,
+            trending.trend === 'increase' ? styles.trendingIncrease : styles.trendingDecrease
+          ]}>
+            <Text style={[
+              styles.trendingText,
+              { color: trending.trend === 'increase' ? '#16a34a' : '#ea580c' }
+            ]}>
+              {trending.trend === 'increase' ? '↑' : '↓'} {Math.abs(trending.change).toFixed(1)}cm
+            </Text>
+          </View>
+        )}
       </View>
       
       {/* Confidence Badge */}
@@ -781,6 +804,22 @@ const styles = StyleSheet.create({
     color: '#64748b',
     fontWeight: '600',
     marginTop: 1,
+  },
+  trendingBadge: {
+    marginTop: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  trendingIncrease: {
+    backgroundColor: '#dcfce7',
+  },
+  trendingDecrease: {
+    backgroundColor: '#fed7aa',
+  },
+  trendingText: {
+    fontSize: 8,
+    fontWeight: '700',
   },
   compactMetrics: {
     flexDirection: 'row',

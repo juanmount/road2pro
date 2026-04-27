@@ -16,6 +16,7 @@ import { getWeatherIcon } from '../../../../utils/weather-icons';
 import { getWindNarrative, getWindDirectionLabel, getWindExplanation, getWindTrend, getSkiSeason } from '../../../../utils/wind-narrative';
 import { useUserEngagement } from '../../../../hooks/useUserEngagement';
 import { trackScreenView, AnalyticsEvents, trackEarlyAccessEvent } from '../../../../services/analytics';
+import trendingService, { TrendingData } from '../../../../services/trending';
 
 export default function ResortDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -33,6 +34,7 @@ export default function ResortDetailScreen() {
   const [snowRealityData, setSnowRealityData] = useState<any>(null);
   const [windImpactData, setWindImpactData] = useState<any>(null);
   const [bestTimeWindows, setBestTimeWindows] = useState<any[]>([]);
+  const [trendingData, setTrendingData] = useState<TrendingData[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [webcamsVisible, setWebcamsVisible] = useState(false);
@@ -510,6 +512,17 @@ export default function ResortDetailScreen() {
       } catch (error) {
         // Silently handle - empty array is expected when conditions aren't ideal
         setBestTimeWindows([]);
+      }
+      
+      // Load trending data
+      try {
+        console.log('[TRENDING] Loading trending data...');
+        const trending = await trendingService.getTrending(id, selectedElevation, 7);
+        console.log('[TRENDING] Loaded', trending.length, 'trending entries');
+        setTrendingData(trending);
+      } catch (error) {
+        console.warn('[TRENDING] Failed to load trending data:', error);
+        setTrendingData([]);
       }
       
     } catch (err) {
@@ -1184,6 +1197,9 @@ export default function ResortDetailScreen() {
               
               console.log(`[RENDER] Day ${index}:`, dayName, dateStr, `${day.snowfall}cm`, `${day.maxTemp}°/${day.minTemp}°`);
               
+              // Find trending data for this date
+              const dayTrending = trendingData.find(t => t.date === day.date);
+              
               return (
                 <DailyForecastCard
                   key={index}
@@ -1197,6 +1213,11 @@ export default function ResortDetailScreen() {
                   stormCrossing={stormCrossingData?.[index] || undefined}
                   confidenceScore={day.confidenceScore}
                   confidenceReason={day.confidenceReason}
+                  trending={dayTrending ? {
+                    change: dayTrending.change,
+                    changePercent: dayTrending.changePercent,
+                    trend: dayTrending.trend
+                  } : undefined}
                 />
               );
             })}
