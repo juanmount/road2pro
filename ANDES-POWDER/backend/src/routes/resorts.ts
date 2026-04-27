@@ -273,6 +273,12 @@ router.get('/:id/forecast/hourly', async (req: Request, res: Response) => {
       WHERE resort_id = $1::uuid
       AND elevation_band = $2
       AND valid_time >= NOW()
+      AND forecast_run_id = (
+        SELECT id FROM forecast_runs 
+        WHERE resort_id = $1::uuid 
+        ORDER BY created_at DESC 
+        LIMIT 1
+      )
       ORDER BY valid_time
       LIMIT $3`,
       [resort.id, elevationBand, hoursLimit]
