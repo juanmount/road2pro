@@ -26,12 +26,13 @@ export class PushNotificationService {
         return;
       }
 
-      // Upsert token in database
+      // Upsert token in database (PostgreSQL syntax)
       await db.execute(
         `INSERT INTO push_tokens (user_id, token, created_at, updated_at)
-         VALUES (?, ?, NOW(), NOW())
-         ON DUPLICATE KEY UPDATE token = ?, updated_at = NOW()`,
-        [userId, token, token]
+         VALUES ($1, $2, NOW(), NOW())
+         ON CONFLICT (token) 
+         DO UPDATE SET user_id = $1, updated_at = NOW()`,
+        [userId, token]
       );
 
       console.log(`[PUSH] Token registered for user ${userId}`);
@@ -54,7 +55,7 @@ export class PushNotificationService {
     try {
       // Get all active push tokens
       const result = await db.execute(
-        `SELECT DISTINCT token FROM push_tokens WHERE updated_at > DATE_SUB(NOW(), INTERVAL 30 DAY)`
+        `SELECT DISTINCT token FROM push_tokens WHERE updated_at > NOW() - INTERVAL '30 days'`
       );
       
       const tokens = (result.rows as any[]).map(row => row.token);
@@ -128,7 +129,7 @@ export class PushNotificationService {
   ): Promise<void> {
     try {
       const result = await db.execute(
-        `SELECT token FROM push_tokens WHERE user_id = ? AND updated_at > DATE_SUB(NOW(), INTERVAL 30 DAY)`,
+        `SELECT token FROM push_tokens WHERE user_id = $1 AND updated_at > NOW() - INTERVAL '30 days'`,
         [userId]
       );
 
@@ -161,7 +162,7 @@ export class PushNotificationService {
    */
   private async removeToken(token: string): Promise<void> {
     try {
-      await db.execute(`DELETE FROM push_tokens WHERE token = ?`, [token]);
+      await db.execute(`DELETE FROM push_tokens WHERE token = $1`, [token]);
       console.log(`[PUSH] Removed invalid token`);
     } catch (error) {
       console.error('[PUSH] Error removing token:', error);
@@ -174,7 +175,7 @@ export class PushNotificationService {
   async getActiveTokenCount(): Promise<number> {
     try {
       const result = await db.execute(
-        `SELECT COUNT(DISTINCT token) as count FROM push_tokens WHERE updated_at > DATE_SUB(NOW(), INTERVAL 30 DAY)`
+        `SELECT COUNT(DISTINCT token) as count FROM push_tokens WHERE updated_at > NOW() - INTERVAL '30 days'`
       );
       return (result.rows as any[])[0]?.count || 0;
     } catch (error) {
