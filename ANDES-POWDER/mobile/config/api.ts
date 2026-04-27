@@ -2,7 +2,7 @@ import axios from 'axios';
 import Constants from 'expo-constants';
 
 // TEMPORARY: Force production for testing
-const FORCE_PRODUCTION = false;
+const FORCE_PRODUCTION = true;
 
 // Use localhost for development, production URL for release
 const API_BASE_URL = (FORCE_PRODUCTION || !__DEV__)

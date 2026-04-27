@@ -5,6 +5,7 @@
 
 import axios from 'axios';
 import * as cheerio from 'cheerio';
+import { pushNotificationService } from './push-notification-service';
 
 interface SMNAlert {
   id: string;
@@ -200,6 +201,21 @@ class SMNAlertsService {
     
     this.alertsCache.push(newAlert);
     console.log(`✓ Added manual alert: ${newAlert.title}`);
+    
+    // Send push notification to affected users
+    try {
+      await pushNotificationService.sendAlertNotification(
+        newAlert.title,
+        newAlert.description,
+        newAlert.affectedRegions,
+        newAlert.id,
+        newAlert.severity
+      );
+      console.log(`✓ Push notifications sent for alert: ${newAlert.title}`);
+    } catch (error) {
+      console.error('Error sending push notifications for alert:', error);
+      // Don't fail alert creation if push fails
+    }
     
     return newAlert;
   }

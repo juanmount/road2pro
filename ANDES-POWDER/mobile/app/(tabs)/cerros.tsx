@@ -2,12 +2,14 @@ import { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, ImageBackground, StatusBar, Image } from 'react-native';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Ionicons } from '@expo/vector-icons';
 import { resortsService } from '../../services/resorts';
 import { Resort, CurrentConditions } from '../../types';
 import { getPowderScoreColor, getPowderScoreLabel } from '../../utils/powder-score';
 import { getWeatherIcon } from '../../utils/weather-icons';
 import OnboardingScreen from '../../components/OnboardingScreen';
 import AlertsBanner from '../../components/AlertsBanner';
+import alertsService, { Alert } from '../../services/alertsService';
 
 interface ResortWithConditions extends Resort {
   currentConditions?: {
@@ -41,6 +43,7 @@ export default function HomeScreen() {
   const [error, setError] = useState<string | null>(null);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [checkingOnboarding, setCheckingOnboarding] = useState(true);
+  const [alerts, setAlerts] = useState<Alert[]>([]);
 
   useEffect(() => {
     checkOnboardingStatus();
@@ -49,8 +52,26 @@ export default function HomeScreen() {
   useEffect(() => {
     if (!checkingOnboarding && !showOnboarding) {
       loadResorts();
+      loadAlerts();
     }
   }, [checkingOnboarding, showOnboarding]);
+
+  const loadAlerts = async () => {
+    try {
+      const data = await alertsService.getAllAlerts();
+      setAlerts(data);
+    } catch (error) {
+      console.error('Error loading alerts:', error);
+    }
+  };
+
+  const getResortAlert = (resortName: string): Alert | undefined => {
+    return alerts.find(alert => 
+      alert.affectedRegions.some(region => 
+        region.toLowerCase().includes(resortName.toLowerCase().split(' ')[1]) // Match "Catedral", "Chapelco", etc
+      )
+    );
+  };
 
   const checkOnboardingStatus = async () => {
     try {
@@ -162,7 +183,14 @@ export default function HomeScreen() {
               {/* Header */}
               <View style={styles.resortCardHeader}>
                 <View style={styles.resortCardInfo}>
-                  <Text style={styles.resortCardName}>{item.name}</Text>
+                  <View style={styles.resortNameRow}>
+                    <Text style={styles.resortCardName}>{item.name}</Text>
+                    {getResortAlert(item.name) && (
+                      <View style={styles.alertBadge}>
+                        <Ionicons name="warning" size={14} color="#fff" />
+                      </View>
+                    )}
+                  </View>
                   <Text style={styles.resortCardRegion}>{item.region}, Argentina</Text>
                   <Text style={styles.resortCardStats}>
                     {(() => {
@@ -400,12 +428,26 @@ const styles = StyleSheet.create({
   resortCardInfo: {
     flex: 1,
   },
+  resortNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   resortCardName: {
     fontSize: 24,
     fontWeight: '700',
     color: '#fff',
     marginBottom: 4,
     letterSpacing: -0.5,
+  },
+  alertBadge: {
+    backgroundColor: '#f97316',
+    borderRadius: 12,
+    width: 24,
+    height: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
   },
   resortCardRegion: {
     fontSize: 14,

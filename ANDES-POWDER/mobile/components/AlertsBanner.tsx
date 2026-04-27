@@ -227,16 +227,23 @@ export default function AlertsBanner() {
                     <Text style={styles.moreAlertsTitle}>
                       ALERTAS ADICIONALES ({alerts.length - 1})
                     </Text>
-                    {alerts.slice(1, 3).map((alert) => (
+                    {(alerts.length <= 3 ? alerts.slice(1) : alerts.slice(1, 3)).map((alert) => (
                       <View key={alert.id} style={styles.miniAlert}>
                         <Ionicons 
                           name={getAlertIcon(alert.type) as any} 
-                          size={16} 
-                          color="rgba(255,255,255,0.9)" 
+                          size={20} 
+                          color="rgba(255,255,255,0.95)" 
                         />
-                        <Text style={styles.miniAlertText} numberOfLines={1}>
-                          {alert.title}
-                        </Text>
+                        <View style={styles.miniAlertContent}>
+                          <Text style={styles.miniAlertText} numberOfLines={1}>
+                            {alert.title}
+                          </Text>
+                          {getAlertMetrics(alert) && (
+                            <Text style={styles.miniAlertMetrics}>
+                              {getAlertMetrics(alert)}
+                            </Text>
+                          )}
+                        </View>
                       </View>
                     ))}
                     {alerts.length > 3 && (
@@ -380,17 +387,25 @@ const styles = StyleSheet.create({
   miniAlert: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 6,
-    paddingHorizontal: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 6,
-    marginBottom: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  miniAlertContent: {
+    flex: 1,
+    marginLeft: 10,
   },
   miniAlertText: {
-    fontSize: 12,
+    fontSize: 13,
     color: 'rgba(255, 255, 255, 0.95)',
-    flex: 1,
-    marginLeft: 8,
+    fontWeight: '600',
+    marginBottom: 2,
+  },
+  miniAlertMetrics: {
+    fontSize: 11,
+    color: 'rgba(255, 255, 255, 0.75)',
     fontWeight: '500',
   },
   moreText: {

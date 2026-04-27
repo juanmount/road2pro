@@ -106,6 +106,19 @@ export function DailyForecastCard({
     : 0;
   
   const totalPrecip = hourlyDetails.reduce((sum, h) => sum + (h.precipitation || 0) + (h.snowfall || 0), 0);
+  
+  // Check for high gusts during the day
+  const maxGust = hourlyDetails.length > 0
+    ? Math.max(...hourlyDetails.map(h => h.windGust || 0))
+    : 0;
+  const hasHighGusts = maxGust >= 40;
+  
+  // Gust severity colors
+  const getGustColor = () => {
+    if (maxGust >= 60) return { bg: '#fee2e2', border: '#ef4444', text: '#991b1b' }; // Red - extreme
+    if (maxGust >= 40) return { bg: '#fed7aa', border: '#f97316', text: '#9a3412' }; // Orange - strong
+    return { bg: '#e0f2fe', border: '#7dd3fc', text: '#0369a1' }; // Blue - default
+  };
 
   // Determine background color based on weather
   const getBackgroundColor = () => {
@@ -149,6 +162,19 @@ export function DailyForecastCard({
           windImpact?.category === 'MODERATE' && styles.windModerate,
         ]}>{windImpact?.adjustedWindKmh || avgWind}</Text>
         <Text style={styles.windUnit}>km/h</Text>
+        {hasHighGusts && (
+          <View style={[
+            styles.gustBadge,
+            { 
+              backgroundColor: getGustColor().bg,
+              borderColor: getGustColor().border
+            }
+          ]}>
+            <Text style={[styles.gustBadgeText, { color: getGustColor().text }]}>
+              {Math.round(maxGust)}
+            </Text>
+          </View>
+        )}
       </View>
       
       {/* Temperature */}
@@ -168,14 +194,14 @@ export function DailyForecastCard({
       </View>
       
       {/* Confidence Badge */}
-      {confidenceScore !== undefined && snowfall > 0 && (
+      {confidenceScore !== undefined && totalPrecip > 0 && (
         <View style={styles.confidenceBadgeContainer}>
           <ConfidenceBadge score={confidenceScore} compact={true} />
         </View>
       )}
       
       {/* Info Row */}
-      {(snowReality || stormCrossing) && (
+      {(snowReality || stormCrossing) && totalPrecip > 0 && (
         <View style={styles.infoRow}>
           {snowReality && (
             <TouchableOpacity 
@@ -494,7 +520,16 @@ export function DailyForecastCard({
         visible={showDayModal}
         onClose={() => setShowDayModal(false)}
         date={`${day} ${date}`}
-        hours={hourlyDetails.map(h => ({
+        hours={(() => {
+          // DEBUG: Log what hourlyDetails actually contains
+          console.log('DEBUG hourlyDetails ALL:', hourlyDetails.map(h => ({
+            time: h.time,
+            precipitation: h.precipitation,
+            snowfall: h.snowfall,
+            phase: h.phase
+          })));
+          
+          return hourlyDetails.map(h => ({
           time: h.time.toISOString(),
           temperature: h.temperature,
           precipitation: h.precipitation,
@@ -507,7 +542,8 @@ export function DailyForecastCard({
           cloudCover: 0,
           freezingLevel: h.freezingLevel,
           powderScore: 0
-        }))}
+        }));
+        })()}
         elevation={`MID`}
       />
     </>
@@ -694,6 +730,20 @@ const styles = StyleSheet.create({
   },
   windModerate: {
     color: '#3b82f6',
+  },
+  gustBadge: {
+    marginLeft: 4,
+    backgroundColor: '#e0f2fe',
+    borderRadius: 8,
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderWidth: 1,
+    borderColor: '#7dd3fc',
+  },
+  gustBadgeText: {
+    fontSize: 8,
+    fontWeight: '700',
+    color: '#0369a1',
   },
   tempRange: {
     fontSize: 17,

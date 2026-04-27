@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, ImageBackground, Image, Modal } from 'react-native';
+import { useState, useEffect, useCallback } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, ImageBackground, Image, Modal, RefreshControl } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { resortsService } from '../../../../services/resorts';
 import { Resort, CurrentConditions, ElevationBand } from '../../../../types';
@@ -33,6 +34,7 @@ export default function ResortDetailScreen() {
   const [windImpactData, setWindImpactData] = useState<any>(null);
   const [bestTimeWindows, setBestTimeWindows] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [webcamsVisible, setWebcamsVisible] = useState(false);
   const [windExplanationVisible, setWindExplanationVisible] = useState(false);
 
@@ -48,6 +50,18 @@ export default function ResortDetailScreen() {
       });
     }
   }, [id, selectedElevation]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadResortData();
+    }, [id, selectedElevation])
+  );
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadResortData();
+    setRefreshing(false);
+  };
 
   const loadResortData = async () => {
     try {
@@ -266,7 +280,7 @@ export default function ResortDetailScreen() {
           
           // Calculate icon for the day
           // For TODAY: use current hour to match LIVE card
-          // For future days: use afternoon hour (3 PM) as representative
+          // For future days: use most common condition during daylight hours (8am-6pm)
           let representativeHour;
           if (i === 0) {
             // Today - find hour closest to current time
@@ -277,8 +291,28 @@ export default function ResortDetailScreen() {
                               || hours[0];
             console.log(`[TODAY ICON] Using hour ${new Date(representativeHour.time).getHours()} (current: ${currentHour})`);
           } else {
-            // Future days - use 3 PM or middle of day
-            representativeHour = hours.find(h => new Date(h.time).getHours() === 15) || hours[Math.floor(hours.length / 2)];
+            // Future days - use most common phase during daylight hours (8am-6pm)
+            const daylightHours = hours.filter(h => {
+              const hr = new Date(h.time).getHours();
+              return hr >= 8 && hr <= 18;
+            });
+            
+            if (daylightHours.length > 0) {
+              // Find most common phase
+              const phaseCounts: Record<string, number> = {};
+              daylightHours.forEach(h => {
+                const phase = h.phase || 'none';
+                phaseCounts[phase] = (phaseCounts[phase] || 0) + 1;
+              });
+              const mostCommonPhase = Object.entries(phaseCounts).sort((a, b) => b[1] - a[1])[0][0];
+              
+              // Use hour with most common phase, preferring afternoon
+              representativeHour = daylightHours.find(h => (h.phase || 'none') === mostCommonPhase && new Date(h.time).getHours() >= 12)
+                                || daylightHours.find(h => (h.phase || 'none') === mostCommonPhase)
+                                || daylightHours[Math.floor(daylightHours.length / 2)];
+            } else {
+              representativeHour = hours[Math.floor(hours.length / 2)];
+            }
           }
           
           const dayIcon = getWeatherIcon({
@@ -354,8 +388,8 @@ export default function ResortDetailScreen() {
       const todayDate = new Date();
       todayDate.setHours(0, 0, 0, 0);
       const filteredForecast = dailyFromHourly.filter(day => {
-        const dayDate = new Date(day.date);
-        dayDate.setHours(0, 0, 0, 0);
+        const [fy, fm, fd] = day.date.split('-').map(Number);
+        const dayDate = new Date(fy, fm - 1, fd);
         return dayDate >= todayDate;
       }).slice(0, 7); // Limit to 7 days AFTER filtering
       
@@ -842,7 +876,13 @@ export default function ResortDetailScreen() {
         <Ionicons name="arrow-back" size={22} color="#fff" />
       </TouchableOpacity>
 
-      <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
+      <ScrollView 
+        style={styles.container} 
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#fff" />
+        }
+      >
       {/* Resort Header Card */}
       <View style={styles.headerCard}>
         <ImageBackground
@@ -1137,7 +1177,8 @@ export default function ResortDetailScreen() {
             contentContainerStyle={styles.dailyCardsContainer}
           >
             {dailyForecast.map((day, index) => {
-              const date = new Date(day.date);
+              const [dy, dm, dd] = day.date.split('-').map(Number);
+              const date = new Date(dy, dm - 1, dd);
               const dayName = date.toLocaleDateString('es-AR', { weekday: 'short' }).toUpperCase();
               const dateStr = date.toLocaleDateString('es-AR', { month: 'short', day: 'numeric' });
               
@@ -1168,7 +1209,7 @@ export default function ResortDetailScreen() {
         <WeeklySummary 
           days={dailyForecast.map(day => ({
             date: day.date,
-            dayName: new Date(day.date).toLocaleDateString('es-AR', { weekday: 'short' }),
+            dayName: (() => { const [wy, wm, wd] = day.date.split('-').map(Number); return new Date(wy, wm - 1, wd).toLocaleDateString('es-AR', { weekday: 'short' }); })(),
             snowfall: day.snowfall || 0,
             temperature: day.maxTemp || 0,
             windSpeed: day.maxWindSpeed || 0,

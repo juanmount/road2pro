@@ -36,10 +36,21 @@ export const resortsService = {
     // Fetch from Andes Powder backend which has wind gust data
     console.log('[FORECAST] Fetching from Andes Powder backend...');
     console.log('[FORECAST] Resort:', resort.slug, 'Elevation:', elevation);
-    const response = await api.get(`/resorts/${id}/forecast/hourly`, {
+    const endpoint = `/resorts/${id}/forecast/hourly`;
+    console.log('[API CALL] Endpoint:', endpoint, 'Params:', { elevation, hours });
+    
+    const response = await api.get(endpoint, {
       params: { elevation, hours },
     });
     const data = response.data;
+    
+    // DEBUG: Log what backend returns
+    console.log('[DEBUG] Backend response:', data);
+    console.log('[DEBUG] First 3 hours hourly data:', (data.hourly || []).slice(0, 3).map((h: any) => ({
+      time: h.time,
+      precipitation: h.precipitation,
+      phase: h.phase
+    })));
     
     // Return raw data from backend - engines already processed everything
     return response.data.hourly || [];
@@ -68,7 +79,8 @@ export const resortsService = {
       }
       
       return (data || []).map((row: any) => {
-        const date = new Date(row.date);
+        const [ry, rm, rd] = (row.date as string).split('-').map(Number);
+        const date = new Date(ry, rm - 1, rd);
         return {
           date: row.date,
           dayName: date.toLocaleDateString('es-AR', { weekday: 'short' }),

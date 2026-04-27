@@ -77,12 +77,14 @@ class NotificationService {
   /**
    * Save push token to backend
    */
-  async savePushToken(token: string, preferences: NotificationPreferences): Promise<void> {
+  async savePushToken(token: string, userId?: string): Promise<void> {
     try {
-      await api.post('/notifications/register', {
+      // Use device ID as fallback userId if not provided
+      const finalUserId = userId || Device.deviceName || 'anonymous';
+      
+      await api.post('/push/register', {
+        userId: finalUserId,
         token,
-        platform: Platform.OS,
-        preferences,
       });
       console.log('Push token saved to backend');
     } catch (error) {
@@ -107,6 +109,20 @@ class NotificationService {
       console.log('Notification preferences updated');
     } catch (error) {
       console.error('Error updating preferences:', error);
+    }
+  }
+
+  /**
+   * Initialize push notifications (register + save token)
+   */
+  async initialize(userId?: string): Promise<void> {
+    try {
+      const token = await this.registerForPushNotifications();
+      if (token) {
+        await this.savePushToken(token, userId);
+      }
+    } catch (error) {
+      console.error('Error initializing push notifications:', error);
     }
   }
 

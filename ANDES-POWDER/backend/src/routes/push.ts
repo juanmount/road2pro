@@ -12,10 +12,9 @@ router.post('/register', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'userId and token are required' });
     }
 
-    // For development: just log the token, don't save to database yet
-    console.log(`[PUSH] Token registered for user ${userId}: ${token}`);
+    await pushNotificationService.savePushToken(userId, token);
     
-    res.json({ success: true, message: 'Push token registered (dev mode)' });
+    res.json({ success: true, message: 'Push token registered successfully' });
   } catch (error) {
     console.error('Error registering push token:', error);
     res.status(500).json({ error: 'Failed to register push token' });
@@ -25,19 +24,39 @@ router.post('/register', async (req: Request, res: Response) => {
 // Send test notification to a user
 router.post('/test', async (req: Request, res: Response) => {
   try {
-    const { userId } = req.body;
+    const { userId, title, body } = req.body;
 
     if (!userId) {
       return res.status(400).json({ error: 'userId is required' });
     }
 
-    // TODO: Implement push notification sending
-    console.log(`[PUSH] Test notification for user ${userId}`);
+    await pushNotificationService.sendToUser(
+      userId,
+      title || '🌨️ Test Notification',
+      body || 'This is a test push notification from Andes Powder',
+      { type: 'test' }
+    );
 
-    res.json({ success: true, message: 'Test notification logged (not implemented yet)' });
+    res.json({ success: true, message: 'Test notification sent' });
   } catch (error) {
     console.error('Error sending test notification:', error);
     res.status(500).json({ error: 'Failed to send test notification' });
+  }
+});
+
+// Get stats about registered tokens
+router.get('/stats', async (req: Request, res: Response) => {
+  try {
+    const activeTokens = await pushNotificationService.getActiveTokenCount();
+    
+    res.json({
+      success: true,
+      activeTokens,
+      message: `${activeTokens} active push tokens registered`
+    });
+  } catch (error) {
+    console.error('Error getting push stats:', error);
+    res.status(500).json({ error: 'Failed to get push stats' });
   }
 });
 
