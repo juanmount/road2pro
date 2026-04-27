@@ -139,13 +139,16 @@ export class OpenMeteoProvider implements ForecastProvider {
     const tempLapseRate = -0.0065; // °C per meter (standard atmosphere)
     const tempAdjustment = elevationDiff * tempLapseRate;
     
+    const WIND_INCREASE_RATE = 0.0004; // 40% per 1000m
+    const windMultiplier = Math.max(0.5, 1 + (elevationDiff * WIND_INCREASE_RATE));
+    
     return reference.map(point => ({
       time: point.time,
       temperature: point.temperature + tempAdjustment,
       precipitation: point.precipitation,
       snowfall: point.snowfall ? point.snowfall * (1 + elevationDiff / 1000 * 0.1) : undefined,
-      windSpeed: point.windSpeed,
-      windGust: point.windGust,
+      windSpeed: Math.round(point.windSpeed * windMultiplier),
+      windGust: point.windGust ? Math.round(point.windGust * windMultiplier) : point.windGust,
       windDirection: point.windDirection,
       humidity: point.humidity,
       cloudCover: point.cloudCover,
