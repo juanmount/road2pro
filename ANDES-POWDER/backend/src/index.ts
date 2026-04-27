@@ -64,6 +64,10 @@ app.post('/api/admin/clean-old-forecasts', async (req, res) => {
   }
 });
 
+// Admin routes for manual operations
+import adminRoutes from './routes/admin';
+app.use('/api/admin', adminRoutes);
+
 // Admin endpoint to clean ALL forecast data (nuclear option)
 app.post('/api/admin/clean-all-forecasts', async (req, res) => {
   try {
