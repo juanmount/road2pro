@@ -4,6 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useState, useEffect } from 'react';
 import notificationService from '../../services/notifications';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import AlertsCard from '../../components/AlertsCard';
 
 export default function AlertasScreen() {
   const [snowAlerts, setSnowAlerts] = useState(true);
@@ -162,17 +163,10 @@ export default function AlertasScreen() {
           </View>
         )}
 
-        {/* Recent Alerts */}
+        {/* Active Weather Alerts */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Alertas Recientes</Text>
-          
-          <View style={styles.emptyState}>
-            <Ionicons name="notifications-off-outline" size={64} color="#475569" />
-            <Text style={styles.emptyText}>No hay alertas recientes</Text>
-            <Text style={styles.emptySubtext}>
-              Te notificaremos cuando haya condiciones importantes
-            </Text>
-          </View>
+          <Text style={styles.sectionTitle}>Alertas Meteorológicas Activas</Text>
+          <AlertsCard />
         </View>
       </ScrollView>
     </LinearGradient>

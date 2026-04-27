@@ -33,101 +33,16 @@ export const resortsService = {
                            elevation === 'mid' ? resort.midElevation : 
                            resort.summitElevation;
     
-    // Fetch from Open-Meteo with past_days=1 to get historical data
-    // forecast_days=10 to ensure we get 7 full days of forecast (accounting for timezone filtering)
-    const url = `https://api.open-meteo.com/v1/forecast?latitude=${resort.latitude}&longitude=${resort.longitude}&hourly=temperature_2m,precipitation,snowfall,windspeed_10m,winddirection_10m,relativehumidity_2m,freezinglevel_height,cloudcover&forecast_days=10&past_days=1&timezone=auto&models=best_match`;
-    
-    console.log('[SIMPLE] ⚡ REQUESTING 10 FORECAST DAYS ⚡');
-    console.log('[SIMPLE] Calling Open-Meteo...');
-    const response = await fetch(url);
-    const data = await response.json();
-    
-    console.log('[SIMPLE] Got', data.hourly.time.length, 'hours from API');
-    console.log('[SIMPLE] First hour:', data.hourly.time[0]);
-    console.log('[SIMPLE] Last hour:', data.hourly.time[data.hourly.time.length - 1]);
-    console.log('[SIMPLE] Freezing level samples:', {
-      first: data.hourly.freezinglevel_height[0],
-      mid: data.hourly.freezinglevel_height[Math.floor(data.hourly.time.length / 2)],
-      last: data.hourly.freezinglevel_height[data.hourly.time.length - 1]
+    // Fetch from Andes Powder backend which has wind gust data
+    console.log('[FORECAST] Fetching from Andes Powder backend...');
+    console.log('[FORECAST] Resort:', resort.slug, 'Elevation:', elevation);
+    const response = await api.get(`/resorts/${id}/forecast/hourly`, {
+      params: { elevation, hours },
     });
+    const data = response.data;
     
-    // Start from index 0 to process ALL hours including past_days data
-    // This ensures we get yesterday and today's data
-    const startIndex = 0;
-    
-    console.log('[SIMPLE] Starting from index 0 to include all historical data');
-    
-    // Process hours
-    const forecast = [];
-    let totalPrecip = 0;
-    let totalSnow = 0;
-    
-    for (let i = 0; i < hours && (startIndex + i) < data.hourly.time.length; i++) {
-      const idx = startIndex + i;
-      
-      const baseTemp = data.hourly.temperature_2m[idx];
-      const precip = data.hourly.precipitation[idx] || 0;
-      
-      // Adjust temperature for elevation (-6.5°C per 1000m)
-      const tempAdjust = -(elevationMeters - 840) * 0.0065;
-      const temp = baseTemp + tempAdjust;
-      
-      // Calculate snow based on freezing level AND temperature
-      let snowfall = 0;
-      let phase = 'clear';
-      
-      if (precip > 0.01) {
-        const freezingLevel = data.hourly.freezinglevel_height[idx] || 2000;
-        const elevationMargin = freezingLevel - elevationMeters;
-        
-        // STRICT: If >300m above freezing level, it's all rain
-        if (elevationMargin > 300) {
-          snowfall = 0;
-          phase = 'rain';
-        } else if (temp <= -1 && elevationMargin < 100) {
-          // All snow (cold + below freezing level)
-          snowfall = precip * 1.0;
-          phase = 'snow';
-        } else if (temp > -1 && temp <= 2 && elevationMargin < 200) {
-          // Mixed (marginal temp + near freezing level)
-          const snowRatio = Math.max(0, (2 - temp) / 3) * Math.max(0, (200 - elevationMargin) / 200);
-          snowfall = precip * snowRatio * 1.0;
-          phase = 'mixed';
-        } else {
-          // Rain
-          snowfall = 0;
-          phase = 'rain';
-        }
-        
-        totalPrecip += precip;
-        totalSnow += snowfall;
-        
-        if (i < 5) {
-          const freezing = data.hourly.freezinglevel_height[idx];
-          console.log(`[SIMPLE] Hour ${i}: ${temp.toFixed(1)}°C, ${precip.toFixed(2)}mm → ${snowfall.toFixed(2)}cm ${phase}, Freezing: ${freezing}m`);
-        }
-      }
-      
-      forecast.push({
-        time: data.hourly.time[idx],
-        temperature: Math.round(temp * 10) / 10,
-        precipitation: precip,
-        snowfall: Math.round(snowfall * 10) / 10,
-        windSpeed: Math.round(data.hourly.windspeed_10m[idx] || 0),
-        windDirection: data.hourly.winddirection_10m[idx] || 0,
-        humidity: data.hourly.relativehumidity_2m[idx] || 70,
-        cloudCover: data.hourly.cloudcover[idx] || 0,
-        freezingLevel: Math.floor(data.hourly.freezinglevel_height[idx] || 2000),
-        phase: phase,
-        powderScore: 0
-      });
-    }
-    
-    console.log('[SIMPLE] Processed', forecast.length, 'hours');
-    console.log('[SIMPLE] Total precip:', totalPrecip.toFixed(2), 'mm');
-    console.log('[SIMPLE] Total snow:', totalSnow.toFixed(2), 'cm');
-    
-    return forecast;
+    // Return raw data from backend - engines already processed everything
+    return response.data.hourly || [];
   },
 
   async getSnowfallHistory(

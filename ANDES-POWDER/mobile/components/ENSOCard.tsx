@@ -68,9 +68,12 @@ export default function ENSOCard({ onPress }: ENSOCardProps) {
       activeOpacity={0.9}
     >
       <View style={styles.header}>
-        <View>
-          <Text style={styles.phase}>{phaseLabel}</Text>
-          <Text style={styles.oni}>ONI: {ensoData.oni.toFixed(2)}°C</Text>
+        <View style={styles.titleSection}>
+          <Text style={styles.title}>🌊 El Niño / La Niña (NOAA)</Text>
+          <View style={styles.phaseRow}>
+            <Text style={[styles.phase, { color: phaseColor }]}>{phaseLabel}</Text>
+            <Text style={styles.oni}>• ONI: {ensoData.oni.toFixed(2)}°C</Text>
+          </View>
         </View>
         <View style={[styles.indicator, { backgroundColor: phaseColor }]} />
       </View>
@@ -81,7 +84,6 @@ export default function ENSOCard({ onPress }: ENSOCardProps) {
         </Text>
       )}
       
-      <Text style={styles.source}>Fuente: NOAA Climate Prediction Center</Text>
       <Text style={styles.tapHint}>Tap para más info →</Text>
     </TouchableOpacity>
   );
@@ -92,23 +94,36 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(15, 23, 42, 0.75)',
     borderRadius: 12,
     padding: 12,
-    minHeight: 100,
-    justifyContent: 'space-between',
+    marginHorizontal: 16,
+    marginTop: 8,
+    marginBottom: 16,
   },
   header: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
-    marginBottom: 6,
+    marginBottom: 4,
+  },
+  titleSection: {
+    flex: 1,
+  },
+  title: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#f1f5f9',
+    marginBottom: 4,
+  },
+  phaseRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   phase: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
-    color: '#f1f5f9',
-    marginBottom: 2,
   },
   oni: {
-    fontSize: 11,
+    fontSize: 10,
     color: '#94a3b8',
     fontWeight: '500',
   },
@@ -118,20 +133,20 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   impact: {
-    fontSize: 11,
+    fontSize: 10,
     color: '#cbd5e1',
-    marginBottom: 6,
+    marginBottom: 4,
   },
   source: {
-    fontSize: 9,
+    fontSize: 8,
     color: '#64748b',
     fontStyle: 'italic',
-    marginTop: 6,
+    marginTop: 4,
   },
   tapHint: {
-    fontSize: 10,
+    fontSize: 9,
     color: 'rgba(255, 255, 255, 0.5)',
     fontStyle: 'italic',
-    marginTop: 4,
+    marginTop: 2,
   },
 });

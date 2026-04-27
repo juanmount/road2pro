@@ -44,41 +44,31 @@ export function StormCrossingBadge({ category, score, compact = false }: StormCr
 
   return (
     <View style={[styles.badge, { backgroundColor: bg }]}>
-      <View style={styles.badgeHeader}>
-        <Text style={[styles.icon, { color: text }]}>{icon}</Text>
-        <Text style={[styles.label, { color: text }]}>{label}</Text>
-      </View>
-      <Text style={[styles.score, { color: text }]}>{score}/100</Text>
+      <Text style={[styles.icon, { color: text }]}>{icon}</Text>
+      <Text style={[styles.label, { color: text }]}>{label}</Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   badge: {
-    borderRadius: 12,
-    padding: 12,
-    marginVertical: 8,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  badgeHeader: {
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
+    alignSelf: 'center',
   },
   icon: {
-    fontSize: 18,
+    fontSize: 14,
     fontWeight: '700',
   },
   label: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
   },
   score: {
     fontSize: 16,

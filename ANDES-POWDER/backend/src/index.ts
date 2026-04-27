@@ -10,8 +10,12 @@ import ensoRouter from './routes/enso';
 import pushRouter from './routes/push';
 import validationRouter from './routes/validation';
 import weatherStationRouter from './routes/weather-station';
+import snapshotsRouter from './routes/snapshots';
+import alertsRouter from './routes/alerts';
 import { forecastCronService } from './services/forecast-cron';
 import { initializeFirebase } from './config/firebase';
+import { startSnapshotCron } from './jobs/daily-snapshot';
+import { smnAlertsService } from './services/smn-alerts-service';
 
 dotenv.config();
 
@@ -40,6 +44,8 @@ app.use('/api/enso', ensoRouter);
 app.use('/api/push', pushRouter);
 app.use('/api/validation', validationRouter);
 app.use('/api/weather-station', weatherStationRouter);
+app.use('/api/snapshots', snapshotsRouter);
+app.use('/api/alerts', alertsRouter);
 
 // Admin endpoint to clean old forecast data
 app.post('/api/admin/clean-old-forecasts', async (req, res) => {
@@ -261,6 +267,14 @@ app.listen(PORT, () => {
   
   // Start forecast cron service (runs every hour at :05)
   forecastCronService.start();
+  
+  // Start snapshot cron service (runs daily at 6:00 AM)
+  startSnapshotCron();
+  console.log('📸 Snapshot system initialized - Daily snapshots at 6:00 AM');
+  
+  // Initialize SMN alerts (fetch immediately)
+  smnAlertsService.refreshAlerts();
+  console.log('🚨 SMN Alerts system initialized');
 });
 
 export default app;

@@ -6,25 +6,18 @@ import { StyleSheet, Platform } from 'react-native';
 export default function TabLayout() {
   return (
     <Tabs
-      screenOptions={({ route }) => ({
+      screenOptions={{
         headerShown: false,
-        tabBarStyle: ((route) => {
-          // Hide tab bar on resort detail screen
-          const routeName = route.name;
-          if (routeName.includes('resort')) {
-            return { display: 'none' };
-          }
-          return {
-            position: 'absolute',
-            bottom: 0,
-            left: 0,
-            right: 0,
-            elevation: 0,
-            backgroundColor: 'transparent',
-            borderTopWidth: 0,
-            height: Platform.OS === 'ios' ? 88 : 68,
-          };
-        })(route),
+        tabBarStyle: {
+          position: 'absolute',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          elevation: 0,
+          backgroundColor: 'transparent',
+          borderTopWidth: 0,
+          height: Platform.OS === 'ios' ? 88 : 68,
+        },
         tabBarBackground: () => (
           <BlurView
             intensity={80}
@@ -42,7 +35,7 @@ export default function TabLayout() {
         tabBarItemStyle: {
           paddingTop: 8,
         },
-      })}
+      }}
     >
       <Tabs.Screen
         name="index"
@@ -65,21 +58,38 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="mapas"
+        name="radares"
         options={{
-          title: 'Mapas',
+          title: 'Radares',
           tabBarIcon: ({ color, size, focused }) => (
             <Ionicons 
-              name={focused ? 'map' : 'map-outline'} 
+              name={focused ? 'analytics' : 'analytics-outline'} 
               size={size} 
               color={color}
               style={focused ? styles.iconGlow : undefined}
             />
           ),
-          tabBarBadge: '🔒',
+        }}
+      />
+      <Tabs.Screen
+        name="mapas"
+        options={{
+          title: 'PRO',
+          tabBarIcon: ({ color, size, focused }) => (
+            <Ionicons 
+              name={focused ? 'lock-open' : 'lock-open-outline'} 
+              size={size} 
+              color={color}
+              style={focused ? styles.iconGlow : undefined}
+            />
+          ),
+          tabBarBadge: '🔓',
           tabBarBadgeStyle: {
-            backgroundColor: '#f59e0b',
+            backgroundColor: '#10b981',
             fontSize: 10,
+            minWidth: 20,
+            height: 20,
+            borderRadius: 10,
           },
         }}
       />
@@ -109,6 +119,18 @@ export default function TabLayout() {
               style={focused ? styles.iconGlow : undefined}
             />
           ),
+        }}
+      />
+      <Tabs.Screen
+        name="resort"
+        options={{
+          href: null, // Hide from tab bar
+        }}
+      />
+      <Tabs.Screen
+        name="checkout"
+        options={{
+          href: null, // Hide from tab bar
         }}
       />
     </Tabs>

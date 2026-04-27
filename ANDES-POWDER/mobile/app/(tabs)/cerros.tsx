@@ -6,12 +6,8 @@ import { resortsService } from '../../services/resorts';
 import { Resort, CurrentConditions } from '../../types';
 import { getPowderScoreColor, getPowderScoreLabel } from '../../utils/powder-score';
 import { getWeatherIcon } from '../../utils/weather-icons';
-import ENSOCard from '../../components/ENSOCard';
-import ENSOModal from '../../components/ENSOModal';
-import Season0Card from '../../components/Season0Card';
 import OnboardingScreen from '../../components/OnboardingScreen';
-import Season0Modal from '../../components/Season0Modal';
-import WeatherStationCard from '../../components/WeatherStationCard';
+import AlertsBanner from '../../components/AlertsBanner';
 
 interface ResortWithConditions extends Resort {
   currentConditions?: {
@@ -45,8 +41,6 @@ export default function HomeScreen() {
   const [error, setError] = useState<string | null>(null);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [checkingOnboarding, setCheckingOnboarding] = useState(true);
-  const [showSeason0Modal, setShowSeason0Modal] = useState(false);
-  const [showENSOModal, setShowENSOModal] = useState(false);
 
   useEffect(() => {
     checkOnboardingStatus();
@@ -155,7 +149,7 @@ export default function HomeScreen() {
     return (
       <TouchableOpacity
         style={styles.resortCard}
-        onPress={() => router.push(`/_resort/${item.slug}`)}
+        onPress={() => router.push(`/(tabs)/resort/${item.slug}`)}
         activeOpacity={0.9}
       >
         <ImageBackground
@@ -311,37 +305,15 @@ export default function HomeScreen() {
         </View>
       </View>
       
+      {/* Alerts Banner */}
+      <AlertsBanner />
+      
       <FlatList
         data={resorts}
         renderItem={renderResort}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listContainer}
         showsVerticalScrollIndicator={false}
-        ListHeaderComponent={
-          <View>
-            <View style={styles.cardsRow}>
-              <View style={styles.cardHalf}>
-                <Season0Card onPress={() => setShowSeason0Modal(true)} />
-              </View>
-              <View style={styles.cardHalf}>
-                <ENSOCard onPress={() => setShowENSOModal(true)} />
-              </View>
-            </View>
-            <WeatherStationCard />
-          </View>
-        }
-      />
-      
-      {/* Season 0 Modal */}
-      <Season0Modal 
-        visible={showSeason0Modal}
-        onClose={() => setShowSeason0Modal(false)}
-      />
-      
-      {/* ENSO Modal */}
-      <ENSOModal 
-        visible={showENSOModal}
-        onClose={() => setShowENSOModal(false)}
       />
     </ImageBackground>
   );
@@ -389,17 +361,6 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     paddingHorizontal: 16,
     paddingBottom: 32,
-  },
-  
-  // Cards Row
-  cardsRow: {
-    flexDirection: 'row',
-    gap: 8,
-    paddingHorizontal: 16,
-    marginBottom: 12,
-  },
-  cardHalf: {
-    flex: 1,
   },
   
   // Resort Card

@@ -256,9 +256,6 @@ router.get('/:id/forecast/hourly', async (req: Request, res: Response) => {
     const elevationBand = elevation as string;
     const hoursLimit = parseInt(hours as string);
 
-    console.log('[HOURLY] Resort found:', resort.name, 'ID:', resort.id, 'Type:', typeof resort.id);
-    console.log('[HOURLY] Querying elevation_forecasts with:', resort.id, elevationBand, hoursLimit);
-
     const result = await pool.query(
       `SELECT 
         valid_time,
@@ -266,10 +263,12 @@ router.get('/:id/forecast/hourly', async (req: Request, res: Response) => {
         precipitation_mm,
         snowfall_cm_corrected,
         wind_speed_kmh,
+        wind_gust_kmh,
         wind_direction,
         cloud_cover,
         powder_score,
-        freezing_level_m
+        freezing_level_m,
+        phase_classification
       FROM elevation_forecasts
       WHERE resort_id = $1::uuid
       AND elevation_band = $2
@@ -279,17 +278,16 @@ router.get('/:id/forecast/hourly', async (req: Request, res: Response) => {
       [resort.id, elevationBand, hoursLimit]
     );
 
-    console.log('[HOURLY] Query returned:', result.rows.length, 'rows');
-
     const hourlyForecasts = result.rows.map((row: any) => ({
-      time: row.valid_time,
+      time: row.valid_time, // PostgreSQL returns this in UTC, but it's stored with -03 offset
       temperature: parseFloat(row.temperature_c),
       precipitation: parseFloat(row.precipitation_mm || 0),
       windSpeed: parseFloat(row.wind_speed_kmh || 0),
+      windGust: parseFloat(row.wind_gust_kmh || 0),
       windDirection: row.wind_direction || 0,
       humidity: 70,
       cloudCover: parseFloat(row.cloud_cover || 0),
-      phase: row.snowfall_cm_corrected > 0 ? 'snow' : row.precipitation_mm > 0 ? 'rain' : 'none',
+      phase: row.phase_classification || 'none', // Use DB phase classification
       powderScore: parseFloat(row.powder_score || 0),
       snowfall: parseFloat(row.snowfall_cm_corrected || 0),
       freezingLevel: row.freezing_level_m ? parseInt(row.freezing_level_m) : 2000,

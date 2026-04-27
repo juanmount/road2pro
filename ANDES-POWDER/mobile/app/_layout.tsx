@@ -23,13 +23,8 @@ function RootLayoutNav() {
   return (
     <Stack
       screenOptions={{
-        headerStyle: {
-          backgroundColor: '#1a365d',
-        },
-        headerTintColor: '#fff',
-        headerTitleStyle: {
-          fontWeight: '600',
-        },
+        headerShown: false,
+        contentStyle: { backgroundColor: 'transparent' },
       }}
     >
       <Stack.Screen 

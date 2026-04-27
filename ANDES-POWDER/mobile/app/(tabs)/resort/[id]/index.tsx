@@ -2,21 +2,24 @@ import { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, ImageBackground, Image, Modal } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { resortsService } from '../../../services/resorts';
-import { Resort, CurrentConditions, ElevationBand } from '../../../types';
-import { DailyForecastCard } from '../../../components/DailyForecastCard';
-import { SnowfallChart } from '../../../components/SnowfallChart';
-import { TemperatureCurve } from '../../../components/TemperatureCurve';
-import { WebcamsModal } from '../../../components/WebcamsModal';
-import { WeeklySummary } from '../../../components/WeeklySummary';
-import BestTimeCard from '../../../components/BestTimeCard';
-import ENSOCard from '../../../components/ENSOCard';
-import { getWeatherIcon } from '../../../utils/weather-icons';
-import { getWindNarrative, getWindDirectionLabel, getWindExplanation, getWindTrend, getSkiSeason } from '../../../utils/wind-narrative';
+import { resortsService } from '../../../../services/resorts';
+import { Resort, CurrentConditions, ElevationBand } from '../../../../types';
+import { DailyForecastCard } from '../../../../components/DailyForecastCard';
+import { SnowfallChart } from '../../../../components/SnowfallChart';
+import { TemperatureCurve } from '../../../../components/TemperatureCurve';
+import { WebcamsModal } from '../../../../components/WebcamsModal';
+import { WeeklySummary } from '../../../../components/WeeklySummary';
+import BestTimeCard from '../../../../components/BestTimeCard';
+import ENSOCard from '../../../../components/ENSOCard';
+import { getWeatherIcon } from '../../../../utils/weather-icons';
+import { getWindNarrative, getWindDirectionLabel, getWindExplanation, getWindTrend, getSkiSeason } from '../../../../utils/wind-narrative';
+import { useUserEngagement } from '../../../../hooks/useUserEngagement';
+import { trackScreenView, AnalyticsEvents, trackEarlyAccessEvent } from '../../../../services/analytics';
 
 export default function ResortDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const { trackResortView, trackForecastCheck } = useUserEngagement();
   const [resort, setResort] = useState<Resort | null>(null);
   const [conditions, setConditions] = useState<CurrentConditions | null>(null);
   const [selectedElevation, setSelectedElevation] = useState<ElevationBand>('mid');
@@ -35,6 +38,15 @@ export default function ResortDetailScreen() {
 
   useEffect(() => {
     loadResortData();
+    
+    // Track resort view for analytics
+    if (id) {
+      trackScreenView(`Resort_${id}`, 'ResortDetailScreen');
+      trackResortView(id);
+      trackEarlyAccessEvent(AnalyticsEvents.RESORT_DETAIL_VIEW, {
+        source: 'resort_list',
+      });
+    }
   }, [id, selectedElevation]);
 
   const loadResortData = async () => {
@@ -243,6 +255,7 @@ export default function ResortDetailScreen() {
               precipitation: h.precipitation,
               snowfall: h.snowfall || 0,
               windSpeed: h.windSpeed,
+              windGust: h.windGust,
               windDirection: h.windDirection,
               humidity: h.humidity || 70,
               freezingLevel: h.freezingLevel || 2000,
@@ -706,6 +719,7 @@ export default function ResortDetailScreen() {
             precipitation: h.precipitation || 0,
             snowfall: h.snowfall || 0,
             windSpeed: h.windSpeed || 0,
+            windGust: h.windGust,
             windDirection: h.windDirection,
             adjustedWindSpeed: windImpact.adjustedWind,
             windCategory: windImpact.category,
@@ -813,7 +827,7 @@ export default function ResortDetailScreen() {
 
   return (
     <ImageBackground
-      source={require('../../../assets/cerro-catedral-bg.jpg')}
+      source={require('../../../../assets/cerro-catedral-bg.jpg')}
       style={styles.backgroundImage}
       imageStyle={styles.backgroundImageStyle}
     >
@@ -832,7 +846,7 @@ export default function ResortDetailScreen() {
       {/* Resort Header Card */}
       <View style={styles.headerCard}>
         <ImageBackground
-          source={require('../../../assets/Background_home.jpeg')}
+          source={require('../../../../assets/Background_home.jpeg')}
           style={styles.headerCardBackground}
           imageStyle={styles.headerCardImage}
         >
@@ -874,7 +888,7 @@ export default function ResortDetailScreen() {
                 </View>
                 <View style={styles.headerRightInfo}>
                   <Image 
-                    source={require('../../../assets/Logo_horizontal.png')} 
+                    source={require('../../../../assets/Logo_horizontal.png')} 
                     style={styles.headerLogo}
                     resizeMode="contain"
                   />
@@ -939,7 +953,7 @@ export default function ResortDetailScreen() {
         return (
         <View style={styles.liveCard}>
           <ImageBackground
-            source={require('../../../assets/nieve-catedral-live.jpg')}
+            source={require('../../../../assets/nieve-catedral-live.jpg')}
             style={styles.liveCardBackground}
             imageStyle={styles.liveCardBackgroundImage}
           >

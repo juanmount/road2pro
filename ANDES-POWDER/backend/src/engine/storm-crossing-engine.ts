@@ -79,7 +79,8 @@ export class StormCrossingEngine {
     }
     
     // Fetch Chilean storm indicators
-    const chileanIndicators = await chileanWeatherService.getStormIndicators();
+    // TEMPORARILY DISABLED: Causing infinite loop
+    const chileanIndicators = null; // await chileanWeatherService.getStormIndicators();
     
     // Calculate component scores
     const modelAgreementScore = this.calculateModelAgreementScore(modelAgreement);

@@ -1,16 +1,16 @@
 import { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams, useNavigation } from 'expo-router';
-import { resortsService } from '../../../services/resorts';
-import { HourlyForecast, ElevationBand } from '../../../types';
+import { resortsService } from '../../../../services/resorts';
+import { HourlyForecast, ElevationBand } from '../../../../types';
 import { 
   getPowderScoreColor, 
   formatTemperature, 
   formatSnowfall,
   formatWind 
-} from '../../../utils/powder-score';
-import { getWeatherIcon } from '../../../utils/weather-icons';
-import { getWindDirectionLabel } from '../../../utils/wind-narrative';
+} from '../../../../utils/powder-score';
+import { getWeatherIcon } from '../../../../utils/weather-icons';
+import { getWindDirectionLabel } from '../../../../utils/wind-narrative';
 
 // Helper function to get wind direction arrow
 const getWindDirectionArrow = (degrees: number): string => {

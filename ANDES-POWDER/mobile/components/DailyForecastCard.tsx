@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView, LayoutAnimation, 
 import { StormCrossingBadge } from './StormCrossingBadge';
 import { ConfidenceBadge } from './ConfidenceBadge';
 import { getWindDirectionLabel } from '../utils/wind-narrative';
+import HourlyForecastModal from './HourlyForecastModal';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -14,6 +15,7 @@ interface HourlyDetail {
   precipitation: number;
   snowfall: number;
   windSpeed: number;
+  windGust?: number;
   windDirection?: number;
   adjustedWindSpeed?: number;
   windCategory?: 'CALM' | 'MODERATE' | 'STRONG' | 'EXTREME';
@@ -215,7 +217,7 @@ export function DailyForecastCard({
     </TouchableOpacity>
 
       <Modal
-        visible={showDayModal}
+        visible={false}
         transparent={true}
         animationType="fade"
         onRequestClose={() => setShowDayModal(false)}
@@ -233,33 +235,28 @@ export function DailyForecastCard({
             </View>
             
             <ScrollView style={styles.dayModalBody}>
-              <View style={styles.daySummary}>
-                <Text style={styles.daySummaryText}>
-                  {snowfall > 5 ? '❄️ Great powder day! ' : snowfall > 0 ? '🌨️ Light snow expected. ' : '☀️ Clear conditions. '}
-                  {avgFreezingLevel < 2000 ? 'Low freezing level - excellent snow quality at base.' : avgFreezingLevel < 3000 ? 'Good conditions mid-mountain.' : 'Best snow at summit.'}
-                </Text>
-              </View>
-              
-              {confidenceScore !== undefined && snowfall > 0 && (
-                <View style={styles.confidenceSection}>
-                  <Text style={styles.sectionTitle}>Confianza del Pronóstico</Text>
-                  <ConfidenceBadge 
-                    score={confidenceScore}
-                    reason={confidenceReason}
-                    compact={false}
-                  />
-                </View>
-              )}
-              
-              {stormCrossing && (
-                <View style={styles.stormCrossingSection}>
-                  <Text style={styles.sectionTitle}>Storm Crossing Analysis</Text>
-                  <StormCrossingBadge 
-                    category={stormCrossing.category}
-                    score={stormCrossing.score}
-                  />
-                  <Text style={styles.stormExplanation}>{stormCrossing.explanation}</Text>
-                </View>
+              {stormCrossing && snowfall > 0 && (
+                <ImageBackground
+                  source={require('../assets/nieve-catedral-live.jpg')}
+                  style={styles.unifiedForecastSection}
+                  imageStyle={styles.forecastBackgroundImage}
+                >
+                  <View style={styles.forecastOverlay}>
+                    <View style={styles.singleBadgeContainer}>
+                      <StormCrossingBadge 
+                        category={stormCrossing.category}
+                        score={stormCrossing.score}
+                      />
+                      <Text style={styles.badgeScore}>{Math.round(stormCrossing.score)}/100</Text>
+                    </View>
+                    
+                    {stormCrossing.explanation && (
+                      <Text style={styles.forecastExplanation}>
+                        {stormCrossing.explanation}
+                      </Text>
+                    )}
+                  </View>
+                </ImageBackground>
               )}
               
               <Text style={styles.hourlyTitle}>Hourly Forecast</Text>
@@ -270,8 +267,11 @@ export function DailyForecastCard({
                 contentContainerStyle={styles.hourlyScrollContent}
               >
                 {hourlyDetails.map((hour, index) => {
-                  const hourTime = new Date(hour.time).getHours();
-                  const displayTime = hourTime.toString().padStart(2, '0') + 'h';
+                  // Backend returns UTC time, convert to Argentina (UTC-3)
+                  const date = new Date(hour.time);
+                  let hourTime = date.getUTCHours() - 3;
+                  if (hourTime < 0) hourTime += 24; // Handle negative hours
+                  const displayTime = hourTime.toString().padStart(2, '0') + 'H';
                   
                   return (
                     <TouchableOpacity key={index} onPress={() => setSelectedHour(hour)} activeOpacity={0.7}>
@@ -294,6 +294,9 @@ export function DailyForecastCard({
                               hour.windCategory === 'STRONG' && styles.windStrong,
                               hour.windCategory === 'MODERATE' && styles.windModerate,
                             ]}>{Math.round(hour.adjustedWindSpeed || hour.windSpeed)} km/h</Text>
+                            {hour.windGust && hour.windGust > (hour.windSpeed * 1.3) && (
+                              <Text style={[styles.hourWindGust, hour.windGust >= 70 && styles.windExtreme]}>⚠ {Math.round(hour.windGust)} km/h</Text>
+                            )}
                             {hour.windDirection !== undefined && (
                               <Text style={styles.hourWindDir}>{getWindDirectionLabel(hour.windDirection)}</Text>
                             )}
@@ -485,6 +488,28 @@ export function DailyForecastCard({
           </View>
         </View>
       </Modal>
+
+      {/* New Clean Hourly Forecast Modal */}
+      <HourlyForecastModal
+        visible={showDayModal}
+        onClose={() => setShowDayModal(false)}
+        date={`${day} ${date}`}
+        hours={hourlyDetails.map(h => ({
+          time: h.time.toISOString(),
+          temperature: h.temperature,
+          precipitation: h.precipitation,
+          snowfall: h.snowfall,
+          phase: h.phase,
+          windSpeed: h.windSpeed,
+          windGust: h.windGust,
+          windDirection: h.windDirection,
+          humidity: h.humidity,
+          cloudCover: 0,
+          freezingLevel: h.freezingLevel,
+          powderScore: 0
+        }))}
+        elevation={`MID`}
+      />
     </>
   );
 }
@@ -844,6 +869,12 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginTop: 2,
   },
+  hourWindGust: {
+    fontSize: 9,
+    color: '#f97316',
+    fontWeight: '700',
+    marginTop: 2,
+  },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
@@ -1093,5 +1124,46 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#475569',
     lineHeight: 20,
+  },
+  unifiedForecastSection: {
+    marginBottom: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    overflow: 'hidden',
+  },
+  forecastBackgroundImage: {
+    borderRadius: 12,
+    opacity: 1.0,
+  },
+  forecastOverlay: {
+    padding: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.5)',
+  },
+  singleBadgeContainer: {
+    alignItems: 'center',
+    gap: 8,
+  },
+  badgeLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#64748b',
+    marginBottom: 4,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  badgeScore: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0f172a',
+  },
+  forecastExplanation: {
+    fontSize: 13,
+    color: '#475569',
+    lineHeight: 18,
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#e2e8f0',
   },
 });
