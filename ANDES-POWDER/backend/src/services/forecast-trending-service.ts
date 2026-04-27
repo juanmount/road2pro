@@ -1,4 +1,4 @@
-import { db } from '../db';
+import pool from '../config/database';
 
 interface ForecastSnapshot {
   resortId: string;
@@ -33,7 +33,7 @@ export class ForecastTrendingService {
       const elevations = ['base', 'mid', 'summit'];
       
       for (const elevation of elevations) {
-        const result = await db.execute(
+        const result = await pool.query(
           `SELECT 
             DATE(valid_time) as forecast_date,
             SUM(snowfall_cm) as total_snowfall,
@@ -53,7 +53,7 @@ export class ForecastTrendingService {
 
         // Insert snapshots
         for (const row of result.rows as any[]) {
-          await db.execute(
+          await pool.query(
             `INSERT INTO forecast_snapshots 
               (resort_id, elevation_band, forecast_date, snapshot_date, 
                snowfall_cm, precipitation_mm, max_temp_c, min_temp_c, max_wind_kmh)
@@ -95,7 +95,7 @@ export class ForecastTrendingService {
     days: number = 7
   ): Promise<TrendingData[]> {
     try {
-      const result = await db.execute(
+      const result = await pool.query(
         `WITH today_forecast AS (
           SELECT 
             forecast_date,
@@ -163,7 +163,7 @@ export class ForecastTrendingService {
     try {
       console.log('[TRENDING] Starting daily snapshot for all resorts...');
 
-      const result = await db.execute(
+      const result = await pool.query(
         `SELECT id FROM resorts WHERE is_active = true`
       );
 

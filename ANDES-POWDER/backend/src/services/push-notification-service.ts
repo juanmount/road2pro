@@ -1,5 +1,5 @@
 import { Expo, ExpoPushMessage, ExpoPushTicket } from 'expo-server-sdk';
-import { db } from '../db';
+import pool from '../config/database';
 
 interface PushToken {
   userId: string;
@@ -27,7 +27,7 @@ export class PushNotificationService {
       }
 
       // Upsert token in database (PostgreSQL syntax)
-      await db.execute(
+      await pool.query(
         `INSERT INTO push_tokens (user_id, token, created_at, updated_at)
          VALUES ($1, $2, NOW(), NOW())
          ON CONFLICT (token) 
@@ -54,7 +54,7 @@ export class PushNotificationService {
   ): Promise<void> {
     try {
       // Get all active push tokens
-      const result = await db.execute(
+      const result = await pool.query(
         `SELECT DISTINCT token FROM push_tokens WHERE updated_at > NOW() - INTERVAL '30 days'`
       );
       
@@ -128,7 +128,7 @@ export class PushNotificationService {
     data?: Record<string, any>
   ): Promise<void> {
     try {
-      const result = await db.execute(
+      const result = await pool.query(
         `SELECT token FROM push_tokens WHERE user_id = $1 AND updated_at > NOW() - INTERVAL '30 days'`,
         [userId]
       );
@@ -162,7 +162,7 @@ export class PushNotificationService {
    */
   private async removeToken(token: string): Promise<void> {
     try {
-      await db.execute(`DELETE FROM push_tokens WHERE token = $1`, [token]);
+      await pool.query(`DELETE FROM push_tokens WHERE token = $1`, [token]);
       console.log(`[PUSH] Removed invalid token`);
     } catch (error) {
       console.error('[PUSH] Error removing token:', error);
@@ -174,7 +174,7 @@ export class PushNotificationService {
    */
   async getActiveTokenCount(): Promise<number> {
     try {
-      const result = await db.execute(
+      const result = await pool.query(
         `SELECT COUNT(DISTINCT token) as count FROM push_tokens WHERE updated_at > NOW() - INTERVAL '30 days'`
       );
       return (result.rows as any[])[0]?.count || 0;
