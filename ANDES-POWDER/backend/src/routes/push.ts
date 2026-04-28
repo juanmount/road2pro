@@ -9,16 +9,20 @@ router.post('/register', async (req: Request, res: Response) => {
   try {
     const { userId, token } = req.body;
 
+    console.log('[PUSH REGISTER] Received request:', { userId, token });
+
     if (!userId || !token) {
+      console.log('[PUSH REGISTER] Missing userId or token');
       return res.status(400).json({ error: 'userId and token are required' });
     }
 
     await pushNotificationService.savePushToken(userId, token);
     
+    console.log('[PUSH REGISTER] Token saved successfully');
     res.json({ success: true, message: 'Push token registered successfully' });
   } catch (error) {
-    console.error('Error registering push token:', error);
-    res.status(500).json({ error: 'Failed to register push token' });
+    console.error('[PUSH REGISTER] Error:', error);
+    res.status(500).json({ error: 'Failed to register push token', details: error instanceof Error ? error.message : 'Unknown error' });
   }
 });
 
