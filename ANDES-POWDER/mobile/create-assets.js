@@ -1,33 +1,92 @@
 const fs = require('fs');
 const path = require('path');
+const sharp = require('sharp');
 
 const assetsDir = path.join(__dirname, 'assets');
-if (!fs.existsSync(assetsDir)) {
-  fs.mkdirSync(assetsDir);
+const logoPath = path.join(assetsDir, 'Logo_horizontal.png');
+
+// Generate app icon (1024x1024)
+async function generateIcon() {
+  try {
+    // Use the horizontal logo and resize to square
+    await sharp(logoPath)
+      .resize(1024, 1024, {
+        fit: 'contain',
+        background: { r: 26, g: 54, b: 93, alpha: 1 } // #1a365d
+      })
+      .png()
+      .toFile(path.join(assetsDir, 'icon.png'));
+    console.log('Created icon.png');
+  } catch (error) {
+    console.error('Error creating icon.png:', error);
+  }
 }
 
-// Create simple PNG files (1x1 pixel, will be scaled by Expo)
-const createPNG = (width, height, filename) => {
-  // Minimal PNG file (1x1 transparent pixel)
-  const png = Buffer.from([
-    0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A,
-    0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44, 0x52,
-    0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01,
-    0x08, 0x06, 0x00, 0x00, 0x00, 0x1F, 0x15, 0xC4,
-    0x89, 0x00, 0x00, 0x00, 0x0A, 0x49, 0x44, 0x41,
-    0x54, 0x78, 0x9C, 0x63, 0x00, 0x01, 0x00, 0x00,
-    0x05, 0x00, 0x01, 0x0D, 0x0A, 0x2D, 0xB4, 0x00,
-    0x00, 0x00, 0x00, 0x49, 0x45, 0x4E, 0x44, 0xAE,
-    0x42, 0x60, 0x82
-  ]);
-  
-  fs.writeFileSync(path.join(assetsDir, filename), png);
-  console.log(`Created ${filename}`);
-};
+// Generate adaptive icon (1024x1024)
+async function generateAdaptiveIcon() {
+  try {
+    // Create adaptive icon with transparent background
+    await sharp(logoPath)
+      .resize(1024, 1024, {
+        fit: 'contain',
+        background: { r: 26, g: 54, b: 93, alpha: 1 }
+      })
+      .png()
+      .toFile(path.join(assetsDir, 'adaptive-icon.png'));
+    console.log('Created adaptive-icon.png');
+  } catch (error) {
+    console.error('Error creating adaptive-icon.png:', error);
+  }
+}
 
-createPNG(1024, 1024, 'icon.png');
-createPNG(1024, 1024, 'adaptive-icon.png');
-createPNG(1284, 2778, 'splash.png');
-createPNG(48, 48, 'favicon.png');
+// Generate splash screen (1284x2778)
+async function generateSplash() {
+  try {
+    // Create splash screen with logo centered
+    await sharp({
+      create: {
+        width: 1284,
+        height: 2778,
+        channels: 4,
+        background: { r: 26, g: 54, b: 93, alpha: 1 }
+      }
+    })
+    .composite([{
+      input: logoPath,
+      gravity: 'center'
+    }])
+    .png()
+    .toFile(path.join(assetsDir, 'splash.png'));
+    console.log('Created splash.png');
+  } catch (error) {
+    console.error('Error creating splash.png:', error);
+  }
+}
 
-console.log('All assets created successfully!');
+// Generate favicon (48x48)
+async function generateFavicon() {
+  try {
+    await sharp(logoPath)
+      .resize(48, 48, {
+        fit: 'contain',
+        background: { r: 26, g: 54, b: 93, alpha: 1 }
+      })
+      .png()
+      .toFile(path.join(assetsDir, 'favicon.png'));
+    console.log('Created favicon.png');
+  } catch (error) {
+    console.error('Error creating favicon.png:', error);
+  }
+}
+
+async function generateAllAssets() {
+  console.log('Generating app assets from Logo_horizontal.png...');
+  await generateIcon();
+  await generateAdaptiveIcon();
+  await generateSplash();
+  await generateFavicon();
+  console.log('All assets generated successfully!');
+}
+
+generateAllAssets().catch(console.error);
+
