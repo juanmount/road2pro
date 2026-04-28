@@ -32,7 +32,7 @@ export default function MapasScreen() {
 
         {/* Season 0 Badge */}
         <View style={styles.seasonBadge}>
-          <Ionicons name="snow" size={14} color="#10b981" />
+          <Ionicons name="snow" size={14} color="#63b3ed" />
           <Text style={styles.seasonText}>SEASON 0 GRATIS</Text>
         </View>
 
@@ -47,7 +47,7 @@ export default function MapasScreen() {
         {/* Early Access Section - MOVED TO TOP */}
         <View style={styles.earlyAccessSection}>
           <View style={styles.earlyAccessHeader}>
-            <Ionicons name="rocket" size={24} color="#10b981" />
+            <Ionicons name="rocket" size={24} color="#63b3ed" />
             <Text style={styles.earlyAccessTitle}>Acceso Anticipado Season 1</Text>
           </View>
           
@@ -58,23 +58,23 @@ export default function MapasScreen() {
 
           <View style={styles.benefitsList}>
             <View style={styles.benefitItem}>
-              <Ionicons name="checkmark-circle" size={20} color="#10b981" />
+              <Ionicons name="checkmark-circle" size={20} color="#63b3ed" />
               <Text style={styles.benefitText}>Precio fundador congelado de por vida</Text>
             </View>
             <View style={styles.benefitItem}>
-              <Ionicons name="checkmark-circle" size={20} color="#10b981" />
+              <Ionicons name="checkmark-circle" size={20} color="#63b3ed" />
               <Text style={styles.benefitText}>Acceso garantizado Season 1 (2026)</Text>
             </View>
             <View style={styles.benefitItem}>
-              <Ionicons name="checkmark-circle" size={20} color="#10b981" />
+              <Ionicons name="checkmark-circle" size={20} color="#63b3ed" />
               <Text style={styles.benefitText}>Badge exclusivo de Fundador</Text>
             </View>
             <View style={styles.benefitItem}>
-              <Ionicons name="checkmark-circle" size={20} color="#10b981" />
+              <Ionicons name="checkmark-circle" size={20} color="#63b3ed" />
               <Text style={styles.benefitText}>Todas las mejoras futuras incluidas</Text>
             </View>
             <View style={styles.benefitItem}>
-              <Ionicons name="checkmark-circle" size={20} color="#10b981" />
+              <Ionicons name="checkmark-circle" size={20} color="#63b3ed" />
               <Text style={styles.benefitText}>Soporte prioritario</Text>
             </View>
           </View>
@@ -91,7 +91,7 @@ export default function MapasScreen() {
             }}
           >
             <LinearGradient
-              colors={['#10b981', '#059669']}
+              colors={['#0ea5e9', '#0284c7']}
               style={styles.ctaGradient}
             >
               <Ionicons name="lock-open" size={24} color="#fff" />
@@ -109,21 +109,21 @@ export default function MapasScreen() {
           <Text style={styles.sectionTitle}>Incluido ahora (gratis)</Text>
           <View style={styles.featureRow}>
             <View style={styles.featurePill}>
-              <Ionicons name="snow" size={16} color="#10b981" />
+              <Ionicons name="snow" size={16} color="#63b3ed" />
               <Text style={styles.featurePillText}>Pronósticos 7 días</Text>
             </View>
             <View style={styles.featurePill}>
-              <Ionicons name="analytics" size={16} color="#10b981" />
+              <Ionicons name="analytics" size={16} color="#63b3ed" />
               <Text style={styles.featurePillText}>Snow Engine</Text>
             </View>
           </View>
           <View style={styles.featureRow}>
             <View style={styles.featurePill}>
-              <Ionicons name="thunderstorm" size={16} color="#10b981" />
+              <Ionicons name="thunderstorm" size={16} color="#63b3ed" />
               <Text style={styles.featurePillText}>Storm Crossing</Text>
             </View>
             <View style={styles.featurePill}>
-              <Ionicons name="notifications" size={16} color="#10b981" />
+              <Ionicons name="notifications" size={16} color="#63b3ed" />
               <Text style={styles.featurePillText}>Alertas inteligentes</Text>
             </View>
           </View>
@@ -171,17 +171,17 @@ const styles = StyleSheet.create({
   seasonBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    backgroundColor: 'rgba(99, 179, 237, 0.15)',
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 16,
     alignSelf: 'center',
     borderWidth: 1,
-    borderColor: '#10b981',
+    borderColor: '#63b3ed',
     marginBottom: 16,
   },
   seasonText: {
-    color: '#10b981',
+    color: '#63b3ed',
     fontSize: 10,
     fontWeight: 'bold',
     marginLeft: 6,
@@ -224,17 +224,17 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+    backgroundColor: 'rgba(99, 179, 237, 0.1)',
     borderRadius: 10,
     padding: 10,
     gap: 8,
     borderWidth: 1,
-    borderColor: 'rgba(16, 185, 129, 0.3)',
+    borderColor: 'rgba(99, 179, 237, 0.3)',
   },
   featurePillText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#10b981',
+    color: '#63b3ed',
     flex: 1,
   },
   futureCompact: {
@@ -262,7 +262,7 @@ const styles = StyleSheet.create({
     marginTop: 20,
     borderRadius: 16,
     overflow: 'hidden',
-    shadowColor: '#f59e0b',
+    shadowColor: '#0ea5e9',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -281,12 +281,12 @@ const styles = StyleSheet.create({
     color: '#fff',
   },
   earlyAccessSection: {
-    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+    backgroundColor: 'rgba(99, 179, 237, 0.08)',
     borderRadius: 20,
     padding: 24,
     marginTop: 20,
     borderWidth: 1,
-    borderColor: 'rgba(16, 185, 129, 0.3)',
+    borderColor: 'rgba(99, 179, 237, 0.25)',
   },
   earlyAccessHeader: {
     flexDirection: 'row',
@@ -297,7 +297,7 @@ const styles = StyleSheet.create({
   earlyAccessTitle: {
     fontSize: 22,
     fontWeight: 'bold',
-    color: '#10b981',
+    color: '#63b3ed',
   },
   earlyAccessDescription: {
     fontSize: 15,
