@@ -49,24 +49,16 @@ export default function HourlyForecastScreen() {
       const resortData = await resortsService.getById(id);
       setResort(resortData);
       
-      // ONLY load from AsyncStorage - never make API call
-      // This ensures we always use the same data as the LIVE card
+      // Load from AsyncStorage
       const AsyncStorage = require('@react-native-async-storage/async-storage').default;
-      const cachedKey = `hourly-forecast-${id}-${selectedElevation}`;
+      const cachedKey = `hourly-forecast-${id}-${selectedElevation}-v2`;
       const cachedData = await AsyncStorage.getItem(cachedKey);
       
       if (cachedData) {
         const data = JSON.parse(cachedData);
-        console.log('[HOURLY SCREEN] ✅ Using CACHED data from AsyncStorage:', data.length, 'hours');
-        console.log('[HOURLY SCREEN] First hour:', {
-          time: data[0]?.time,
-          temp: data[0]?.temperature,
-          wind: data[0]?.windSpeed,
-          freezing: data[0]?.freezingLevel
-        });
         setForecasts(data);
       } else {
-        console.error('[HOURLY SCREEN] ❌ No cached data found! Go back to main screen first.');
+        console.error('[HOURLY SCREEN] No cached data found');
         setForecasts([]);
       }
     } catch (err) {
@@ -77,8 +69,7 @@ export default function HourlyForecastScreen() {
     }
   };
 
-  // Don't adjust wind - just display what comes from DB
-  // The LIVE card applies 1.25x correction, but hourly forecast should show raw values
+  // Don't adjust wind - backend already applies elevation adjustment
   const getAdjustedWindSpeed = (windSpeed: number): number => {
     return windSpeed;
   };
@@ -194,6 +185,11 @@ export default function HourlyForecastScreen() {
                   <Text style={styles.windText}>
                     {formatWind(getAdjustedWindSpeed(forecast.windSpeed))}
                   </Text>
+                  {forecast.windGust && forecast.windGust > forecast.windSpeed * 1.3 && (
+                    <Text style={styles.gustText}>
+                      ⚠ {formatWind(getAdjustedWindSpeed(forecast.windGust))}
+                    </Text>
+                  )}
                   {forecast.windDirection !== undefined && (
                     <Text style={styles.detailText}>
                       {getWindDirectionArrow(forecast.windDirection)} {getWindDirectionLabel(forecast.windDirection)}
@@ -316,6 +312,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: '#718096',
+  },
+  gustText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#f97316',
+    marginTop: 2,
   },
   detailText: {
     fontSize: 11,

@@ -173,15 +173,17 @@ class SMNAlertsService {
       }
       
       // Sync wind alerts from our own forecast data
-      await this.syncWindAlertsFromForecasts();
+      // DISABLED - causing discrepancies with hourly data
+      // Only use SMN alerts for wind warnings
+      // await this.syncWindAlertsFromForecasts();
       
       // Merge with existing manual alerts (don't remove them)
+      // DO NOT keep old wind alerts - they may have stale data
       const manualAlerts = this.alertsCache.filter(a => a.id.startsWith('manual-'));
-      const windAlerts = this.alertsCache.filter(a => a.id.startsWith('wind-'));
-      this.alertsCache = [...alerts, ...windAlerts, ...manualAlerts];
+      this.alertsCache = [...alerts, ...manualAlerts];
       
       this.lastFetch = new Date();
-      console.log(`✓ Total active alerts: ${this.alertsCache.length} (${alerts.length} from SMN, ${windAlerts.length} wind, ${manualAlerts.length} manual)`);
+      console.log(`✓ Total active alerts: ${this.alertsCache.length} (${alerts.length} from SMN, ${manualAlerts.length} manual)`);
       
     } catch (error: any) {
       console.error('Error fetching SMN alerts:', error.message);

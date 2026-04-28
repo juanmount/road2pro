@@ -189,7 +189,7 @@ export default function ResortDetailScreen() {
       try {
         const AsyncStorage = require('@react-native-async-storage/async-storage').default;
         await AsyncStorage.setItem(
-          `hourly-forecast-${id}-${selectedElevation}`,
+          `hourly-forecast-${id}-${selectedElevation}-v2`,
           JSON.stringify(hourlyForecast)
         );
         console.log('[CACHE] Saved hourly forecast to AsyncStorage');
