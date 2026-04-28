@@ -4,8 +4,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useState, useEffect } from 'react';
 import Slider from '@react-native-community/slider';
 import notificationService, { NotificationPreferences, DEFAULT_NOTIFICATION_PREFERENCES } from '../../services/notifications';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import AlertsCard from '../../components/AlertsCard';
 
 export default function AlertasScreen() {
   const [preferences, setPreferences] = useState<NotificationPreferences>(DEFAULT_NOTIFICATION_PREFERENCES);
@@ -231,12 +229,6 @@ export default function AlertasScreen() {
             </Text>
           </View>
         )}
-
-        {/* Active Weather Alerts */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Alertas Meteorológicas Activas</Text>
-          <AlertsCard />
-        </View>
       </ScrollView>
     </LinearGradient>
   );
