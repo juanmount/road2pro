@@ -23,7 +23,7 @@ export default function MapasScreen() {
         {/* Logo & Brand Header */}
         <View style={styles.brandHeader}>
           <Image 
-            source={require('../../../assets/icon.png')}
+            source={require('../../assets/icon.png')}
             style={styles.logo}
           />
           <Text style={styles.brandTitle}>Andes Powder</Text>
