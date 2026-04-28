@@ -553,17 +553,17 @@ export function DailyForecastCard({
           })));
           
           return hourlyDetails.map(h => ({
-          time: h.time.toISOString(),
-          temperature: h.temperature,
-          precipitation: h.precipitation,
-          snowfall: h.snowfall,
-          phase: h.phase,
-          windSpeed: h.windSpeed,
-          windGust: h.windGust,
-          windDirection: h.windDirection,
-          humidity: h.humidity,
+          time: h.time instanceof Date && !isNaN(h.time.getTime()) ? h.time.toISOString() : new Date().toISOString(),
+          temperature: h.temperature || 0,
+          precipitation: h.precipitation || 0,
+          snowfall: h.snowfall || 0,
+          phase: h.phase || 'none',
+          windSpeed: h.windSpeed || 0,
+          windGust: h.windGust || 0,
+          windDirection: h.windDirection || 0,
+          humidity: h.humidity || 70,
           cloudCover: 0,
-          freezingLevel: h.freezingLevel,
+          freezingLevel: h.freezingLevel || 2000,
           powderScore: 0
         }));
         })()}
