@@ -1317,7 +1317,10 @@ export default function ResortDetailScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>🎯 Ajuste Andes Powder</Text>
+              <View>
+                <Text style={styles.modalTitle}>Ajuste de Pronóstico</Text>
+                <Text style={styles.modalSubtitle}>Andes Powder Engine</Text>
+              </View>
               <TouchableOpacity onPress={() => setAdjustmentModalVisible(false)}>
                 <Ionicons name="close" size={28} color="#1a365d" />
               </TouchableOpacity>
@@ -1325,55 +1328,63 @@ export default function ResortDetailScreen() {
             
             <ScrollView style={styles.adjustmentModalScroll} showsVerticalScrollIndicator={false}>
               <Text style={styles.adjustmentModalDescription}>
-                Nuestro algoritmo propietario ajusta el pronóstico genérico considerando las condiciones únicas de la Patagonia:
+                Los modelos meteorológicos globales no capturan las particularidades de la Patagonia. Nuestro algoritmo propietario aplica correcciones basadas en años de datos históricos y condiciones locales específicas.
               </Text>
               
               <View style={styles.adjustmentFactorsSection}>
                 <View style={styles.adjustmentFactor}>
                   <View style={styles.adjustmentFactorHeader}>
-                    <Text style={styles.adjustmentFactorIcon}>🌡️</Text>
-                    <Text style={styles.adjustmentFactorTitle}>Temperatura & Altura</Text>
+                    <View style={styles.factorIconContainer}>
+                      <Ionicons name="thermometer-outline" size={20} color="#0ea5e9" />
+                    </View>
+                    <Text style={styles.adjustmentFactorTitle}>Análisis Térmico Vertical</Text>
                   </View>
                   <Text style={styles.adjustmentFactorText}>
-                    Analizamos la relación entre el nivel de congelación y la elevación del cerro para determinar si la precipitación cae como nieve o lluvia. Cuanto más cerca esté el nivel de congelación de la elevación, menor será la acumulación real.
+                    Evaluamos la estructura térmica de la atmósfera y su relación con la topografía del cerro. El nivel de congelación determina la fase de la precipitación y la eficiencia de acumulación en cada banda de elevación.
                   </Text>
                 </View>
                 
                 <View style={styles.adjustmentFactor}>
                   <View style={styles.adjustmentFactorHeader}>
-                    <Text style={styles.adjustmentFactorIcon}>💨</Text>
-                    <Text style={styles.adjustmentFactorTitle}>Viento Patagónico</Text>
+                    <View style={styles.factorIconContainer}>
+                      <Ionicons name="flag-outline" size={20} color="#0ea5e9" />
+                    </View>
+                    <Text style={styles.adjustmentFactorTitle}>Dinámica Eólica Regional</Text>
                   </View>
                   <Text style={styles.adjustmentFactorText}>
-                    Los vientos en Patagonia son notoriamente fuertes y redistribuyen la nieve de manera significativa. El impacto es mucho mayor en summit que en base, donde el terreno ofrece más protección.
+                    Los vientos del oeste característicos de Patagonia generan redistribución significativa de nieve. Aplicamos factores de corrección diferenciados por elevación y exposición al viento dominante.
                   </Text>
                 </View>
                 
                 <View style={styles.adjustmentFactor}>
                   <View style={styles.adjustmentFactorHeader}>
-                    <Text style={styles.adjustmentFactorIcon}>☀️</Text>
-                    <Text style={styles.adjustmentFactorTitle}>Radiación Solar</Text>
+                    <View style={styles.factorIconContainer}>
+                      <Ionicons name="sunny-outline" size={20} color="#0ea5e9" />
+                    </View>
+                    <Text style={styles.adjustmentFactorTitle}>Balance Radiativo</Text>
                   </View>
                   <Text style={styles.adjustmentFactorText}>
-                    La intensidad del sol durante el día afecta la persistencia de la nieve, especialmente en temporadas de transición (otoño/primavera) cuando los días son más largos y cálidos.
+                    La radiación solar incidente varía según latitud, estación y hora del día. Modelamos el impacto en la ablación superficial y persistencia del manto nivoso.
                   </Text>
                 </View>
                 
                 <View style={styles.adjustmentFactor}>
                   <View style={styles.adjustmentFactorHeader}>
-                    <Text style={styles.adjustmentFactorIcon}>�</Text>
-                    <Text style={styles.adjustmentFactorTitle}>Datos Históricos</Text>
+                    <View style={styles.factorIconContainer}>
+                      <Ionicons name="analytics-outline" size={20} color="#0ea5e9" />
+                    </View>
+                    <Text style={styles.adjustmentFactorTitle}>Calibración Histórica</Text>
                   </View>
                   <Text style={styles.adjustmentFactorText}>
-                    Calibramos constantemente nuestro modelo con datos reales de nevadas pasadas en los cerros patagónicos para mejorar la precisión.
+                    Validamos y ajustamos continuamente nuestro modelo contra observaciones reales de nevadas en los principales centros de esquí de la región.
                   </Text>
                 </View>
               </View>
               
               <View style={styles.adjustmentSummaryBox}>
-                <Text style={styles.adjustmentSummaryTitle}>💡 Andes Powder Engine</Text>
+                <Text style={styles.adjustmentSummaryTitle}>Resultado</Text>
                 <Text style={styles.adjustmentSummaryText}>
-                  Combinamos múltiples factores meteorológicos y geográficos específicos de Patagonia para darte el pronóstico más preciso posible. El resultado es una estimación más realista que los modelos genéricos globales.
+                  El pronóstico ajustado representa una estimación más precisa de la acumulación real esperada, considerando las condiciones meteorológicas y topográficas específicas de cada cerro.
                 </Text>
               </View>
             </ScrollView>
@@ -2248,6 +2259,13 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#1a365d',
   },
+  modalSubtitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#64748b',
+    marginTop: 2,
+    letterSpacing: 0.5,
+  },
   adjustmentModalScroll: {
     paddingHorizontal: 20,
   },
@@ -2275,6 +2293,14 @@ const styles = StyleSheet.create({
   },
   adjustmentFactorIcon: {
     fontSize: 24,
+  },
+  factorIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    backgroundColor: '#e0f2fe',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   adjustmentFactorTitle: {
     fontSize: 16,
