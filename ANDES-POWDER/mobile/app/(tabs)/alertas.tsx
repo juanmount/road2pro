@@ -2,16 +2,16 @@ import { View, Text, StyleSheet, ScrollView, Switch, TouchableOpacity, Alert } f
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useState, useEffect } from 'react';
-import notificationService from '../../services/notifications';
+import Slider from '@react-native-community/slider';
+import notificationService, { NotificationPreferences, DEFAULT_NOTIFICATION_PREFERENCES } from '../../services/notifications';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import AlertsCard from '../../components/AlertsCard';
 
 export default function AlertasScreen() {
-  const [snowAlerts, setSnowAlerts] = useState(true);
-  const [windAlerts, setWindAlerts] = useState(false);
-  const [stormAlerts, setStormAlerts] = useState(true);
+  const [preferences, setPreferences] = useState<NotificationPreferences>(DEFAULT_NOTIFICATION_PREFERENCES);
   const [pushToken, setPushToken] = useState<string | null>(null);
   const [permissionGranted, setPermissionGranted] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   useEffect(() => {
     loadPreferences();
@@ -20,13 +20,8 @@ export default function AlertasScreen() {
 
   const loadPreferences = async () => {
     try {
-      const prefs = await AsyncStorage.getItem('notificationPreferences');
-      if (prefs) {
-        const { snowAlerts: snow, windAlerts: wind, stormAlerts: storm } = JSON.parse(prefs);
-        setSnowAlerts(snow);
-        setWindAlerts(wind);
-        setStormAlerts(storm);
-      }
+      const prefs = await notificationService.getPreferences();
+      setPreferences(prefs);
     } catch (error) {
       console.error('Error loading preferences:', error);
     }
@@ -37,37 +32,23 @@ export default function AlertasScreen() {
     if (token) {
       setPushToken(token);
       setPermissionGranted(true);
-      
-      // Save to backend
-      await notificationService.savePushToken(token, {
-        snowAlerts,
-        stormAlerts,
-        windAlerts,
-      });
     }
   };
 
-  const updatePreference = async (
-    key: 'snowAlerts' | 'windAlerts' | 'stormAlerts',
-    value: boolean
+  const updatePreference = <K extends keyof NotificationPreferences>(
+    key: K,
+    value: NotificationPreferences[K]
   ) => {
-    const newPrefs = {
-      snowAlerts: key === 'snowAlerts' ? value : snowAlerts,
-      windAlerts: key === 'windAlerts' ? value : windAlerts,
-      stormAlerts: key === 'stormAlerts' ? value : stormAlerts,
-    };
+    setPreferences(prev => ({ ...prev, [key]: value }));
+  };
 
-    // Update local state
-    if (key === 'snowAlerts') setSnowAlerts(value);
-    if (key === 'windAlerts') setWindAlerts(value);
-    if (key === 'stormAlerts') setStormAlerts(value);
-
-    // Save to AsyncStorage
-    await AsyncStorage.setItem('notificationPreferences', JSON.stringify(newPrefs));
-
-    // Update backend
-    if (permissionGranted) {
-      await notificationService.updatePreferences(newPrefs);
+  const savePreferences = async () => {
+    try {
+      await notificationService.savePreferences(preferences);
+      Alert.alert('✓ Guardado', 'Tus preferencias han sido actualizadas');
+    } catch (error) {
+      console.error('Error saving preferences:', error);
+      Alert.alert('Error', 'No se pudieron guardar las preferencias');
     }
   };
 
@@ -98,14 +79,14 @@ export default function AlertasScreen() {
             <View style={styles.alertContent}>
               <Text style={styles.alertTitle}>Nevadas Importantes</Text>
               <Text style={styles.alertDescription}>
-                Aviso cuando se pronostiquen más de 10cm
+                Aviso cuando se pronostiquen más de {preferences.minSnowfallCm}cm
               </Text>
             </View>
             <Switch
-              value={snowAlerts}
+              value={preferences.snowAlerts}
               onValueChange={(value) => updatePreference('snowAlerts', value)}
               trackColor={{ false: '#334155', true: '#63b3ed' }}
-              thumbColor={snowAlerts ? '#fff' : '#94a3b8'}
+              thumbColor={preferences.snowAlerts ? '#fff' : '#94a3b8'}
             />
           </View>
 
@@ -120,10 +101,10 @@ export default function AlertasScreen() {
               </Text>
             </View>
             <Switch
-              value={stormAlerts}
+              value={preferences.stormAlerts}
               onValueChange={(value) => updatePreference('stormAlerts', value)}
               trackColor={{ false: '#334155', true: '#8b5cf6' }}
-              thumbColor={stormAlerts ? '#fff' : '#94a3b8'}
+              thumbColor={preferences.stormAlerts ? '#fff' : '#94a3b8'}
             />
           </View>
 
@@ -134,17 +115,105 @@ export default function AlertasScreen() {
             <View style={styles.alertContent}>
               <Text style={styles.alertTitle}>Viento Extremo</Text>
               <Text style={styles.alertDescription}>
-                Aviso cuando el viento supere 60 km/h
+                Aviso cuando el viento supere {preferences.minWindSpeedKmh} km/h
               </Text>
             </View>
             <Switch
-              value={windAlerts}
+              value={preferences.windAlerts}
               onValueChange={(value) => updatePreference('windAlerts', value)}
               trackColor={{ false: '#334155', true: '#f59e0b' }}
-              thumbColor={windAlerts ? '#fff' : '#94a3b8'}
+              thumbColor={preferences.windAlerts ? '#fff' : '#94a3b8'}
             />
           </View>
         </View>
+
+        {/* Advanced Settings Toggle */}
+        <TouchableOpacity 
+          style={styles.advancedToggle}
+          onPress={() => setShowAdvanced(!showAdvanced)}
+        >
+          <Ionicons name="settings-outline" size={20} color="#63b3ed" />
+          <Text style={styles.advancedToggleText}>Configuración Avanzada</Text>
+          <Ionicons 
+            name={showAdvanced ? "chevron-up" : "chevron-down"} 
+            size={20} 
+            color="#63b3ed" 
+          />
+        </TouchableOpacity>
+
+        {/* Advanced Settings */}
+        {showAdvanced && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Umbrales Personalizados</Text>
+            
+            {/* Min Snowfall Slider */}
+            {preferences.snowAlerts && (
+              <View style={styles.sliderContainer}>
+                <View style={styles.sliderHeader}>
+                  <Text style={styles.sliderLabel}>Mínimo de Nieve</Text>
+                  <Text style={styles.sliderValue}>{preferences.minSnowfallCm} cm</Text>
+                </View>
+                <Slider
+                  style={styles.slider}
+                  minimumValue={5}
+                  maximumValue={30}
+                  step={5}
+                  value={preferences.minSnowfallCm}
+                  onValueChange={(value: number) => updatePreference('minSnowfallCm', value)}
+                  minimumTrackTintColor="#63b3ed"
+                  maximumTrackTintColor="#334155"
+                  thumbTintColor="#63b3ed"
+                />
+              </View>
+            )}
+
+            {/* Min Wind Speed Slider */}
+            {preferences.windAlerts && (
+              <View style={styles.sliderContainer}>
+                <View style={styles.sliderHeader}>
+                  <Text style={styles.sliderLabel}>Velocidad Mínima de Viento</Text>
+                  <Text style={styles.sliderValue}>{preferences.minWindSpeedKmh} km/h</Text>
+                </View>
+                <Slider
+                  style={styles.slider}
+                  minimumValue={50}
+                  maximumValue={100}
+                  step={10}
+                  value={preferences.minWindSpeedKmh}
+                  onValueChange={(value: number) => updatePreference('minWindSpeedKmh', value)}
+                  minimumTrackTintColor="#f59e0b"
+                  maximumTrackTintColor="#334155"
+                  thumbTintColor="#f59e0b"
+                />
+              </View>
+            )}
+
+            {/* Advance Notice Days */}
+            <View style={styles.sliderContainer}>
+              <View style={styles.sliderHeader}>
+                <Text style={styles.sliderLabel}>Días de Anticipación</Text>
+                <Text style={styles.sliderValue}>{preferences.advanceNoticeDays} días</Text>
+              </View>
+              <Slider
+                style={styles.slider}
+                minimumValue={1}
+                maximumValue={7}
+                step={1}
+                value={preferences.advanceNoticeDays}
+                onValueChange={(value: number) => updatePreference('advanceNoticeDays', value)}
+                minimumTrackTintColor="#8b5cf6"
+                maximumTrackTintColor="#334155"
+                thumbTintColor="#8b5cf6"
+              />
+            </View>
+
+            {/* Save Button */}
+            <TouchableOpacity style={styles.saveButton} onPress={savePreferences}>
+              <Ionicons name="checkmark-circle" size={20} color="#fff" />
+              <Text style={styles.saveButtonText}>Guardar Configuración</Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
         {/* Test Notification Button */}
         {permissionGranted && (
@@ -285,5 +354,61 @@ const styles = StyleSheet.create({
     color: '#475569',
     textAlign: 'center',
     paddingHorizontal: 32,
+  },
+  advancedToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(99, 179, 237, 0.1)',
+    borderRadius: 12,
+    padding: 14,
+    marginVertical: 16,
+    gap: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(99, 179, 237, 0.3)',
+  },
+  advancedToggleText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#63b3ed',
+    flex: 1,
+  },
+  sliderContainer: {
+    marginBottom: 24,
+  },
+  sliderHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  sliderLabel: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#cbd5e1',
+  },
+  sliderValue: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#63b3ed',
+  },
+  slider: {
+    width: '100%',
+    height: 40,
+  },
+  saveButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#10b981',
+    borderRadius: 12,
+    padding: 16,
+    marginTop: 8,
+    gap: 8,
+  },
+  saveButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#fff',
   },
 });
