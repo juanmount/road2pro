@@ -183,6 +183,44 @@ export class PushNotificationService {
       return 0;
     }
   }
+
+  /**
+   * Send bulk notifications to multiple users with different messages
+   */
+  async sendBulkNotifications(
+    notifications: Array<{ token: string; title: string; body: string; data?: any }>
+  ): Promise<void> {
+    try {
+      if (notifications.length === 0) return;
+
+      const messages: ExpoPushMessage[] = notifications.map(notif => ({
+        to: notif.token,
+        sound: 'default',
+        title: notif.title,
+        body: notif.body,
+        data: notif.data || {},
+        badge: 1,
+      }));
+
+      // Send in batches (Expo recommends max 100 per request)
+      const chunks = this.expo.chunkPushNotifications(messages);
+      const tickets: ExpoPushTicket[] = [];
+
+      for (const chunk of chunks) {
+        try {
+          const ticketChunk = await this.expo.sendPushNotificationsAsync(chunk);
+          tickets.push(...ticketChunk);
+        } catch (error) {
+          console.error('[PUSH] Error sending chunk:', error);
+        }
+      }
+
+      console.log(`[PUSH] Sent ${notifications.length} bulk notifications`);
+    } catch (error) {
+      console.error('[PUSH] Error sending bulk notifications:', error);
+      throw error;
+    }
+  }
 }
 
 export const pushNotificationService = new PushNotificationService();
