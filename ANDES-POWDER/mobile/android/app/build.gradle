@@ -193,16 +193,6 @@ dependencies {
     } else {
         implementation jscFlavor
     }
-
-    // Configure react-native-iap to use Play Store variant
-    implementation(project(':react-native-iap')) {
-        attributes {
-            attribute(
-                Attribute.of("com.android.build.api.attributes.ProductFlavor", String),
-                "play"
-            )
-        }
-    }
 }
 
 if (rnVersion < versionToNumber(0, 75, 0)) {

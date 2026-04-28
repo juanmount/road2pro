@@ -55,6 +55,17 @@ export default function AlertasScreen() {
     Alert.alert('Notificación de prueba', 'Recibirás una notificación en 2 segundos');
   };
 
+  const requestPermissions = async () => {
+    const token = await notificationService.registerForPushNotifications();
+    if (token) {
+      setPushToken(token);
+      setPermissionGranted(true);
+      Alert.alert('✓ Permisos otorgados', 'Las notificaciones están activadas');
+    } else {
+      Alert.alert('Error', 'No se pudieron obtener los permisos. Verifica la configuración de tu dispositivo.');
+    }
+  };
+
   return (
     <LinearGradient
       colors={['#0f172a', '#1e293b', '#334155']}
@@ -213,9 +224,16 @@ export default function AlertasScreen() {
           <View style={styles.permissionWarning}>
             <Ionicons name="warning" size={24} color="#f59e0b" />
             <Text style={styles.permissionText}>
-              Permisos de notificaciones no otorgados. Actívalos en Configuración.
+              Permisos de notificaciones no otorgados.
             </Text>
           </View>
+        )}
+
+        {!permissionGranted && (
+          <TouchableOpacity style={styles.permissionButton} onPress={requestPermissions}>
+            <Ionicons name="notifications-outline" size={20} color="#fff" />
+            <Text style={styles.permissionButtonText}>Activar Notificaciones</Text>
+          </TouchableOpacity>
         )}
       </ScrollView>
     </LinearGradient>
@@ -384,6 +402,21 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   saveButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  permissionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#10b981',
+    borderRadius: 12,
+    padding: 16,
+    marginTop: 12,
+    gap: 8,
+  },
+  permissionButtonText: {
     fontSize: 16,
     fontWeight: '600',
     color: '#fff',

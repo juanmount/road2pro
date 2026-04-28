@@ -57,14 +57,9 @@ class NotificationService {
   private expoPushToken: string | null = null;
 
   /**
-   * Request notification permissions and get push token
+   * Request notification permissions and get Expo Push Token
    */
   async registerForPushNotifications(): Promise<string | null> {
-    if (!Device.isDevice) {
-      console.log('Push notifications only work on physical devices');
-      return null;
-    }
-
     try {
       // Check existing permissions
       const { status: existingStatus } = await Notifications.getPermissionsAsync();
@@ -77,33 +72,40 @@ class NotificationService {
       }
 
       if (finalStatus !== 'granted') {
-        console.log('Permission not granted for push notifications');
+        console.log('Permission not granted for notifications');
         return null;
       }
-
-      // Get push token
-      const projectId = Constants.expoConfig?.extra?.eas?.projectId;
-      
-      const tokenData = await Notifications.getExpoPushTokenAsync({
-        projectId: projectId || 'your-project-id', // Fallback
-      });
-
-      this.expoPushToken = tokenData.data;
-      console.log('Expo Push Token:', this.expoPushToken);
 
       // Configure notification channel for Android
       if (Platform.OS === 'android') {
         await Notifications.setNotificationChannelAsync('default', {
-          name: 'default',
+          name: 'Alertas de Nieve',
           importance: Notifications.AndroidImportance.MAX,
           vibrationPattern: [0, 250, 250, 250],
           lightColor: '#63b3ed',
+          sound: 'default',
+          enableVibrate: true,
         });
       }
 
-      return this.expoPushToken;
+      // Get Expo Push Token
+      const projectId = Constants.expoConfig?.extra?.eas?.projectId || '9ef6fdd6-aca4-443a-8bae-2b3f1f611be3';
+      
+      try {
+        const tokenData = await Notifications.getExpoPushTokenAsync({
+          projectId,
+        });
+        this.expoPushToken = tokenData.data;
+        console.log('Expo Push Token obtained:', this.expoPushToken);
+        return this.expoPushToken;
+      } catch (tokenError) {
+        // Fallback to local device ID if Expo token fails
+        console.warn('Could not get Expo Push Token, using device ID:', tokenError);
+        this.expoPushToken = `local-${Device.deviceName || 'device'}`;
+        return this.expoPushToken;
+      }
     } catch (error) {
-      console.error('Error registering for push notifications:', error);
+      console.error('Error registering for notifications:', error);
       return null;
     }
   }
