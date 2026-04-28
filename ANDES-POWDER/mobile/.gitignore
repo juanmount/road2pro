@@ -12,3 +12,13 @@ web-build/
 .DS_Store
 *.log
 .env
+Library/
+.expo-shared/
+*.keystore
+*.pem
+android/.gradle/
+android/app/build/
+android/build/
+ios/Pods/
+ios/build/
+.expo-shared/
