@@ -173,14 +173,13 @@ class SMNAlertsService {
       }
       
       // Sync wind alerts from our own forecast data
-      // DISABLED - causing discrepancies with hourly data
-      // Only use SMN alerts for wind warnings
-      // await this.syncWindAlertsFromForecasts();
+      // Generate alerts for summit elevation only (most critical)
+      await this.syncWindAlertsFromForecasts();
       
       // Merge with existing manual alerts (don't remove them)
-      // DO NOT keep old wind alerts - they may have stale data
       const manualAlerts = this.alertsCache.filter(a => a.id.startsWith('manual-'));
-      this.alertsCache = [...alerts, ...manualAlerts];
+      const windAlerts = this.alertsCache.filter(a => a.id.startsWith('wind-'));
+      this.alertsCache = [...alerts, ...windAlerts, ...manualAlerts];
       
       this.lastFetch = new Date();
       console.log(`✓ Total active alerts: ${this.alertsCache.length} (${alerts.length} from SMN, ${manualAlerts.length} manual)`);
@@ -229,7 +228,7 @@ class SMNAlertsService {
     try {
       const pool = (await import('../config/database')).default;
       
-      // Get wind impact forecasts for next 48 hours
+      // Get wind impact forecasts for next 48 hours (SUMMIT ONLY - most critical)
       const result = await pool.query(`
         SELECT 
           resort_id,
@@ -241,6 +240,7 @@ class SMNAlertsService {
         FROM elevation_forecasts
         WHERE valid_time >= NOW()
           AND valid_time <= NOW() + INTERVAL '48 hours'
+          AND elevation_band = 'summit'
           AND (wind_speed_kmh >= 50 OR wind_gust_kmh >= 70)
         ORDER BY resort_id, valid_time
       `);
@@ -284,7 +284,7 @@ class SMNAlertsService {
           type: 'wind',
           startDate,
           endDate,
-          description: `Vientos de hasta ${Math.round(maxWind)} km/h con ráfagas de ${Math.round(maxGust)} km/h. Posible cierre de medios de elevación.`,
+          description: `Ráfagas: ${Math.round(maxGust)} km/h`,
           affectedRegions: [resortName, 'Patagonia'],
           isActive: true,
         });
