@@ -39,6 +39,7 @@ export default function ResortDetailScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [webcamsVisible, setWebcamsVisible] = useState(false);
   const [windExplanationVisible, setWindExplanationVisible] = useState(false);
+  const [adjustmentModalVisible, setAdjustmentModalVisible] = useState(false);
 
   useEffect(() => {
     loadResortData();
@@ -1210,10 +1211,14 @@ export default function ResortDetailScreen() {
                         <Text style={styles.glassNumber}>{Math.round(adjustedTodaySnowfall * 10) / 10}</Text>
                         <Text style={styles.glassUnit}>cm</Text>
                       </View>
-                      <View style={styles.glassBox}>
+                      <TouchableOpacity 
+                        style={styles.glassBox}
+                        onPress={() => setAdjustmentModalVisible(true)}
+                      >
                         <Text style={styles.metricLabel}>AJUSTE</Text>
                         <Text style={styles.glassNumber}>{adjustmentPercent > 0 ? `-${adjustmentPercent}` : adjustmentPercent}%</Text>
-                      </View>
+                        <Ionicons name="information-circle-outline" size={16} color="rgba(255,255,255,0.7)" style={{ marginTop: 4 }} />
+                      </TouchableOpacity>
                       <View style={styles.glassBox}>
                         <Text style={styles.metricLabel}>PRÓX 7D</Text>
                         <Text style={styles.glassNumber}>{Math.round(total7Days * 10) / 10}</Text>
@@ -1301,6 +1306,92 @@ export default function ResortDetailScreen() {
         onClose={() => setWebcamsVisible(false)}
         resortName={resort?.name || 'Cerro Catedral'}
       />
+
+      {/* Adjustment Explanation Modal */}
+      <Modal
+        visible={adjustmentModalVisible}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setAdjustmentModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>🎯 Ajuste Andes Powder</Text>
+              <TouchableOpacity onPress={() => setAdjustmentModalVisible(false)}>
+                <Ionicons name="close" size={28} color="#1a365d" />
+              </TouchableOpacity>
+            </View>
+            
+            <ScrollView style={styles.adjustmentModalScroll} showsVerticalScrollIndicator={false}>
+              <Text style={styles.adjustmentModalDescription}>
+                Nuestro algoritmo ajusta el pronóstico genérico de Open-Meteo basándose en condiciones reales de Patagonia:
+              </Text>
+              
+              <View style={styles.adjustmentFactorsSection}>
+                <View style={styles.adjustmentFactor}>
+                  <View style={styles.adjustmentFactorHeader}>
+                    <Text style={styles.adjustmentFactorIcon}>🌡️</Text>
+                    <Text style={styles.adjustmentFactorTitle}>Nivel de Congelación</Text>
+                  </View>
+                  <Text style={styles.adjustmentFactorText}>
+                    Si el nivel de congelación está muy por encima de la elevación, gran parte de la precipitación cae como lluvia, no nieve.
+                  </Text>
+                  <View style={styles.adjustmentFactorDetails}>
+                    <Text style={styles.adjustmentDetailItem}>• Excelente: -300m o menos → 95% retención</Text>
+                    <Text style={styles.adjustmentDetailItem}>• Bueno: -100m → 88% retención</Text>
+                    <Text style={styles.adjustmentDetailItem}>• Marginal: +50m → 45% retención</Text>
+                    <Text style={styles.adjustmentDetailItem}>• Lluvia: +150m o más → 0-20% retención</Text>
+                  </View>
+                </View>
+                
+                <View style={styles.adjustmentFactor}>
+                  <View style={styles.adjustmentFactorHeader}>
+                    <Text style={styles.adjustmentFactorIcon}>💨</Text>
+                    <Text style={styles.adjustmentFactorTitle}>Viento Patagónico</Text>
+                  </View>
+                  <Text style={styles.adjustmentFactorText}>
+                    El viento redistribuye la nieve, especialmente en summit. Aplicamos multiplicadores por elevación.
+                  </Text>
+                  <View style={styles.adjustmentFactorDetails}>
+                    <Text style={styles.adjustmentDetailItem}>• Viento extremo ({'>'}60 km/h): -35% pérdida</Text>
+                    <Text style={styles.adjustmentDetailItem}>• Viento fuerte ({'>'}40 km/h): -25% pérdida</Text>
+                    <Text style={styles.adjustmentDetailItem}>• Viento moderado ({'>'}25 km/h): -15% pérdida</Text>
+                    <Text style={styles.adjustmentDetailItem}>• Summit: 2x factor de viento</Text>
+                  </View>
+                </View>
+                
+                <View style={styles.adjustmentFactor}>
+                  <View style={styles.adjustmentFactorHeader}>
+                    <Text style={styles.adjustmentFactorIcon}>☀️</Text>
+                    <Text style={styles.adjustmentFactorTitle}>Radiación Solar</Text>
+                  </View>
+                  <Text style={styles.adjustmentFactorText}>
+                    Durante las horas de sol (10-16hs), la nieve se derrite más rápido, especialmente en otoño/primavera.
+                  </Text>
+                </View>
+                
+                <View style={styles.adjustmentFactor}>
+                  <View style={styles.adjustmentFactorHeader}>
+                    <Text style={styles.adjustmentFactorIcon}>📅</Text>
+                    <Text style={styles.adjustmentFactorTitle}>Factor Estacional</Text>
+                  </View>
+                  <Text style={styles.adjustmentFactorText}>
+                    En otoño y primavera, la nieve no persiste tan bien como en pleno invierno (-10% adicional).
+                  </Text>
+                </View>
+              </View>
+              
+              <View style={styles.adjustmentSummaryBox}>
+                <Text style={styles.adjustmentSummaryTitle}>Resultado</Text>
+                <Text style={styles.adjustmentSummaryText}>
+                  Estos factores se aplican multiplicativamente a cada hora de pronóstico, dando un resultado más realista para las condiciones de Patagonia.
+                </Text>
+              </View>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
 
       {/* Wind Explanation Modal */}
       {(() => {
@@ -2147,5 +2238,95 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#94a3b8',
     textAlign: 'center',
+  },
+  // Adjustment Modal Styles
+  modalContent: {
+    backgroundColor: '#f8fafc',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingTop: 20,
+    paddingBottom: 40,
+    maxHeight: '85%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    marginBottom: 16,
+  },
+  modalTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#1a365d',
+  },
+  adjustmentModalScroll: {
+    paddingHorizontal: 20,
+  },
+  adjustmentModalDescription: {
+    fontSize: 15,
+    color: '#475569',
+    lineHeight: 22,
+    marginBottom: 20,
+  },
+  adjustmentFactorsSection: {
+    gap: 16,
+  },
+  adjustmentFactor: {
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  adjustmentFactorHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 8,
+  },
+  adjustmentFactorIcon: {
+    fontSize: 24,
+  },
+  adjustmentFactorTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1e293b',
+  },
+  adjustmentFactorText: {
+    fontSize: 14,
+    color: '#64748b',
+    lineHeight: 20,
+    marginBottom: 12,
+  },
+  adjustmentFactorDetails: {
+    backgroundColor: '#f1f5f9',
+    borderRadius: 8,
+    padding: 12,
+    gap: 6,
+  },
+  adjustmentDetailItem: {
+    fontSize: 13,
+    color: '#475569',
+    lineHeight: 18,
+  },
+  adjustmentSummaryBox: {
+    backgroundColor: '#dbeafe',
+    borderRadius: 12,
+    padding: 16,
+    marginTop: 20,
+    borderWidth: 1,
+    borderColor: '#93c5fd',
+  },
+  adjustmentSummaryTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1e40af',
+    marginBottom: 8,
+  },
+  adjustmentSummaryText: {
+    fontSize: 14,
+    color: '#1e40af',
+    lineHeight: 20,
   },
 });
