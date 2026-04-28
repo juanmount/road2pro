@@ -63,64 +63,53 @@ export default function AlertasScreen() {
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.header}>
           <Text style={styles.title}>Alertas</Text>
-          <Text style={styles.subtitle}>Configura tus notificaciones</Text>
+          <Text style={styles.subtitle}>Sistema de notificaciones inteligentes</Text>
         </View>
 
-        {/* Alert Settings */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Notificaciones de Nieve</Text>
-          
-          <View style={styles.alertCard}>
-            <View style={styles.alertIcon}>
-              <Ionicons name="snow" size={24} color="#63b3ed" />
-            </View>
-            <View style={styles.alertContent}>
-              <Text style={styles.alertTitle}>Nevadas Importantes</Text>
-              <Text style={styles.alertDescription}>
-                Aviso cuando se pronostiquen más de {preferences.minSnowfallCm}cm
-              </Text>
+        {/* Alert Settings - Compact */}
+        <View style={styles.alertsGrid}>
+          <View style={styles.compactAlertCard}>
+            <View style={styles.compactAlertHeader}>
+              <Ionicons name="snow" size={20} color="#63b3ed" />
+              <Text style={styles.compactAlertTitle}>Nieve</Text>
+              <Text style={styles.compactAlertThreshold}>≥{preferences.minSnowfallCm}cm</Text>
             </View>
             <Switch
               value={preferences.snowAlerts}
               onValueChange={(value) => updatePreference('snowAlerts', value)}
-              trackColor={{ false: '#334155', true: '#63b3ed' }}
-              thumbColor={preferences.snowAlerts ? '#fff' : '#94a3b8'}
+              trackColor={{ false: '#1e293b', true: '#63b3ed' }}
+              thumbColor={preferences.snowAlerts ? '#fff' : '#64748b'}
+              style={styles.compactSwitch}
             />
           </View>
 
-          <View style={styles.alertCard}>
-            <View style={styles.alertIcon}>
-              <Ionicons name="thunderstorm" size={24} color="#8b5cf6" />
-            </View>
-            <View style={styles.alertContent}>
-              <Text style={styles.alertTitle}>Tormentas Cruzando</Text>
-              <Text style={styles.alertDescription}>
-                Alerta cuando hay alta probabilidad de cruce
-              </Text>
+          <View style={styles.compactAlertCard}>
+            <View style={styles.compactAlertHeader}>
+              <Ionicons name="thunderstorm" size={20} color="#8b5cf6" />
+              <Text style={styles.compactAlertTitle}>Tormenta</Text>
+              <Text style={styles.compactAlertThreshold}>Cruce</Text>
             </View>
             <Switch
               value={preferences.stormAlerts}
               onValueChange={(value) => updatePreference('stormAlerts', value)}
-              trackColor={{ false: '#334155', true: '#8b5cf6' }}
-              thumbColor={preferences.stormAlerts ? '#fff' : '#94a3b8'}
+              trackColor={{ false: '#1e293b', true: '#8b5cf6' }}
+              thumbColor={preferences.stormAlerts ? '#fff' : '#64748b'}
+              style={styles.compactSwitch}
             />
           </View>
 
-          <View style={styles.alertCard}>
-            <View style={styles.alertIcon}>
-              <Ionicons name="flag" size={24} color="#f59e0b" />
-            </View>
-            <View style={styles.alertContent}>
-              <Text style={styles.alertTitle}>Viento Extremo</Text>
-              <Text style={styles.alertDescription}>
-                Aviso cuando el viento supere {preferences.minWindSpeedKmh} km/h
-              </Text>
+          <View style={styles.compactAlertCard}>
+            <View style={styles.compactAlertHeader}>
+              <Ionicons name="flag" size={20} color="#f59e0b" />
+              <Text style={styles.compactAlertTitle}>Viento</Text>
+              <Text style={styles.compactAlertThreshold}>≥{preferences.minWindSpeedKmh}km/h</Text>
             </View>
             <Switch
               value={preferences.windAlerts}
               onValueChange={(value) => updatePreference('windAlerts', value)}
-              trackColor={{ false: '#334155', true: '#f59e0b' }}
-              thumbColor={preferences.windAlerts ? '#fff' : '#94a3b8'}
+              trackColor={{ false: '#1e293b', true: '#f59e0b' }}
+              thumbColor={preferences.windAlerts ? '#fff' : '#64748b'}
+              style={styles.compactSwitch}
             />
           </View>
         </View>
@@ -130,19 +119,18 @@ export default function AlertasScreen() {
           style={styles.advancedToggle}
           onPress={() => setShowAdvanced(!showAdvanced)}
         >
-          <Ionicons name="settings-outline" size={20} color="#63b3ed" />
-          <Text style={styles.advancedToggleText}>Configuración Avanzada</Text>
+          <Ionicons name="options-outline" size={18} color="#64748b" />
+          <Text style={styles.advancedToggleText}>Umbrales Personalizados</Text>
           <Ionicons 
             name={showAdvanced ? "chevron-up" : "chevron-down"} 
-            size={20} 
-            color="#63b3ed" 
+            size={18} 
+            color="#64748b" 
           />
         </TouchableOpacity>
 
         {/* Advanced Settings */}
         {showAdvanced && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Umbrales Personalizados</Text>
+          <View style={styles.advancedSection}>
             
             {/* Min Snowfall Slider */}
             {preferences.snowAlerts && (
@@ -253,50 +241,47 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   subtitle: {
-    fontSize: 16,
-    color: '#94a3b8',
+    fontSize: 14,
+    color: '#64748b',
+    fontWeight: '500',
   },
-  section: {
-    marginBottom: 32,
+  alertsGrid: {
+    gap: 12,
+    marginBottom: 20,
   },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#cbd5e1',
-    marginBottom: 16,
-  },
-  alertCard: {
+  compactAlertCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(15, 23, 42, 0.6)',
+    borderRadius: 12,
+    padding: 14,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: 'rgba(100, 116, 139, 0.2)',
   },
-  alertIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: 'rgba(99, 179, 237, 0.2)',
+  compactAlertHeader: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 16,
-  },
-  alertContent: {
+    gap: 10,
     flex: 1,
   },
-  alertTitle: {
-    fontSize: 16,
+  compactAlertTitle: {
+    fontSize: 15,
     fontWeight: '600',
-    color: '#fff',
-    marginBottom: 4,
+    color: '#e2e8f0',
   },
-  alertDescription: {
+  compactAlertThreshold: {
     fontSize: 13,
-    color: '#94a3b8',
-    lineHeight: 18,
+    fontWeight: '500',
+    color: '#64748b',
+    marginLeft: 'auto',
+    marginRight: 12,
+  },
+  compactSwitch: {
+    transform: [{ scale: 0.9 }],
+  },
+  advancedSection: {
+    marginTop: 8,
   },
   testButton: {
     flexDirection: 'row',
@@ -351,18 +336,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(99, 179, 237, 0.1)',
-    borderRadius: 12,
-    padding: 14,
-    marginVertical: 16,
+    backgroundColor: 'rgba(15, 23, 42, 0.4)',
+    borderRadius: 10,
+    padding: 12,
+    marginVertical: 12,
     gap: 8,
     borderWidth: 1,
-    borderColor: 'rgba(99, 179, 237, 0.3)',
+    borderColor: 'rgba(100, 116, 139, 0.3)',
   },
   advancedToggleText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#63b3ed',
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#94a3b8',
     flex: 1,
   },
   sliderContainer: {
