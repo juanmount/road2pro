@@ -20,10 +20,17 @@ export class PushNotificationService {
    */
   async savePushToken(userId: string, token: string): Promise<void> {
     try {
-      // Validate token format
-      if (!Expo.isExpoPushToken(token)) {
-        console.error(`[PUSH] Invalid Expo push token: ${token}`);
+      // Validate token format (allow local tokens for development)
+      const isValidExpoToken = Expo.isExpoPushToken(token);
+      const isLocalToken = token.startsWith('local-');
+      
+      if (!isValidExpoToken && !isLocalToken) {
+        console.error(`[PUSH] Invalid push token: ${token}`);
         return;
+      }
+
+      if (isLocalToken) {
+        console.log(`[PUSH] Registering local development token for user ${userId}`);
       }
 
       // Upsert token in database (PostgreSQL syntax)
