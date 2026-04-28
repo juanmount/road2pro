@@ -23,10 +23,10 @@ export default function MapasScreen() {
         {/* Logo & Brand Header */}
         <View style={styles.brandHeader}>
           <Image 
-            source={require('../../assets/icon.png')}
+            source={require('../../assets/Logo_horizontal.png')}
             style={styles.logo}
+            resizeMode="contain"
           />
-          <Text style={styles.brandTitle}>Andes Powder</Text>
           <Text style={styles.brandTagline}>Pronósticos científicos para Patagonia</Text>
         </View>
 
@@ -158,21 +158,15 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   logo: {
-    width: 64,
-    height: 64,
-    borderRadius: 16,
-    marginBottom: 12,
-  },
-  brandTitle: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#fff',
-    marginBottom: 4,
+    width: 280,
+    height: 60,
+    marginBottom: 8,
   },
   brandTagline: {
     fontSize: 13,
     color: '#64748b',
     fontWeight: '500',
+    textAlign: 'center',
   },
   seasonBadge: {
     flexDirection: 'row',
