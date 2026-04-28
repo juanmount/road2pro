@@ -1325,24 +1325,18 @@ export default function ResortDetailScreen() {
             
             <ScrollView style={styles.adjustmentModalScroll} showsVerticalScrollIndicator={false}>
               <Text style={styles.adjustmentModalDescription}>
-                Nuestro algoritmo ajusta el pronóstico genérico de Open-Meteo basándose en condiciones reales de Patagonia:
+                Nuestro algoritmo propietario ajusta el pronóstico genérico considerando las condiciones únicas de la Patagonia:
               </Text>
               
               <View style={styles.adjustmentFactorsSection}>
                 <View style={styles.adjustmentFactor}>
                   <View style={styles.adjustmentFactorHeader}>
                     <Text style={styles.adjustmentFactorIcon}>🌡️</Text>
-                    <Text style={styles.adjustmentFactorTitle}>Nivel de Congelación</Text>
+                    <Text style={styles.adjustmentFactorTitle}>Temperatura & Altura</Text>
                   </View>
                   <Text style={styles.adjustmentFactorText}>
-                    Si el nivel de congelación está muy por encima de la elevación, gran parte de la precipitación cae como lluvia, no nieve.
+                    Analizamos la relación entre el nivel de congelación y la elevación del cerro para determinar si la precipitación cae como nieve o lluvia. Cuanto más cerca esté el nivel de congelación de la elevación, menor será la acumulación real.
                   </Text>
-                  <View style={styles.adjustmentFactorDetails}>
-                    <Text style={styles.adjustmentDetailItem}>• Excelente: -300m o menos → 95% retención</Text>
-                    <Text style={styles.adjustmentDetailItem}>• Bueno: -100m → 88% retención</Text>
-                    <Text style={styles.adjustmentDetailItem}>• Marginal: +50m → 45% retención</Text>
-                    <Text style={styles.adjustmentDetailItem}>• Lluvia: +150m o más → 0-20% retención</Text>
-                  </View>
                 </View>
                 
                 <View style={styles.adjustmentFactor}>
@@ -1351,14 +1345,8 @@ export default function ResortDetailScreen() {
                     <Text style={styles.adjustmentFactorTitle}>Viento Patagónico</Text>
                   </View>
                   <Text style={styles.adjustmentFactorText}>
-                    El viento redistribuye la nieve, especialmente en summit. Aplicamos multiplicadores por elevación.
+                    Los vientos en Patagonia son notoriamente fuertes y redistribuyen la nieve de manera significativa. El impacto es mucho mayor en summit que en base, donde el terreno ofrece más protección.
                   </Text>
-                  <View style={styles.adjustmentFactorDetails}>
-                    <Text style={styles.adjustmentDetailItem}>• Viento extremo ({'>'}60 km/h): -35% pérdida</Text>
-                    <Text style={styles.adjustmentDetailItem}>• Viento fuerte ({'>'}40 km/h): -25% pérdida</Text>
-                    <Text style={styles.adjustmentDetailItem}>• Viento moderado ({'>'}25 km/h): -15% pérdida</Text>
-                    <Text style={styles.adjustmentDetailItem}>• Summit: 2x factor de viento</Text>
-                  </View>
                 </View>
                 
                 <View style={styles.adjustmentFactor}>
@@ -1367,25 +1355,25 @@ export default function ResortDetailScreen() {
                     <Text style={styles.adjustmentFactorTitle}>Radiación Solar</Text>
                   </View>
                   <Text style={styles.adjustmentFactorText}>
-                    Durante las horas de sol (10-16hs), la nieve se derrite más rápido, especialmente en otoño/primavera.
+                    La intensidad del sol durante el día afecta la persistencia de la nieve, especialmente en temporadas de transición (otoño/primavera) cuando los días son más largos y cálidos.
                   </Text>
                 </View>
                 
                 <View style={styles.adjustmentFactor}>
                   <View style={styles.adjustmentFactorHeader}>
-                    <Text style={styles.adjustmentFactorIcon}>📅</Text>
-                    <Text style={styles.adjustmentFactorTitle}>Factor Estacional</Text>
+                    <Text style={styles.adjustmentFactorIcon}>�</Text>
+                    <Text style={styles.adjustmentFactorTitle}>Datos Históricos</Text>
                   </View>
                   <Text style={styles.adjustmentFactorText}>
-                    En otoño y primavera, la nieve no persiste tan bien como en pleno invierno (-10% adicional).
+                    Calibramos constantemente nuestro modelo con datos reales de nevadas pasadas en los cerros patagónicos para mejorar la precisión.
                   </Text>
                 </View>
               </View>
               
               <View style={styles.adjustmentSummaryBox}>
-                <Text style={styles.adjustmentSummaryTitle}>Resultado</Text>
+                <Text style={styles.adjustmentSummaryTitle}>💡 Andes Powder Engine</Text>
                 <Text style={styles.adjustmentSummaryText}>
-                  Estos factores se aplican multiplicativamente a cada hora de pronóstico, dando un resultado más realista para las condiciones de Patagonia.
+                  Combinamos múltiples factores meteorológicos y geográficos específicos de Patagonia para darte el pronóstico más preciso posible. El resultado es una estimación más realista que los modelos genéricos globales.
                 </Text>
               </View>
             </ScrollView>
