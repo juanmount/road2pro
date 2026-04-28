@@ -2,6 +2,7 @@ import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import api from '../config/api';
 
 // Configure notification behavior
@@ -14,10 +15,43 @@ Notifications.setNotificationHandler({
 });
 
 export interface NotificationPreferences {
+  // Basic toggles
   snowAlerts: boolean;
   stormAlerts: boolean;
   windAlerts: boolean;
+  
+  // Advanced snow alert settings
+  minSnowfallCm: number; // Minimum snowfall to trigger alert (cm)
+  requireHighConfidence: boolean; // Only alert if confidence score is high
+  
+  // Wind alert settings
+  minWindSpeedKmh: number; // Minimum wind speed to trigger alert (km/h)
+  
+  // Favorite resorts (only get alerts for these)
+  favoriteResorts: string[]; // Resort IDs
+  allResorts: boolean; // If true, ignore favoriteResorts and alert for all
+  
+  // Timing
+  advanceNoticeDays: number; // How many days in advance (1-7)
+  quietHoursEnabled: boolean;
+  quietHoursStart: string; // "22:00"
+  quietHoursEnd: string; // "08:00"
 }
+
+export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
+  snowAlerts: true,
+  stormAlerts: true,
+  windAlerts: true,
+  minSnowfallCm: 10,
+  requireHighConfidence: false,
+  minWindSpeedKmh: 70,
+  favoriteResorts: [],
+  allResorts: true,
+  advanceNoticeDays: 3,
+  quietHoursEnabled: false,
+  quietHoursStart: '22:00',
+  quietHoursEnd: '08:00',
+};
 
 class NotificationService {
   private expoPushToken: string | null = null;
@@ -163,6 +197,40 @@ class NotificationService {
       },
       trigger: { seconds: 2 },
     });
+  }
+
+  /**
+   * Get notification preferences from local storage
+   */
+  async getPreferences(): Promise<NotificationPreferences> {
+    try {
+      const stored = await AsyncStorage.getItem('notificationPreferences');
+      if (stored) {
+        return { ...DEFAULT_NOTIFICATION_PREFERENCES, ...JSON.parse(stored) };
+      }
+      return DEFAULT_NOTIFICATION_PREFERENCES;
+    } catch (error) {
+      console.error('Error loading preferences:', error);
+      return DEFAULT_NOTIFICATION_PREFERENCES;
+    }
+  }
+
+  /**
+   * Save notification preferences locally and sync to backend
+   */
+  async savePreferences(preferences: NotificationPreferences): Promise<void> {
+    try {
+      // Save locally
+      await AsyncStorage.setItem('notificationPreferences', JSON.stringify(preferences));
+      
+      // Sync to backend
+      await this.updatePreferences(preferences);
+      
+      console.log('Notification preferences saved');
+    } catch (error) {
+      console.error('Error saving preferences:', error);
+      throw error;
+    }
   }
 }
 
