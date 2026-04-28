@@ -44,6 +44,14 @@
     "scheme": "andespowder",
     "plugins": [
       "expo-router"
-    ]
+    ],
+    "extra": {
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "9ef6fdd6-aca4-443a-8bae-2b3f1f611be3"
+      }
+    }
   }
 }
