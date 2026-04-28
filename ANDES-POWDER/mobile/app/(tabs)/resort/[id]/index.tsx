@@ -605,8 +605,13 @@ export default function ResortDetailScreen() {
       let totalSolarLoss = 0;
       let totalSeasonalLoss = 0;
       
+      // Store adjusted snowfall for each hour
+      const adjustedSnowfallByHour = new Map<string, number>();
+      
       hours.forEach(h => {
         const hourSnow = h.snowfall || 0;
+        let adjusted = 0; // Declare outside to use in both branches
+        
         if (hourSnow > 0) {
           const freezingLevel = h.freezingLevel || 3000;
           const margin = freezingLevel - elevationMeters;
@@ -692,7 +697,7 @@ export default function ResortDetailScreen() {
             finalAdjustment *= (1 - seasonalLoss);
             finalAdjustment *= (1 - densityLoss);
             
-            const adjusted = hourSnow * Math.max(0, finalAdjustment);
+            adjusted = hourSnow * Math.max(0, finalAdjustment);
             realSnowfall += adjusted;
             
             // Track losses for reporting
@@ -716,6 +721,12 @@ export default function ResortDetailScreen() {
               });
             }
           }
+          
+          // Store adjusted snowfall for this hour
+          adjustedSnowfallByHour.set(h.time, adjusted);
+        } else {
+          // No snow for this hour
+          adjustedSnowfallByHour.set(h.time, 0);
         }
       });
       
@@ -760,11 +771,12 @@ export default function ResortDetailScreen() {
         icon,
         hourlyDetails: hours.map(h => {
           const windImpact = calculateHourlyWindImpact(h.windSpeed || 0, h.temperature || 0);
+          const adjustedSnow = adjustedSnowfallByHour.get(h.time) || 0;
           return {
             time: new Date(h.time),
             temperature: h.temperature,
             precipitation: h.precipitation || 0,
-            snowfall: h.snowfall || 0,
+            snowfall: adjustedSnow, // Use adjusted snowfall instead of raw
             windSpeed: h.windSpeed || 0,
             windGust: h.windGust,
             windDirection: h.windDirection,
