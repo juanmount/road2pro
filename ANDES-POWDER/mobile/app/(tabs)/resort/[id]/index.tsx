@@ -247,7 +247,48 @@ export default function ResortDetailScreen() {
           const temps = hours.map(h => h.temperature);
           const maxTemp = Math.max(...temps);
           const minTemp = Math.min(...temps);
-          const snowfall = hours.reduce((sum, h) => sum + (h.snowfall || 0), 0);
+          
+          // Calculate ADJUSTED snowfall (same logic as getDailyForecasts)
+          const elevationMeters = !resort ? 1600 : (
+            selectedElevation === 'base' ? resort.baseElevation : 
+            selectedElevation === 'mid' ? resort.midElevation : 
+            resort.summitElevation
+          );
+          
+          let adjustedSnowfall = 0;
+          hours.forEach(h => {
+            const hourSnow = h.snowfall || 0;
+            if (hourSnow > 0) {
+              const freezingLevel = h.freezingLevel || 3000;
+              const margin = freezingLevel - elevationMeters;
+              const windSpeed = h.windSpeed || 0;
+              
+              let baseAdjustment = 1.0;
+              if (margin <= -300) baseAdjustment = 0.95;
+              else if (margin <= -100) baseAdjustment = 0.88;
+              else if (margin <= 50) baseAdjustment = 0.45;
+              else if (margin <= 150) baseAdjustment = 0.20;
+              else if (margin <= 250) baseAdjustment = 0.08;
+              else baseAdjustment = 0;
+              
+              if (baseAdjustment > 0) {
+                const elevationWindMultiplier = selectedElevation === 'summit' ? 2.0 : 
+                                                selectedElevation === 'mid' ? 1.5 : 1.0;
+                const effectiveWind = windSpeed * elevationWindMultiplier;
+                let windLoss = 0;
+                if (effectiveWind > 60) windLoss = 0.35;
+                else if (effectiveWind > 40) windLoss = 0.25;
+                else if (effectiveWind > 25) windLoss = 0.15;
+                else if (effectiveWind > 15) windLoss = 0.08;
+                else windLoss = 0.03;
+                
+                const adjusted = hourSnow * baseAdjustment * (1 - windLoss);
+                adjustedSnowfall += adjusted;
+              }
+            }
+          });
+          
+          const snowfall = Math.max(adjustedSnowfall, 0);
           const precipitation = hours.reduce((sum, h) => sum + (h.precipitation || 0), 0);
           const maxWindSpeed = Math.max(...hours.map(h => h.windSpeed || 0));
           const avgCloudCover = hours.reduce((sum, h) => sum + (h.cloudCover || 0), 0) / hours.length;
