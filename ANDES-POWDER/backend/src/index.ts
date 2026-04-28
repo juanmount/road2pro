@@ -18,6 +18,7 @@ import { initializeFirebase } from './config/firebase';
 import { startSnapshotCron } from './jobs/daily-snapshot';
 import { startForecastSnapshotCron } from './jobs/forecast-snapshot-cron';
 import { smnAlertsService } from './services/smn-alerts-service';
+import { startNotificationScanner } from './jobs/notification-scanner';
 
 dotenv.config();
 
@@ -96,6 +97,22 @@ app.post('/api/admin/sync-forecasts', async (req, res) => {
     res.json({ success: true, message: 'Forecast sync completed' });
   } catch (error: any) {
     console.error('Manual sync error:', error);
+    res.status(500).json({ 
+      error: error.message || String(error),
+      stack: error.stack 
+    });
+  }
+});
+
+// Admin endpoint to manually trigger notification scan
+app.post('/api/admin/scan-notifications', async (req, res) => {
+  try {
+    console.log('Manual notification scan triggered...');
+    const { triggerNotificationScan } = await import('./jobs/notification-scanner');
+    await triggerNotificationScan();
+    res.json({ success: true, message: 'Notification scan completed' });
+  } catch (error: any) {
+    console.error('Manual notification scan error:', error);
     res.status(500).json({ 
       error: error.message || String(error),
       stack: error.stack 
@@ -286,6 +303,10 @@ app.listen(PORT, () => {
   // Initialize SMN alerts (fetch immediately)
   smnAlertsService.refreshAlerts();
   console.log('🚨 SMN Alerts system initialized');
+  
+  // Start smart notification scanner (runs at 8:00 AM and 6:00 PM daily)
+  startNotificationScanner();
+  console.log('🔔 Smart notification scanner initialized - 8:00 AM and 6:00 PM daily');
 });
 
 export default app;
