@@ -30,6 +30,8 @@ export default function AlertasScreen() {
     if (token) {
       setPushToken(token);
       setPermissionGranted(true);
+      // Save token to backend
+      await notificationService.savePushToken(token);
     }
   };
 
