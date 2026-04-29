@@ -774,12 +774,18 @@ export default function ResortDetailScreen() {
       
       const snowfall = Math.max(realSnowfall, 0);
       
-      const afternoonHour = hours.find(h => new Date(h.time).getHours() === 15) || hours[Math.floor(hours.length / 2)];
+      // Calculate icon based on the hour with most precipitation to better represent the day
+      const hourWithMostPrecip = hours.reduce((max, h) => {
+        const precip = (h.precipitation || 0) + (h.snowfall || 0);
+        const maxPrecip = (max.precipitation || 0) + (max.snowfall || 0);
+        return precip > maxPrecip ? h : max;
+      }, hours[0]);
+      
       const icon = getWeatherIcon({
-        hour: new Date(afternoonHour.time).getHours(),
-        phase: afternoonHour.phase,
-        cloudCover: afternoonHour.cloudCover,
-        precipitation: afternoonHour.precipitation,
+        hour: new Date(hourWithMostPrecip.time).getHours(),
+        phase: hourWithMostPrecip.phase,
+        cloudCover: hourWithMostPrecip.cloudCover,
+        precipitation: (hourWithMostPrecip.precipitation || 0) + (hourWithMostPrecip.snowfall || 0),
       });
       
       // Helper function to calculate wind impact for hourly data
