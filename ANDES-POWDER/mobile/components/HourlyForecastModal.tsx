@@ -15,6 +15,7 @@ interface HourlyData {
   cloudCover: number;
   freezingLevel: number;
   powderScore: number;
+  icon: string;
 }
 
 interface Props {
@@ -101,7 +102,7 @@ export default function HourlyForecastModal({ visible, onClose, date, hours, ele
                 <View key={index} style={styles.hourCard}>
                   <Text style={styles.hourTime}>{displayHour.toString().padStart(2, '0')}H</Text>
                   
-                  <Text style={styles.phaseIcon}>{getPhaseIcon(hour.phase)}</Text>
+                  <Text style={styles.phaseIcon}>{hour.icon}</Text>
                   
                   <Text style={styles.temperature}>{Math.round(hour.temperature)}°</Text>
                   
