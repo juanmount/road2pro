@@ -12,6 +12,7 @@ import { WebcamsModal } from '../../../../components/WebcamsModal';
 import { WeeklySummary } from '../../../../components/WeeklySummary';
 import BestTimeCard from '../../../../components/BestTimeCard';
 import ENSOCard from '../../../../components/ENSOCard';
+import { VisibilityCard } from '../../../../components/VisibilityCard';
 import { getWeatherIcon } from '../../../../utils/weather-icons';
 import { getWindNarrative, getWindDirectionLabel, getWindExplanation, getWindTrend, getSkiSeason } from '../../../../utils/wind-narrative';
 import { useUserEngagement } from '../../../../hooks/useUserEngagement';
@@ -1299,6 +1300,46 @@ export default function ResortDetailScreen() {
           </View>
           </ImageBackground>
         </View>
+        );
+      })()}
+
+      {/* Visibility Card */}
+      {(() => {
+        const currentHour = getCurrentHourData();
+        if (!currentHour) return null;
+        
+        // Mock visibility data for now - will come from API
+        const baseVisibility = {
+          visibility: currentHour.visibility || 'good' as const,
+          visibilityMeters: currentHour.visibilityMeters || 5000,
+          inCloud: currentHour.inCloud || false,
+          cloudBaseMeters: currentHour.cloudBaseMeters
+        };
+        
+        const midVisibility = {
+          visibility: currentHour.visibility || 'good' as const,
+          visibilityMeters: currentHour.visibilityMeters || 5000,
+          inCloud: currentHour.inCloud || false,
+          cloudBaseMeters: currentHour.cloudBaseMeters
+        };
+        
+        const summitVisibility = {
+          visibility: currentHour.visibility || 'moderate' as const,
+          visibilityMeters: currentHour.visibilityMeters || 1000,
+          inCloud: currentHour.inCloud || false,
+          cloudBaseMeters: currentHour.cloudBaseMeters
+        };
+        
+        // Show card if we have visibility data
+        if (!currentHour.visibility && !currentHour.cloudCover) return null;
+        
+        return (
+          <VisibilityCard
+            baseVisibility={baseVisibility}
+            midVisibility={midVisibility}
+            summitVisibility={summitVisibility}
+            seaOfClouds={false}
+          />
         );
       })()}
 
