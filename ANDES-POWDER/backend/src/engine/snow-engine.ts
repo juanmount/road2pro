@@ -390,11 +390,9 @@ export class SnowEngine {
       windSpeedKmh: corrected.windSpeedCorrected,
       windGustKmh: (() => {
         if (!data.windGust) return corrected.windSpeedCorrected * 1.3;
-        // Don't reduce gusts - they should always be >= wind speed
-        // Only apply correction factor if it increases the gust
-        const gustCorrectionFactor = data.windSpeed ? corrected.windSpeedCorrected / data.windSpeed : 1;
-        const correctedGust = Math.round(data.windGust * Math.max(gustCorrectionFactor, 1.0));
-        return Math.max(correctedGust, corrected.windSpeedCorrected);
+        // Use original gust value from model - don't apply corrections
+        // Gusts should remain as predicted by weather models
+        return Math.max(Math.round(data.windGust), corrected.windSpeedCorrected);
       })(),
       windDirection: data.windDirection,
       humidity: data.humidity,
