@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, KeyboardAvoidingView, Platform, ScrollView, Image } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -48,16 +49,24 @@ export default function SignupScreen() {
   };
 
   return (
-    <KeyboardAvoidingView 
+    <LinearGradient
+      colors={['#0f172a', '#1e293b', '#334155']}
       style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        <View style={styles.content}>
-          <View style={styles.header}>
-            <Text style={styles.title}>Create Account</Text>
-            <Text style={styles.subtitle}>Join Andes Powder</Text>
-          </View>
+      <KeyboardAvoidingView 
+        style={styles.keyboardView}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        <ScrollView contentContainerStyle={styles.scrollContent}>
+          <View style={styles.content}>
+            <View style={styles.header}>
+              <Image 
+                source={require('../../assets/Logo_horizontal.png')} 
+                style={styles.logo}
+                resizeMode="contain"
+              />
+              <Text style={styles.subtitle}>Pronósticos científicos para Patagonia</Text>
+            </View>
 
           <View style={styles.form}>
             <TextInput
@@ -156,16 +165,19 @@ export default function SignupScreen() {
               </Text>
             </TouchableOpacity>
           </View>
-        </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1a365d',
+  },
+  keyboardView: {
+    flex: 1,
   },
   scrollContent: {
     flexGrow: 1,
@@ -173,39 +185,49 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     justifyContent: 'center',
-    padding: 24,
+    padding: 32,
+    paddingTop: 60,
+    paddingBottom: 40,
   },
   header: {
     alignItems: 'center',
-    marginBottom: 48,
+    marginBottom: 40,
   },
-  title: {
-    fontSize: 36,
-    fontWeight: '700',
-    color: '#fff',
-    marginBottom: 8,
+  logo: {
+    width: 240,
+    height: 90,
+    marginBottom: 24,
   },
   subtitle: {
-    fontSize: 16,
-    color: '#63b3ed',
+    fontSize: 15,
+    color: '#94a3b8',
+    textAlign: 'center',
+    letterSpacing: 0.5,
   },
   form: {
     width: '100%',
   },
   input: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 16,
+    padding: 18,
     fontSize: 16,
     marginBottom: 16,
-    color: '#2d3748',
+    color: '#fff',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
   },
   button: {
     backgroundColor: '#63b3ed',
-    borderRadius: 12,
-    padding: 16,
+    borderRadius: 16,
+    padding: 18,
     alignItems: 'center',
-    marginTop: 8,
+    marginTop: 24,
+    shadowColor: '#63b3ed',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
   },
   buttonDisabled: {
     opacity: 0.6,
@@ -213,18 +235,19 @@ const styles = StyleSheet.create({
   buttonText: {
     color: '#fff',
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: '700',
+    letterSpacing: 0.5,
   },
   linkButton: {
-    marginTop: 24,
+    marginTop: 32,
     alignItems: 'center',
   },
   linkText: {
-    color: '#e6f7ff',
-    fontSize: 14,
+    color: '#cbd5e1',
+    fontSize: 15,
   },
   linkTextBold: {
-    fontWeight: '600',
+    fontWeight: '700',
     color: '#63b3ed',
   },
   rideTypeContainer: {
