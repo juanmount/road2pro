@@ -1164,17 +1164,66 @@ export default function ResortDetailScreen() {
           </View>
           
           <View style={styles.mainDisplay}>
-            <View style={styles.tempSection}>
-              <Text style={styles.weatherIcon}>
-                {getWeatherIcon({
-                  hour: new Date(currentHour.time).getHours(),
-                  phase: currentHour.phase || 'none',
-                  cloudCover: currentHour.cloudCover || 0,
-                  precipitation: currentHour.precipitation || 0
-                })}
-              </Text>
-              <Text style={styles.bigTemp}>{Math.round(currentHour.temperature || 0)}°</Text>
-              <Text style={styles.tempUnit}>C</Text>
+            <View style={styles.tempSectionWrapper}>
+              <View style={styles.tempSection}>
+                <Text style={styles.weatherIcon}>
+                  {getWeatherIcon({
+                    hour: new Date(currentHour.time).getHours(),
+                    phase: currentHour.phase || 'none',
+                    cloudCover: currentHour.cloudCover || 0,
+                    precipitation: currentHour.precipitation || 0
+                  })}
+                </Text>
+                <Text style={styles.bigTemp}>{Math.round(currentHour.temperature || 0)}°</Text>
+                <Text style={styles.tempUnit}>C</Text>
+              </View>
+              {(() => {
+                // Get visibility for current elevation
+                const visibility = currentHour.visibility || 'good';
+                const visibilityMeters = currentHour.visibilityMeters || 5000;
+                const inCloud = currentHour.inCloud || false;
+                
+                // Format visibility distance
+                const visDistance = visibilityMeters >= 1000 
+                  ? `${(visibilityMeters / 1000).toFixed(1)}km`
+                  : `${visibilityMeters}m`;
+                
+                // Visibility level and color
+                let visLevel, visColor, visBgColor;
+                if (inCloud) {
+                  visLevel = 'En nube';
+                  visColor = '#94a3b8';
+                  visBgColor = 'rgba(148, 163, 184, 0.25)';
+                } else if (visibility === 'excellent') {
+                  visLevel = 'Alta';
+                  visColor = '#10b981';
+                  visBgColor = 'rgba(16, 185, 129, 0.25)';
+                } else if (visibility === 'good') {
+                  visLevel = 'Buena';
+                  visColor = '#3b82f6';
+                  visBgColor = 'rgba(59, 130, 246, 0.25)';
+                } else if (visibility === 'moderate') {
+                  visLevel = 'Media';
+                  visColor = '#f59e0b';
+                  visBgColor = 'rgba(245, 158, 11, 0.25)';
+                } else if (visibility === 'poor') {
+                  visLevel = 'Baja';
+                  visColor = '#ef4444';
+                  visBgColor = 'rgba(239, 68, 68, 0.25)';
+                } else {
+                  visLevel = 'Crítica';
+                  visColor = '#dc2626';
+                  visBgColor = 'rgba(220, 38, 38, 0.3)';
+                }
+                
+                return (
+                  <View style={[styles.visibilityBadge, { backgroundColor: visBgColor, borderColor: visColor }]}>
+                    <Text style={[styles.visibilityText, { color: visColor }]}>
+                      Visibilidad: {visLevel} ({visDistance})
+                    </Text>
+                  </View>
+                );
+              })()}
             </View>
             <View style={styles.quickMetrics}>
               <View style={styles.quickMetricItem}>
@@ -1300,46 +1349,6 @@ export default function ResortDetailScreen() {
           </View>
           </ImageBackground>
         </View>
-        );
-      })()}
-
-      {/* Visibility Card */}
-      {(() => {
-        const currentHour = getCurrentHourData();
-        if (!currentHour) return null;
-        
-        // Mock visibility data for now - will come from API
-        const baseVisibility = {
-          visibility: currentHour.visibility || 'good' as const,
-          visibilityMeters: currentHour.visibilityMeters || 5000,
-          inCloud: currentHour.inCloud || false,
-          cloudBaseMeters: currentHour.cloudBaseMeters
-        };
-        
-        const midVisibility = {
-          visibility: currentHour.visibility || 'good' as const,
-          visibilityMeters: currentHour.visibilityMeters || 5000,
-          inCloud: currentHour.inCloud || false,
-          cloudBaseMeters: currentHour.cloudBaseMeters
-        };
-        
-        const summitVisibility = {
-          visibility: currentHour.visibility || 'moderate' as const,
-          visibilityMeters: currentHour.visibilityMeters || 1000,
-          inCloud: currentHour.inCloud || false,
-          cloudBaseMeters: currentHour.cloudBaseMeters
-        };
-        
-        // Show card if we have visibility data
-        if (!currentHour.visibility && !currentHour.cloudCover) return null;
-        
-        return (
-          <VisibilityCard
-            baseVisibility={baseVisibility}
-            midVisibility={midVisibility}
-            summitVisibility={summitVisibility}
-            seaOfClouds={false}
-          />
         );
       })()}
 
@@ -1864,6 +1873,11 @@ const styles = StyleSheet.create({
     marginBottom: 4,
     letterSpacing: 0.5,
   },
+  badgesRow: {
+    flexDirection: 'row',
+    gap: 6,
+    marginTop: 4,
+  },
   freezingLevelBadge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1873,7 +1887,6 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     borderColor: 'rgba(56, 189, 248, 0.4)',
-    marginTop: 4,
   },
   freezingLevel: {
     fontSize: 12,
@@ -1881,11 +1894,36 @@ const styles = StyleSheet.create({
     color: '#fff',
     letterSpacing: 0.5,
   },
+  visibilityBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.35)',
+    gap: 5,
+    marginTop: 6,
+    alignSelf: 'flex-start',
+  },
+  visibilityIcon: {
+    fontSize: 14,
+  },
+  visibilityText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#fff',
+    letterSpacing: 0.3,
+  },
   mainDisplay: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 12,
+  },
+  tempSectionWrapper: {
+    alignItems: 'flex-start',
   },
   tempSection: {
     flexDirection: 'row',
