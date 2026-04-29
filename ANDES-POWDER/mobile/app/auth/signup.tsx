@@ -10,11 +10,17 @@ export default function SignupScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [rideType, setRideType] = useState<'ski' | 'snowboard' | null>(null);
   const [loading, setLoading] = useState(false);
 
   const handleSignup = async () => {
     if (!email || !password || !displayName) {
-      Alert.alert('Error', 'Please fill in all fields');
+      Alert.alert('Error', 'Por favor completá todos los campos');
+      return;
+    }
+
+    if (!rideType) {
+      Alert.alert('Error', '¿Hacés ski o snowboard?');
       return;
     }
 
@@ -30,12 +36,12 @@ export default function SignupScreen() {
 
     try {
       setLoading(true);
-      await signUp(email, password, displayName);
-      Alert.alert('Success', 'Account created successfully!', [
+      await signUp(email, password, displayName, rideType!);
+      Alert.alert('¡Listo!', 'Cuenta creada exitosamente', [
         { text: 'OK', onPress: () => router.replace('/') }
       ]);
     } catch (error: any) {
-      Alert.alert('Signup Failed', error.message || 'Could not create account');
+      Alert.alert('Error', error.message || 'No se pudo crear la cuenta');
     } finally {
       setLoading(false);
     }
@@ -56,7 +62,7 @@ export default function SignupScreen() {
           <View style={styles.form}>
             <TextInput
               style={styles.input}
-              placeholder="Name"
+              placeholder="Nombre"
               placeholderTextColor="#a0aec0"
               value={displayName}
               onChangeText={setDisplayName}
@@ -73,6 +79,38 @@ export default function SignupScreen() {
               keyboardType="email-address"
               editable={!loading}
             />
+
+            <View style={styles.rideTypeContainer}>
+              <Text style={styles.rideTypeLabel}>¿Qué hacés?</Text>
+              <View style={styles.rideTypeButtons}>
+                <TouchableOpacity
+                  style={[
+                    styles.rideTypeButton,
+                    rideType === 'ski' && styles.rideTypeButtonActive
+                  ]}
+                  onPress={() => setRideType('ski')}
+                  disabled={loading}
+                >
+                  <Text style={[
+                    styles.rideTypeButtonText,
+                    rideType === 'ski' && styles.rideTypeButtonTextActive
+                  ]}>⛷️ Ski</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.rideTypeButton,
+                    rideType === 'snowboard' && styles.rideTypeButtonActive
+                  ]}
+                  onPress={() => setRideType('snowboard')}
+                  disabled={loading}
+                >
+                  <Text style={[
+                    styles.rideTypeButtonText,
+                    rideType === 'snowboard' && styles.rideTypeButtonTextActive
+                  ]}>🏂 Snowboard</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
 
             <TextInput
               style={styles.input}
@@ -188,5 +226,40 @@ const styles = StyleSheet.create({
   linkTextBold: {
     fontWeight: '600',
     color: '#63b3ed',
+  },
+  rideTypeContainer: {
+    marginBottom: 16,
+  },
+  rideTypeLabel: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  rideTypeButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  rideTypeButton: {
+    flex: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  rideTypeButtonActive: {
+    backgroundColor: '#63b3ed',
+    borderColor: '#fff',
+  },
+  rideTypeButtonText: {
+    color: '#e6f7ff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  rideTypeButtonTextActive: {
+    color: '#fff',
   },
 });

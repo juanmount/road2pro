@@ -12,7 +12,7 @@ import api from '../config/api';
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  signUp: (email: string, password: string, displayName?: string) => Promise<void>;
+  signUp: (email: string, password: string, displayName?: string, rideType?: 'ski' | 'snowboard') => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
   getIdToken: () => Promise<string | null>;
@@ -33,7 +33,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return unsubscribe;
   }, []);
 
-  const signUp = async (email: string, password: string, displayName?: string) => {
+  const signUp = async (email: string, password: string, displayName?: string, rideType?: 'ski' | 'snowboard') => {
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       
@@ -41,6 +41,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         firebaseUid: userCredential.user.uid,
         email: userCredential.user.email,
         displayName: displayName || null,
+        rideType: rideType || null,
       });
     } catch (error: any) {
       console.error('Sign up error:', error);

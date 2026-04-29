@@ -4,11 +4,15 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { EngagementDashboard } from '../../components/EngagementDashboard';
 import * as ImagePicker from 'expo-image-picker';
 import { useState } from 'react';
+import { useAuth } from '../../contexts/AuthContext';
+import { useRouter } from 'expo-router';
 
 export default function PerfilScreen() {
-  const [userName, setUserName] = useState('Usuario');
-  const [userEmail] = useState('usuario@andespowder.com');
-  const [profileImage, setProfileImage] = useState<string | null>(null);
+  const { user, signOut } = useAuth();
+  const router = useRouter();
+  
+  const [userName, setUserName] = useState(user?.displayName || 'Usuario');
+  const [profileImage, setProfileImage] = useState<string | null>(user?.photoURL || null);
   const [isEditingName, setIsEditingName] = useState(false);
   const [tempName, setTempName] = useState(userName);
 
@@ -113,10 +117,14 @@ export default function PerfilScreen() {
         {
           text: 'Cerrar Sesión',
           style: 'destructive',
-          onPress: () => {
-            // TODO: Implement logout logic
-            console.log('Logout confirmed');
-            // Clear auth tokens, navigate to login, etc.
+          onPress: async () => {
+            try {
+              await signOut();
+              router.replace('/auth/login');
+            } catch (error) {
+              console.error('Logout error:', error);
+              Alert.alert('Error', 'No se pudo cerrar sesión');
+            }
           },
         },
       ]
@@ -216,7 +224,7 @@ export default function PerfilScreen() {
             </TouchableOpacity>
           )}
           
-          <Text style={styles.email}>{userEmail}</Text>
+          <Text style={styles.email}>{user?.email || 'usuario@andespowder.com'}</Text>
         </View>
 
         {/* User Activity */}

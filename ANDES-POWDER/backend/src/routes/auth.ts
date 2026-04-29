@@ -7,7 +7,7 @@ const router = Router();
 
 router.post('/signup', async (req: Request, res: Response) => {
   try {
-    const { firebaseUid, email, displayName } = req.body;
+    const { firebaseUid, email, displayName, rideType } = req.body;
 
     if (!firebaseUid || !email) {
       return res.status(400).json({ error: 'Firebase UID and email are required' });
@@ -23,10 +23,10 @@ router.post('/signup', async (req: Request, res: Response) => {
     }
 
     const result = await pool.query(
-      `INSERT INTO users (firebase_uid, email, display_name, last_login_at)
-       VALUES ($1, $2, $3, NOW())
-       RETURNING id, firebase_uid, email, display_name, created_at`,
-      [firebaseUid, email, displayName || null]
+      `INSERT INTO users (firebase_uid, email, display_name, ride_type, last_login_at)
+       VALUES ($1, $2, $3, $4, NOW())
+       RETURNING id, firebase_uid, email, display_name, ride_type, created_at`,
+      [firebaseUid, email, displayName || null, rideType || null]
     );
 
     const user = result.rows[0];
