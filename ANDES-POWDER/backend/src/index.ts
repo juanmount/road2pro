@@ -120,6 +120,23 @@ app.post('/api/admin/scan-notifications', async (req, res) => {
   }
 });
 
+// Admin endpoint to manually refresh alerts
+app.post('/api/admin/refresh-alerts', async (req, res) => {
+  try {
+    console.log('Manual alerts refresh triggered...');
+    const { smnAlertsService } = await import('./services/smn-alerts-service');
+    await smnAlertsService.refreshAlerts();
+    const alerts = await smnAlertsService.getAllActiveAlerts();
+    res.json({ success: true, message: 'Alerts refreshed', count: alerts.length, alerts });
+  } catch (error: any) {
+    console.error('Manual alerts refresh error:', error);
+    res.status(500).json({ 
+      error: error.message || String(error),
+      stack: error.stack 
+    });
+  }
+});
+
 // Debug endpoint to check forecast data
 app.get('/api/admin/debug-forecasts', async (req, res) => {
   try {
