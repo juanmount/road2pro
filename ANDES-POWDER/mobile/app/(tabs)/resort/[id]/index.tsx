@@ -637,8 +637,9 @@ export default function ResortDetailScreen() {
       const isWinter = currentMonth >= 6 && currentMonth <= 8; // Jun-Aug
       
       // Elevation-specific wind multiplier (Patagonian winds are brutal at summit)
-      const elevationWindMultiplier = selectedElevation === 'summit' ? 2.0 : 
-                                      selectedElevation === 'mid' ? 1.5 : 1.0;
+      // Reduced from 2.0 to 1.3 for summit to avoid over-penalizing snowfall
+      const elevationWindMultiplier = selectedElevation === 'summit' ? 1.3 : 
+                                      selectedElevation === 'mid' ? 1.2 : 1.0;
       
       let realSnowfall = 0;
       let debugInfo: any[] = [];
