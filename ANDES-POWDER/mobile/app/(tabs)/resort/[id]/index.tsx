@@ -1259,7 +1259,8 @@ export default function ResortDetailScreen() {
                   const adjustedTodaySnowfall = todayRealSnowfall;
                   
                   // Calculate adjustment percentage
-                  const adjustmentPercent = rawTodaySnowfall > 0 
+                  // Only show meaningful adjustments when there's significant snowfall
+                  const adjustmentPercent = rawTodaySnowfall >= 0.5 
                     ? Math.round(((rawTodaySnowfall - adjustedTodaySnowfall) / rawTodaySnowfall) * 100)
                     : 0;
                   
