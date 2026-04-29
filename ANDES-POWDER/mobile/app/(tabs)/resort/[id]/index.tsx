@@ -774,18 +774,42 @@ export default function ResortDetailScreen() {
       
       const snowfall = Math.max(realSnowfall, 0);
       
-      // Calculate icon based on the hour with most precipitation to better represent the day
-      const hourWithMostPrecip = hours.reduce((max, h) => {
-        const precip = (h.precipitation || 0) + (h.snowfall || 0);
-        const maxPrecip = (max.precipitation || 0) + (max.snowfall || 0);
-        return precip > maxPrecip ? h : max;
-      }, hours[0]);
+      // Calculate icon intelligently:
+      // 1. If there's significant precipitation, use the hour with most precipitation
+      // 2. Otherwise, use daytime hours (10:00-18:00) to determine icon based on cloudiness
+      const totalPrecip = hours.reduce((sum, h) => sum + (h.precipitation || 0) + (h.snowfall || 0), 0);
+      
+      let representativeHour;
+      if (totalPrecip > 0.5) {
+        // Use hour with most precipitation
+        representativeHour = hours.reduce((max, h) => {
+          const precip = (h.precipitation || 0) + (h.snowfall || 0);
+          const maxPrecip = (max.precipitation || 0) + (max.snowfall || 0);
+          return precip > maxPrecip ? h : max;
+        }, hours[0]);
+      } else {
+        // Use daytime hours (10:00-18:00) to avoid night/early morning bias
+        const daytimeHours = hours.filter(h => {
+          const hour = new Date(h.time).getHours();
+          return hour >= 10 && hour <= 18;
+        });
+        
+        if (daytimeHours.length > 0) {
+          // Use the hour with highest cloud cover during daytime
+          representativeHour = daytimeHours.reduce((max, h) => {
+            return (h.cloudCover || 0) > (max.cloudCover || 0) ? h : max;
+          }, daytimeHours[0]);
+        } else {
+          // Fallback to afternoon hour
+          representativeHour = hours.find(h => new Date(h.time).getHours() === 15) || hours[Math.floor(hours.length / 2)];
+        }
+      }
       
       const icon = getWeatherIcon({
-        hour: new Date(hourWithMostPrecip.time).getHours(),
-        phase: hourWithMostPrecip.phase,
-        cloudCover: hourWithMostPrecip.cloudCover,
-        precipitation: (hourWithMostPrecip.precipitation || 0) + (hourWithMostPrecip.snowfall || 0),
+        hour: new Date(representativeHour.time).getHours(),
+        phase: representativeHour.phase,
+        cloudCover: representativeHour.cloudCover,
+        precipitation: (representativeHour.precipitation || 0) + (representativeHour.snowfall || 0),
       });
       
       // Helper function to calculate wind impact for hourly data
