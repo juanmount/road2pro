@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, KeyboardAvoidingView, Platform, Image } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -34,7 +34,11 @@ export default function LoginScreen() {
     >
       <View style={styles.content}>
         <View style={styles.header}>
-          <Text style={styles.title}>Andes Powder</Text>
+          <Image 
+            source={require('../../assets/Logo_horizontal.png')} 
+            style={styles.logo}
+            resizeMode="contain"
+          />
           <Text style={styles.subtitle}>Snow intelligence for Argentine resorts</Text>
         </View>
 
@@ -100,6 +104,11 @@ const styles = StyleSheet.create({
   header: {
     alignItems: 'center',
     marginBottom: 48,
+  },
+  logo: {
+    width: 200,
+    height: 80,
+    marginBottom: 16,
   },
   title: {
     fontSize: 36,
