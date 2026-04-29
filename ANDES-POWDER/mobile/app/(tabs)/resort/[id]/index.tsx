@@ -897,7 +897,7 @@ export default function ResortDetailScreen() {
               };
               const icon = getWeatherIcon(iconParams);
               if (new Date(h.time).getHours() >= 11 && new Date(h.time).getHours() <= 13) {
-                console.log(`[HOURLY ICON] ${new Date(h.time).getHours()}H:`, iconParams, '→', icon);
+                console.log(`[HOURLY ICON] ${dateKey} ${new Date(h.time).getHours()}H:`, iconParams, '→', icon);
               }
               return icon;
             })()
