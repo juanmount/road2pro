@@ -1159,7 +1159,7 @@ export default function ResortDetailScreen() {
             <View style={styles.tempSection}>
               <Text style={styles.weatherIcon}>
                 {getWeatherIcon({
-                  hour: new Date().getHours(),
+                  hour: new Date(currentHour.time).getHours(),
                   phase: currentHour.phase || 'none',
                   cloudCover: currentHour.cloudCover || 0,
                   precipitation: currentHour.precipitation || 0
