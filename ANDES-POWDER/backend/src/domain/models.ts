@@ -111,11 +111,20 @@ export interface ElevationForecast {
   
   humidity: number;
   cloudCover: number;
+  cloudCoverLow?: number;
+  cloudCoverMid?: number;
+  cloudCoverHigh?: number;
   pressure?: number;
   
   // Derived atmospheric
   freezingLevelM?: number;
   snowLineM?: number;
+  
+  // Visibility
+  visibility?: 'excellent' | 'good' | 'moderate' | 'poor' | 'whiteout';
+  visibilityMeters?: number;
+  inCloud?: boolean;
+  cloudBaseMeters?: number;
   
   // Snow Engine outputs
   snowfallCmCorrected: number;
@@ -249,6 +258,9 @@ export interface TimeSeriesPoint {
   windDirection?: number;
   humidity: number;
   cloudCover: number;
+  cloudCoverLow?: number;
+  cloudCoverMid?: number;
+  cloudCoverHigh?: number;
   pressure?: number;
   freezingLevel?: number;
 }

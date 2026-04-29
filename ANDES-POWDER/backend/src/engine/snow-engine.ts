@@ -16,6 +16,7 @@ import { StormCrossingEngine } from './storm-crossing-engine';
 import { SnowRealityEngine } from './snow-reality-engine';
 import { WindImpactEngine } from './wind-impact-engine';
 import { observationProvider } from '../services/observation-provider';
+import { visibilityEngine } from './visibility-engine';
 
 export class SnowEngine {
   private phaseClassifier: PhaseClassifier;
@@ -375,6 +376,17 @@ export class SnowEngine {
       a => Math.abs(a.validTime.getTime() - data.time.getTime()) < 3600000 // Within 1 hour
     )?.confidenceScore;
     
+    // 10. Calculate visibility
+    const visibilityConditions = visibilityEngine.calculateVisibility(
+      elevationMeters,
+      data.cloudCoverLow || 0,
+      data.cloudCoverMid || 0,
+      data.cloudCoverHigh || 0,
+      data.precipitation,
+      data.humidity,
+      data.temperature
+    );
+    
     return {
       id: '',
       forecastRunId: '',
@@ -397,9 +409,16 @@ export class SnowEngine {
       windDirection: data.windDirection,
       humidity: data.humidity,
       cloudCover: data.cloudCover,
+      cloudCoverLow: data.cloudCoverLow,
+      cloudCoverMid: data.cloudCoverMid,
+      cloudCoverHigh: data.cloudCoverHigh,
       pressure: data.pressure,
       freezingLevelM: corrected.freezingLevelCorrected,
       snowLineM: corrected.snowLineCorrected,
+      visibility: visibilityConditions.visibility,
+      visibilityMeters: visibilityConditions.visibilityMeters,
+      inCloud: visibilityConditions.inCloud,
+      cloudBaseMeters: visibilityConditions.cloudBaseMeters || undefined,
       snowfallCmCorrected: corrected.snowfallCorrected,
       phaseClassification: phase.phase, // Use phase directly, not classifyPhase
       snowQuality,

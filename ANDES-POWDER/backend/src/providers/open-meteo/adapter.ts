@@ -43,6 +43,9 @@ export class OpenMeteoProvider implements ForecastProvider {
         'winddirection_10m',
         'relativehumidity_2m',
         'cloudcover',
+        'cloudcover_low',
+        'cloudcover_mid',
+        'cloudcover_high',
         'pressure_msl',
         'freezinglevel_height'
       ].join(','),
@@ -125,6 +128,9 @@ export class OpenMeteoProvider implements ForecastProvider {
       windDirection: hourly.winddirection_10m?.[i],
       humidity: hourly.relativehumidity_2m[i] || 50,
       cloudCover: hourly.cloudcover[i] || 0,
+      cloudCoverLow: hourly.cloudcover_low?.[i],
+      cloudCoverMid: hourly.cloudcover_mid?.[i],
+      cloudCoverHigh: hourly.cloudcover_high?.[i],
       pressure: hourly.pressure_msl?.[i],
       freezingLevel: hourly.freezinglevel_height?.[i]
     }));
