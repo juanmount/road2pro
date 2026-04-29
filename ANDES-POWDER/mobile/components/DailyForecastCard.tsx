@@ -196,7 +196,7 @@ export function DailyForecastCard({
           {snowReality ? 'REAL SNOW' : 'SNOWFALL'}
         </Text>
         <Text style={styles.snowMetricValue}>
-          {Math.round(snowfall)}
+          {snowfall < 1 ? snowfall.toFixed(1) : Math.round(snowfall)}
         </Text>
         <Text style={styles.snowMetricUnit}>cm</Text>
         
