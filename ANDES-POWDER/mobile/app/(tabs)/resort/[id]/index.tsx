@@ -775,20 +775,20 @@ export default function ResortDetailScreen() {
       const snowfall = Math.max(realSnowfall, 0);
       
       // Calculate icon intelligently:
-      // 1. If there's significant precipitation, use the hour with most precipitation
-      // 2. Otherwise, use daytime hours (10:00-18:00) to determine icon based on cloudiness
-      const totalPrecip = hours.reduce((sum, h) => sum + (h.precipitation || 0) + (h.snowfall || 0), 0);
+      // 1. If ANY hour has snow/rain/mixed phase, use that hour (prioritize precipitation)
+      // 2. Otherwise, use daytime hours (10:00-18:00) with highest cloudiness
+      const hoursWithPrecip = hours.filter(h => h.phase && h.phase !== 'none');
       
       let representativeHour;
-      if (totalPrecip > 0.5) {
-        // Use hour with most precipitation
-        representativeHour = hours.reduce((max, h) => {
+      if (hoursWithPrecip.length > 0) {
+        // Use the hour with most precipitation among hours with active precipitation
+        representativeHour = hoursWithPrecip.reduce((max, h) => {
           const precip = (h.precipitation || 0) + (h.snowfall || 0);
           const maxPrecip = (max.precipitation || 0) + (max.snowfall || 0);
           return precip > maxPrecip ? h : max;
-        }, hours[0]);
+        }, hoursWithPrecip[0]);
       } else {
-        // Use daytime hours (10:00-18:00) to avoid night/early morning bias
+        // No precipitation - use daytime hours (10:00-18:00) to avoid night/early morning bias
         const daytimeHours = hours.filter(h => {
           const hour = new Date(h.time).getHours();
           return hour >= 10 && hour <= 18;
