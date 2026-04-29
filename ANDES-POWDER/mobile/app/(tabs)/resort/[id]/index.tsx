@@ -1238,22 +1238,21 @@ export default function ResortDetailScreen() {
           {/* Snow metrics - always show comparison data for consistency */}
           <View style={styles.glassMetrics}>
             {(() => {
-              // Show TODAY's comparison: raw Open-Meteo vs our adjusted forecast
+              // Show NEXT 24H comparison: raw Open-Meteo vs our adjusted forecast
                   // This is educational and shows why we're different
                   
-                  // Get today's hourly data to calculate raw snowfall
+                  // Get next 24 hours to match todayRealSnowfall calculation
                   const now = new Date();
-                  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-                  const todayEnd = new Date(todayStart);
-                  todayEnd.setDate(todayEnd.getDate() + 1);
+                  const next24h = new Date(now);
+                  next24h.setHours(next24h.getHours() + 24);
                   
-                  const todayHours = hourlyData.filter(h => {
+                  const next24Hours = hourlyData.filter(h => {
                     const hourTime = new Date(h.time);
-                    return hourTime >= todayStart && hourTime < todayEnd;
+                    return hourTime >= now && hourTime < next24h;
                   });
                   
                   // Calculate RAW snowfall (what Open-Meteo says without adjustments)
-                  const rawTodaySnowfall = todayHours.reduce((sum: number, h: any) => sum + (h.snowfall || 0), 0);
+                  const rawTodaySnowfall = next24Hours.reduce((sum: number, h: any) => sum + (h.snowfall || 0), 0);
                   
                   // Our adjusted forecast uses Snow Reality Engine
                   const adjustedTodaySnowfall = todayRealSnowfall;
