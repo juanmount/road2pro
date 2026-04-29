@@ -266,9 +266,16 @@ router.get('/:id/forecast/hourly', async (req: Request, res: Response) => {
         wind_gust_kmh,
         wind_direction,
         cloud_cover,
+        cloud_cover_low,
+        cloud_cover_mid,
+        cloud_cover_high,
         powder_score,
         freezing_level_m,
-        phase_classification
+        phase_classification,
+        visibility,
+        visibility_meters,
+        in_cloud,
+        cloud_base_meters
       FROM elevation_forecasts
       WHERE resort_id = $1::uuid
       AND elevation_band = $2
@@ -293,10 +300,17 @@ router.get('/:id/forecast/hourly', async (req: Request, res: Response) => {
       windDirection: row.wind_direction || 0,
       humidity: 70,
       cloudCover: parseFloat(row.cloud_cover || 0),
+      cloudCoverLow: row.cloud_cover_low ? parseFloat(row.cloud_cover_low) : undefined,
+      cloudCoverMid: row.cloud_cover_mid ? parseFloat(row.cloud_cover_mid) : undefined,
+      cloudCoverHigh: row.cloud_cover_high ? parseFloat(row.cloud_cover_high) : undefined,
       phase: row.phase_classification || 'none', // Use DB phase classification
       powderScore: parseFloat(row.powder_score || 0),
       snowfall: parseFloat(row.snowfall_cm_corrected || 0),
       freezingLevel: row.freezing_level_m ? parseInt(row.freezing_level_m) : 2000,
+      visibility: row.visibility || undefined,
+      visibilityMeters: row.visibility_meters ? parseInt(row.visibility_meters) : undefined,
+      inCloud: row.in_cloud || false,
+      cloudBaseMeters: row.cloud_base_meters ? parseInt(row.cloud_base_meters) : undefined,
     }));
 
     console.log('[HOURLY] Returning', hourlyForecasts.length, 'forecasts');
