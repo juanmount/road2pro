@@ -888,12 +888,19 @@ export default function ResortDetailScreen() {
             humidity: h.humidity || 0,
             freezingLevel: h.freezingLevel || 0,
             phase: h.phase || 'none',
-            icon: getWeatherIcon({
-              hour: new Date(h.time).getHours(),
-              phase: h.phase || 'none',
-              cloudCover: h.cloudCover || 0,
-              precipitation: (h.precipitation || 0) + (h.snowfall || 0)
-            })
+            icon: (() => {
+              const iconParams = {
+                hour: new Date(h.time).getHours(),
+                phase: h.phase || 'none',
+                cloudCover: h.cloudCover || 0,
+                precipitation: (h.precipitation || 0) + (h.snowfall || 0)
+              };
+              const icon = getWeatherIcon(iconParams);
+              if (new Date(h.time).getHours() >= 11 && new Date(h.time).getHours() <= 13) {
+                console.log(`[HOURLY ICON] ${new Date(h.time).getHours()}H:`, iconParams, '→', icon);
+              }
+              return icon;
+            })()
           };
         }),
         stormCrossing: undefined,
