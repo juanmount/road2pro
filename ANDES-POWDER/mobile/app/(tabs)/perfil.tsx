@@ -1,9 +1,97 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Linking, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Linking, Alert, TextInput, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { EngagementDashboard } from '../../components/EngagementDashboard';
+import * as ImagePicker from 'expo-image-picker';
+import { useState } from 'react';
 
 export default function PerfilScreen() {
+  const [userName, setUserName] = useState('Usuario');
+  const [userEmail] = useState('usuario@andespowder.com');
+  const [profileImage, setProfileImage] = useState<string | null>(null);
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [tempName, setTempName] = useState(userName);
+
+  const handlePickImage = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    
+    if (status !== 'granted') {
+      Alert.alert(
+        'Permiso necesario',
+        'Necesitamos acceso a tu galería para cambiar la foto de perfil'
+      );
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+
+    if (!result.canceled) {
+      setProfileImage(result.assets[0].uri);
+    }
+  };
+
+  const handleTakePhoto = async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    
+    if (status !== 'granted') {
+      Alert.alert(
+        'Permiso necesario',
+        'Necesitamos acceso a tu cámara para tomar una foto'
+      );
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+
+    if (!result.canceled) {
+      setProfileImage(result.assets[0].uri);
+    }
+  };
+
+  const handleChangePhoto = () => {
+    Alert.alert(
+      'Cambiar foto de perfil',
+      'Elegí una opción',
+      [
+        {
+          text: 'Tomar foto',
+          onPress: handleTakePhoto,
+        },
+        {
+          text: 'Elegir de galería',
+          onPress: handlePickImage,
+        },
+        {
+          text: 'Cancelar',
+          style: 'cancel',
+        },
+      ]
+    );
+  };
+
+  const handleSaveName = () => {
+    if (tempName.trim()) {
+      setUserName(tempName.trim());
+      setIsEditingName(false);
+    } else {
+      Alert.alert('Error', 'El nombre no puede estar vacío');
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setTempName(userName);
+    setIsEditingName(false);
+  };
+
   const handleAbout = () => {
     // Show about modal or navigate to about screen
     console.log('About pressed');
@@ -87,11 +175,48 @@ export default function PerfilScreen() {
       <ScrollView contentContainerStyle={styles.content}>
         {/* Profile Header */}
         <View style={styles.profileHeader}>
-          <View style={styles.avatar}>
-            <Ionicons name="person" size={48} color="#63b3ed" />
-          </View>
-          <Text style={styles.name}>Usuario</Text>
-          <Text style={styles.email}>usuario@andespowder.com</Text>
+          <TouchableOpacity onPress={handleChangePhoto} style={styles.avatarContainer}>
+            {profileImage ? (
+              <Image source={{ uri: profileImage }} style={styles.avatarImage} />
+            ) : (
+              <View style={styles.avatar}>
+                <Ionicons name="person" size={48} color="#63b3ed" />
+              </View>
+            )}
+            <View style={styles.cameraButton}>
+              <Ionicons name="camera" size={16} color="#fff" />
+            </View>
+          </TouchableOpacity>
+
+          {isEditingName ? (
+            <View style={styles.nameEditContainer}>
+              <TextInput
+                style={styles.nameInput}
+                value={tempName}
+                onChangeText={setTempName}
+                placeholder="Nombre"
+                placeholderTextColor="#64748b"
+                autoFocus
+              />
+              <View style={styles.nameEditButtons}>
+                <TouchableOpacity onPress={handleSaveName} style={styles.saveButton}>
+                  <Ionicons name="checkmark" size={20} color="#10b981" />
+                </TouchableOpacity>
+                <TouchableOpacity onPress={handleCancelEdit} style={styles.cancelButton}>
+                  <Ionicons name="close" size={20} color="#ef4444" />
+                </TouchableOpacity>
+              </View>
+            </View>
+          ) : (
+            <TouchableOpacity onPress={() => { setTempName(userName); setIsEditingName(true); }}>
+              <View style={styles.nameContainer}>
+                <Text style={styles.name}>{userName}</Text>
+                <Ionicons name="pencil" size={16} color="#64748b" style={styles.editIcon} />
+              </View>
+            </TouchableOpacity>
+          )}
+          
+          <Text style={styles.email}>{userEmail}</Text>
         </View>
 
         {/* User Activity */}
@@ -158,6 +283,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 40,
   },
+  avatarContainer: {
+    position: 'relative',
+    marginBottom: 16,
+  },
   avatar: {
     width: 96,
     height: 96,
@@ -165,15 +294,84 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(99, 179, 237, 0.2)',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 16,
     borderWidth: 2,
     borderColor: '#63b3ed',
+  },
+  avatarImage: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    borderWidth: 2,
+    borderColor: '#63b3ed',
+  },
+  cameraButton: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#63b3ed',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#1e293b',
+  },
+  nameContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   name: {
     fontSize: 24,
     fontWeight: 'bold',
     color: '#fff',
     marginBottom: 4,
+  },
+  editIcon: {
+    marginLeft: 4,
+    marginBottom: 4,
+  },
+  nameEditContainer: {
+    width: '100%',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  nameInput: {
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 12,
+    padding: 12,
+    fontSize: 18,
+    color: '#fff',
+    textAlign: 'center',
+    borderWidth: 1,
+    borderColor: '#63b3ed',
+    marginBottom: 8,
+    minWidth: 200,
+  },
+  nameEditButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  saveButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(16, 185, 129, 0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#10b981',
+  },
+  cancelButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(239, 68, 68, 0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#ef4444',
   },
   email: {
     fontSize: 14,
