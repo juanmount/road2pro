@@ -95,7 +95,7 @@ export class OpenMeteoProvider implements ForecastProvider {
     // Extract freezing levels
     const freezingLevels = times.map((time: Date, i: number) => ({
       time,
-      heightM: data.hourly.freezinglevel_height?.[i] || this.estimateFreezingLevel(data.hourly.temperature_2m[i])
+      heightM: data.hourly.freezinglevel_height?.[i] || this.estimateFreezingLevel(data.hourly.temperature_2m[i], resort.midElevation)
     }));
     
     return {
@@ -157,11 +157,12 @@ export class OpenMeteoProvider implements ForecastProvider {
     }));
   }
   
-  private estimateFreezingLevel(temperature: number): number {
-    // Rough estimate: freezing level based on surface temperature
-    // Assumes standard lapse rate
+  private estimateFreezingLevel(temperature: number, referenceElevation: number): number {
+    // Estimate freezing level from temperature at reference elevation
+    // Formula: freezingLevel = referenceElevation + (temperature / lapseRate)
     const lapseRate = 0.0065; // °C per meter
-    return temperature / lapseRate;
+    const heightAboveReference = temperature / lapseRate;
+    return Math.max(0, referenceElevation + heightAboveReference);
   }
   
   getModelMetadata(): ModelMetadata[] {
