@@ -564,7 +564,8 @@ export function DailyForecastCard({
           humidity: h.humidity || 70,
           cloudCover: 0,
           freezingLevel: h.freezingLevel || 2000,
-          powderScore: 0
+          powderScore: 0,
+          icon: h.icon || '☁️'
         }));
         })()}
         elevation={`MID`}
