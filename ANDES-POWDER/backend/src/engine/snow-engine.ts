@@ -298,7 +298,7 @@ export class SnowEngine {
     }
     
     // 1. Classify precipitation phase using wet bulb temperature
-    const freezingLevel = data.freezingLevel || this.estimateFreezingLevel(data.temperature);
+    const freezingLevel = data.freezingLevel || this.estimateFreezingLevel(data.temperature, elevationMeters);
     const humidity = data.humidity || 70; // Default to 70% if not available
     const phase = this.phaseClassifier.classifyPrecipitation(
       data.temperature,
@@ -549,11 +549,12 @@ export class SnowEngine {
   }
   
   /**
-   * Estimate freezing level from temperature
+   * Estimate freezing level from temperature at given elevation
    */
-  private estimateFreezingLevel(temperature: number): number {
+  private estimateFreezingLevel(temperature: number, referenceElevation: number): number {
     const lapseRate = 0.0065; // °C per meter
-    return Math.max(0, temperature / lapseRate);
+    const heightAboveReference = temperature / lapseRate;
+    return Math.max(0, referenceElevation + heightAboveReference);
   }
 
   /**
