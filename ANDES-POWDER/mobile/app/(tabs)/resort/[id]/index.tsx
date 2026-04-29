@@ -617,8 +617,8 @@ export default function ResortDetailScreen() {
         return; // Skip this day
       }
       
-      const dayName = firstHourDate.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase();
-      const dayDate = firstHourDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      const dayName = firstHourDate.toLocaleDateString('es-AR', { weekday: 'short' }).toUpperCase();
+      const dayDate = firstHourDate.toLocaleDateString('es-AR', { month: 'short', day: 'numeric' });
       
       const temps = hours.map(h => h.temperature);
       
@@ -779,6 +779,17 @@ export default function ResortDetailScreen() {
       // 2. Otherwise, use daytime hours (10:00-18:00) with highest cloudiness
       const hoursWithPrecip = hours.filter(h => h.phase && h.phase !== 'none');
       
+      console.log(`[ICON DEBUG] ${dayName}: Total hours=${hours.length}, Hours with precip=${hoursWithPrecip.length}`);
+      if (hoursWithPrecip.length > 0) {
+        console.log(`[ICON DEBUG] ${dayName}: First 3 precip hours:`, hoursWithPrecip.slice(0, 3).map(h => ({
+          time: new Date(h.time).toISOString(),
+          phase: h.phase,
+          precip: h.precipitation,
+          snow: h.snowfall,
+          cloud: h.cloudCover
+        })));
+      }
+      
       let representativeHour;
       if (hoursWithPrecip.length > 0) {
         // Use the hour with most precipitation among hours with active precipitation
@@ -787,6 +798,13 @@ export default function ResortDetailScreen() {
           const maxPrecip = (max.precipitation || 0) + (max.snowfall || 0);
           return precip > maxPrecip ? h : max;
         }, hoursWithPrecip[0]);
+        console.log(`[ICON DEBUG] ${dayName}: Using precip hour:`, {
+          time: new Date(representativeHour.time).toISOString(),
+          phase: representativeHour.phase,
+          precip: representativeHour.precipitation,
+          snow: representativeHour.snowfall,
+          cloud: representativeHour.cloudCover
+        });
       } else {
         // No precipitation - use daytime hours (10:00-18:00) to avoid night/early morning bias
         const daytimeHours = hours.filter(h => {
@@ -794,14 +812,24 @@ export default function ResortDetailScreen() {
           return hour >= 10 && hour <= 18;
         });
         
+        console.log(`[ICON DEBUG] ${dayName}: No precip, using daytime. Daytime hours=${daytimeHours.length}`);
+        
         if (daytimeHours.length > 0) {
           // Use the hour with highest cloud cover during daytime
           representativeHour = daytimeHours.reduce((max, h) => {
             return (h.cloudCover || 0) > (max.cloudCover || 0) ? h : max;
           }, daytimeHours[0]);
+          console.log(`[ICON DEBUG] ${dayName}: Using daytime hour:`, {
+            time: new Date(representativeHour.time).toISOString(),
+            cloud: representativeHour.cloudCover,
+            phase: representativeHour.phase
+          });
         } else {
           // Fallback to afternoon hour
           representativeHour = hours.find(h => new Date(h.time).getHours() === 15) || hours[Math.floor(hours.length / 2)];
+          console.log(`[ICON DEBUG] ${dayName}: Using fallback hour:`, {
+            time: new Date(representativeHour.time).toISOString()
+          });
         }
       }
       
@@ -811,6 +839,8 @@ export default function ResortDetailScreen() {
         cloudCover: representativeHour.cloudCover,
         precipitation: (representativeHour.precipitation || 0) + (representativeHour.snowfall || 0),
       });
+      
+      console.log(`[ICON DEBUG] ${dayName}: Final icon=${icon}, from hour=${new Date(representativeHour.time).getHours()}, phase=${representativeHour.phase}, cloud=${representativeHour.cloudCover}`);
       
       // Helper function to calculate wind impact for hourly data
       // Note: windSpeed already comes specific for selected elevation band
@@ -834,9 +864,9 @@ export default function ResortDetailScreen() {
       console.log(`[SnowEngine] ${dayName}: Raw=${rawSnowfall.toFixed(1)}cm, Adjusted=${realSnowfall.toFixed(1)}cm, Reduction=${((1 - realSnowfall/rawSnowfall) * 100).toFixed(0)}%`);
       
       const dayData = {
-        dateKey,
+        date: dateKey, // Use dateKey (YYYY-MM-DD) instead of formatted date
         day: dayName,
-        date: dayDate,
+        dateFormatted: dayDate, // Keep formatted date for display if needed
         snowfall: Math.round(realSnowfall * 10) / 10,
         tempHigh: Math.round(Math.max(...temps)),
         tempLow: Math.round(Math.min(...temps)),
