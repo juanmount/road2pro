@@ -84,7 +84,7 @@ export default function SnowMapCard({ onPress }: SnowMapCardProps) {
       <View style={styles.header}>
         <View>
           <Text style={styles.title}>❄️ Mapa de Nieve</Text>
-          <Text style={styles.subtitle}>Acumulación por cerro</Text>
+          <Text style={styles.subtitle}>Acumulación en cumbre (summit)</Text>
         </View>
         {onPress && (
           <TouchableOpacity onPress={onPress}>

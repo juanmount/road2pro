@@ -20,7 +20,7 @@ export default function RadaresScreen() {
       >
         <View style={styles.hero}>
           <Text style={styles.heroTitle}>Mapa de Nieve Patagonia</Text>
-          <Text style={styles.heroSubtitle}>Acumulación pronosticada por cerro y período</Text>
+          <Text style={styles.heroSubtitle}>Acumulación en cumbre por cerro y período</Text>
         </View>
 
         {/* Snow Map (priority) */}
