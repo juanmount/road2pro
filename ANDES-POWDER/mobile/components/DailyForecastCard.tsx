@@ -73,6 +73,8 @@ interface DailyForecastCardProps {
   stormCrossing?: StormCrossing;
   snowReality?: SnowReality;
   windImpact?: WindImpact;
+  maxWindSpeed?: number;
+  maxWindGust?: number;
   confidenceScore?: number;
   confidenceReason?: string;
   trending?: TrendingData;
@@ -91,6 +93,8 @@ export function DailyForecastCard({
   stormCrossing,
   snowReality,
   windImpact,
+  maxWindSpeed,
+  maxWindGust,
   confidenceScore,
   confidenceReason,
   trending,
@@ -115,10 +119,10 @@ export function DailyForecastCard({
   
   const totalPrecip = hourlyDetails.reduce((sum, h) => sum + (h.precipitation || 0) + (h.snowfall || 0), 0);
   
-  // Check for high gusts during the day
-  const maxGust = hourlyDetails.length > 0
+  // Check for high gusts during the day - use backend value if available
+  const maxGust = maxWindGust || (hourlyDetails.length > 0
     ? Math.max(...hourlyDetails.map(h => h.windGust || 0))
-    : 0;
+    : 0);
   const hasHighGusts = maxGust >= 40;
   
   // Gust severity colors

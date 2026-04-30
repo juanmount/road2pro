@@ -291,6 +291,7 @@ export default function ResortDetailScreen() {
           const snowfall = Math.max(adjustedSnowfall, 0);
           const precipitation = hours.reduce((sum, h) => sum + (h.precipitation || 0), 0);
           const maxWindSpeed = Math.max(...hours.map(h => h.windSpeed || 0));
+          const maxWindGust = Math.max(...hours.map(h => h.windGust || 0));
           const avgCloudCover = hours.reduce((sum, h) => sum + (h.cloudCover || 0), 0) / hours.length;
           
           const hourlyDetails = hours.map((h: any, idx: number) => {
@@ -403,6 +404,7 @@ export default function ResortDetailScreen() {
             snowfall,
             precipitation,
             maxWindSpeed,
+            maxWindGust,
             cloudCover: avgCloudCover,
             icon: dayIcon,
             hourlyDetails,
@@ -1371,6 +1373,8 @@ export default function ResortDetailScreen() {
                   icon={day.icon || '☀️'}
                   hourlyDetails={day.hourlyDetails || []}
                   stormCrossing={stormCrossingData?.[index] || undefined}
+                  maxWindSpeed={day.maxWindSpeed}
+                  maxWindGust={day.maxWindGust}
                   confidenceScore={day.confidenceScore}
                   confidenceReason={day.confidenceReason}
                 />
