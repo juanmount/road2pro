@@ -88,7 +88,7 @@ export class OpenMeteoProvider implements ForecastProvider {
     
     // Parse hourly data
     const times = data.hourly.time.map((t: string) => new Date(t));
-    const hourlyData = this.parseHourlyData(data.hourly, times);
+    const hourlyData = this.parseHourlyData(data.hourly, times, resort.midElevation);
     
     // Interpolate for different elevations
     const base = this.interpolateForElevation(hourlyData, resort.baseElevation, resort.midElevation);
@@ -117,7 +117,7 @@ export class OpenMeteoProvider implements ForecastProvider {
     };
   }
   
-  private parseHourlyData(hourly: any, times: Date[]): TimeSeriesPoint[] {
+  private parseHourlyData(hourly: any, times: Date[], referenceElevation: number): TimeSeriesPoint[] {
     return times.map((time, i) => ({
       time,
       temperature: hourly.temperature_2m[i] || 0,
@@ -132,7 +132,9 @@ export class OpenMeteoProvider implements ForecastProvider {
       cloudCoverMid: hourly.cloudcover_mid?.[i],
       cloudCoverHigh: hourly.cloudcover_high?.[i],
       pressure: hourly.pressure_msl?.[i],
-      freezingLevel: hourly.freezinglevel_height?.[i]
+      // If ECMWF doesn't provide freezing level, calculate it from temperature
+      freezingLevel: hourly.freezinglevel_height?.[i] || 
+                     this.estimateFreezingLevel(hourly.temperature_2m[i], referenceElevation)
     }));
   }
   
