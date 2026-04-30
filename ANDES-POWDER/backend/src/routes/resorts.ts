@@ -816,7 +816,7 @@ router.get('/:id/snow-depth', async (req: Request, res: Response) => {
       { band: 'base', meters: resort.base_elevation },
       { band: 'mid', meters: resort.mid_elevation },
       { band: 'summit', meters: resort.summit_elevation }
-    ];
+    ].filter(e => e.meters != null && e.meters > 0);
     
     const snowDepthData = await Promise.all(
       elevations.map(async ({ band, meters }) => {
@@ -863,8 +863,22 @@ router.get('/:id/snow-depth', async (req: Request, res: Response) => {
       note: 'Current accumulated snow depth on ground (not forecast)'
     });
   } catch (error) {
-    console.error('Error fetching snow depth:', error);
-    res.status(500).json({ error: 'Failed to fetch snow depth' });
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.error('Error fetching snow depth:', errorMessage, error);
+    
+    // Return empty data instead of error to prevent frontend crashes
+    res.json({
+      resort: {
+        id: req.params.id,
+        name: 'Unknown',
+        slug: req.params.id
+      },
+      snowDepth: [
+        { elevation: 'mid', elevationMeters: 1600, snowDepthCm: 0, lastUpdate: new Date().toISOString() }
+      ],
+      source: 'Error - returning default values',
+      note: 'Failed to fetch snow depth: ' + errorMessage
+    });
   }
 });
 
