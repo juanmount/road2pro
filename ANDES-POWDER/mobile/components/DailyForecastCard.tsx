@@ -123,7 +123,7 @@ export function DailyForecastCard({
   const maxGust = maxWindGust || (hourlyDetails.length > 0
     ? Math.max(...hourlyDetails.map(h => h.windGust || 0))
     : 0);
-  const hasHighGusts = maxGust >= 40;
+  const hasHighGusts = maxGust >= 20;
   
   // Gust severity colors
   const getGustColor = () => {
