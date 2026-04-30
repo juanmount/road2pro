@@ -30,7 +30,7 @@ export class OpenMeteoProvider implements ForecastProvider {
     const params: any = {
       latitude: resort.latitude,
       longitude: resort.longitude,
-      elevation: resort.summitElevation, // Use summit elevation as reference for most accurate wind data
+      elevation: resort.summitElevation, // Use summit elevation as reference for most accurate wind gusts data
       hourly: [
         'temperature_2m',
         'apparent_temperature',
