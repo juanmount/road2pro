@@ -699,6 +699,7 @@ router.get('/:id/forecast/daily', async (req: Request, res: Response) => {
         SUM(precipitation_mm) as total_precipitation,
         AVG(powder_score) as avg_powder_score,
         MAX(wind_speed_kmh) as max_wind_speed,
+        MAX(wind_gust_kmh) as max_wind_gust,
         AVG(cloud_cover) as avg_cloud_cover
       FROM elevation_forecasts
       WHERE resort_id = $1
@@ -761,6 +762,7 @@ router.get('/:id/forecast/daily', async (req: Request, res: Response) => {
         precipitation: parseFloat(row.total_precipitation || 0),
         powderScore: parseFloat(row.avg_powder_score || 0),
         maxWindSpeed: parseFloat(row.max_wind_speed || 0),
+        maxWindGust: parseFloat(row.max_wind_gust || 0),
         cloudCover: parseFloat(row.avg_cloud_cover || 0),
         confidenceScore: Math.round(confidenceScore * 10) / 10,
         confidenceReason,
