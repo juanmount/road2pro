@@ -793,7 +793,7 @@ router.get('/:id/best-time', async (req: Request, res: Response) => {
   }
 });
 
-// Get current snow depth (accumulated snow on ground)
+// Get current snow depth (accumulated snow on ground) 
 router.get('/:id/snow-depth', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
