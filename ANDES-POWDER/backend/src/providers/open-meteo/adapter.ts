@@ -57,7 +57,7 @@ export class OpenMeteoProvider implements ForecastProvider {
         'windspeed_10m_max',
         'windgusts_10m_max'
       ].join(','),
-      timezone: resort.timezone || 'auto',
+      timezone: 'GMT',
       forecast_days: 16 // Request 16 days to ensure we always have 7+ full days of future data
     };
     
@@ -77,7 +77,7 @@ export class OpenMeteoProvider implements ForecastProvider {
                 longitude: resort.longitude,
                 elevation: resort.summitElevation,
                 hourly: 'windgusts_10m',
-                timezone: resort.timezone || 'auto',
+                timezone: 'GMT',
                 forecast_days: 16
               }
             });
