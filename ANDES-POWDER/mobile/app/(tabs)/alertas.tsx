@@ -52,11 +52,6 @@ export default function AlertasScreen() {
     }
   };
 
-  const testNotification = async () => {
-    await notificationService.scheduleTestNotification();
-    Alert.alert('Notificación de prueba', 'Recibirás una notificación en 2 segundos');
-  };
-
   const requestPermissions = async () => {
     const token = await notificationService.registerForPushNotifications();
     if (token) {
@@ -214,14 +209,6 @@ export default function AlertasScreen() {
           </View>
         )}
 
-        {/* Test Notification Button */}
-        {permissionGranted && (
-          <TouchableOpacity style={styles.testButton} onPress={testNotification}>
-            <Ionicons name="notifications" size={20} color="#fff" />
-            <Text style={styles.testButtonText}>Probar Notificación</Text>
-          </TouchableOpacity>
-        )}
-
         {!permissionGranted && (
           <View style={styles.permissionWarning}>
             <Ionicons name="warning" size={24} color="#f59e0b" />
@@ -302,21 +289,6 @@ const styles = StyleSheet.create({
   },
   advancedSection: {
     marginTop: 8,
-  },
-  testButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#63b3ed',
-    borderRadius: 12,
-    padding: 16,
-    marginTop: 16,
-    gap: 8,
-  },
-  testButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#fff',
   },
   permissionWarning: {
     flexDirection: 'row',
