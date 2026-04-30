@@ -17,7 +17,6 @@ import { getWeatherIcon } from '../../../../utils/weather-icons';
 import { getWindNarrative, getWindDirectionLabel, getWindExplanation, getWindTrend, getSkiSeason } from '../../../../utils/wind-narrative';
 import { useUserEngagement } from '../../../../hooks/useUserEngagement';
 import { trackScreenView, AnalyticsEvents, trackEarlyAccessEvent } from '../../../../services/analytics';
-import trendingService, { TrendingData } from '../../../../services/trending';
 
 export default function ResortDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -35,7 +34,6 @@ export default function ResortDetailScreen() {
   const [snowRealityData, setSnowRealityData] = useState<any>(null);
   const [windImpactData, setWindImpactData] = useState<any>(null);
   const [bestTimeWindows, setBestTimeWindows] = useState<any[]>([]);
-  const [trendingData, setTrendingData] = useState<TrendingData[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [webcamsVisible, setWebcamsVisible] = useState(false);
@@ -465,10 +463,10 @@ export default function ResortDetailScreen() {
         console.log(`[STORM CROSSING] Day ${idx}: ${adjustedSnowfall.toFixed(1)}cm adjusted snow, ${totalPrecipitation.toFixed(1)}mm precip - calculating score...`);
         
         // Calculate average conditions for the day
-        const avgHumidity = dayHours.reduce((sum, h) => sum + (h.humidity || 70), 0) / dayHours.length;
-        const avgWind = dayHours.reduce((sum, h) => sum + h.windSpeed, 0) / dayHours.length;
-        const avgFrz = dayHours.reduce((sum, h) => sum + h.freezingLevel, 0) / dayHours.length;
-        const avgTemp = dayHours.reduce((sum, h) => sum + h.temperature, 0) / dayHours.length;
+        const avgHumidity = dayHours.reduce((sum: number, h: any) => sum + (h.humidity || 70), 0) / dayHours.length;
+        const avgWind = dayHours.reduce((sum: number, h: any) => sum + h.windSpeed, 0) / dayHours.length;
+        const avgFrz = dayHours.reduce((sum: number, h: any) => sum + h.freezingLevel, 0) / dayHours.length;
+        const avgTemp = dayHours.reduce((sum: number, h: any) => sum + h.temperature, 0) / dayHours.length;
         
         // STORM CROSSING ALGORITHM (simplified frontend version)
         let score = 50; // Base score
@@ -504,7 +502,7 @@ export default function ResortDetailScreen() {
         }
         
         // 3. Wind Direction (westerly = favorable for crossing)
-        const westWindHours = dayHours.filter(h => {
+        const westWindHours = dayHours.filter((h: any) => {
           const dir = h.windDirection || 0;
           return dir >= 240 && dir <= 330; // W to NW
         }).length;
@@ -519,7 +517,7 @@ export default function ResortDetailScreen() {
         }
         
         // 4. Snowfall consistency (persistent vs sporadic)
-        const snowHours = dayHours.filter(h => h.snowfall > 0.1).length;
+        const snowHours = dayHours.filter((h: any) => h.snowfall > 0.1).length;
         if (snowHours > dayHours.length * 0.5) {
           score += 10;
           factors.push('Persistent snowfall');
@@ -557,19 +555,8 @@ export default function ResortDetailScreen() {
         setBestTimeWindows([]);
       }
       
-      // Load trending data
-      try {
-        console.log('[TRENDING] Loading trending data...');
-        const trending = await trendingService.getTrending(id, selectedElevation, 7);
-        console.log('[TRENDING] Loaded', trending.length, 'trending entries');
-        setTrendingData(trending);
-      } catch (error) {
-        console.warn('[TRENDING] Failed to load trending data:', error);
-        setTrendingData([]);
-      }
-      
     } catch (err) {
-      console.error('[LOAD ERROR] Error loading resort data:', err);
+      console.error(err);
       console.error('[LOAD ERROR] Stack:', (err as Error).stack);
       alert('Error loading data: ' + (err as Error).message);
     } finally {
@@ -1373,9 +1360,6 @@ export default function ResortDetailScreen() {
               
               console.log(`[RENDER] Day ${index}:`, dayName, dateStr, `${day.snowfall}cm`, `${day.maxTemp}°/${day.minTemp}°`);
               
-              // Find trending data for this date
-              const dayTrending = trendingData.find(t => t.date === day.date);
-              
               return (
                 <DailyForecastCard
                   key={index}
@@ -1389,11 +1373,6 @@ export default function ResortDetailScreen() {
                   stormCrossing={stormCrossingData?.[index] || undefined}
                   confidenceScore={day.confidenceScore}
                   confidenceReason={day.confidenceReason}
-                  trending={dayTrending ? {
-                    change: dayTrending.change,
-                    changePercent: dayTrending.changePercent,
-                    trend: dayTrending.trend
-                  } : undefined}
                 />
               );
             })}

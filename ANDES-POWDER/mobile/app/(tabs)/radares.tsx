@@ -1,9 +1,8 @@
 import { useState } from 'react';
-import { ScrollView, StyleSheet } from 'react-native';
+import { ScrollView, StyleSheet, View, Text } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import SatelliteImageCard from '../../components/SatelliteImageCard';
 import SnowMapCard from '../../components/SnowMapCard';
-import WeatherStationCard from '../../components/WeatherStationCard';
 import ENSOCard from '../../components/ENSOCard';
 import ENSOModal from '../../components/ENSOModal';
 
@@ -19,17 +18,19 @@ export default function RadaresScreen() {
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
+        <View style={styles.hero}>
+          <Text style={styles.heroTitle}>Mapa de Nieve Patagonia</Text>
+          <Text style={styles.heroSubtitle}>Acumulación pronosticada por cerro y período</Text>
+        </View>
+
+        {/* Snow Map (priority) */}
+        <SnowMapCard />
+
         {/* ENSO / NOAA */}
         <ENSOCard onPress={() => setShowENSOModal(true)} />
 
         {/* Satellite Image */}
         <SatelliteImageCard />
-
-        {/* NOAA Weather Station */}
-        <WeatherStationCard />
-
-        {/* Snow Map */}
-        <SnowMapCard />
       </ScrollView>
 
       {/* ENSO Modal */}
@@ -46,7 +47,21 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    paddingTop: 70,
+    paddingTop: 12,
     paddingBottom: 100,
+  },
+  hero: {
+    marginHorizontal: 16,
+    marginBottom: 12,
+  },
+  heroTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#e2e8f0',
+  },
+  heroSubtitle: {
+    marginTop: 4,
+    fontSize: 12,
+    color: '#94a3b8',
   },
 });

@@ -53,24 +53,25 @@ export const getSnowMapData = async (): Promise<SnowMapData> => {
 
       for (const { band, meters } of elevations) {
         try {
-          // Get hourly forecast for last 48 hours
+          // Get hourly forecast for upcoming 48 hours
           const hourlyData = await resortsService.getHourlyForecast(resort.id, band, 48);
           
           if (!hourlyData || hourlyData.length === 0) continue;
 
-          // Calculate accumulations
-          const now = new Date();
-          const last24h = hourlyData.filter(h => 
-            new Date(h.time).getTime() > now.getTime() - 24 * 60 * 60 * 1000
-          );
-          const last48h = hourlyData;
-          
-          const snowfall24h = last24h.reduce((sum, h) => sum + (h.realSnowfall || 0), 0);
-          const snowfall48h = last48h.reduce((sum, h) => sum + (h.realSnowfall || 0), 0);
+          // Calculate forward accumulations from now
+          const snowfall24h = hourlyData
+            .slice(0, 24)
+            .reduce((sum: number, h: any) => sum + (h.snowfall || 0), 0);
+
+          const snowfall48h = hourlyData
+            .slice(0, 48)
+            .reduce((sum: number, h: any) => sum + (h.snowfall || 0), 0);
 
           // Get 7-day forecast
           const dailyData = await resortsService.getDailyForecast(resort.id, band, 7);
-          const snowfall7d = dailyData?.reduce((sum, d) => sum + (d.snowfallTotal || 0), 0) || 0;
+          const snowfall7d = dailyData?.reduce((sum: number, d: any) => sum + (d.snowfall || 0), 0) || 0;
+
+          const now = new Date();
 
           dataPoints.push({
             resortId: resort.id,

@@ -10,6 +10,7 @@ interface SnowMapCardProps {
 export default function SnowMapCard({ onPress }: SnowMapCardProps) {
   const [data, setData] = useState<SnowMapData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [selectedPeriod, setSelectedPeriod] = useState<'24h' | '48h' | '7d'>('24h');
 
   useEffect(() => {
@@ -19,75 +20,13 @@ export default function SnowMapCard({ onPress }: SnowMapCardProps) {
   const loadData = async () => {
     try {
       setLoading(true);
-      
-      // Mock data for demonstration
-      const mockData: SnowMapData = {
-        dataPoints: [
-          {
-            resortId: 'cerro-catedral',
-            resortName: 'Cerro Catedral',
-            latitude: -41.15,
-            longitude: -71.40,
-            snowfall24h: 25,
-            snowfall48h: 38,
-            snowfall7d: 65,
-            elevation: 'summit',
-            elevationMeters: 2100,
-            timestamp: new Date(),
-          },
-          {
-            resortId: 'cerro-chapelco',
-            resortName: 'Cerro Chapelco',
-            latitude: -40.16,
-            longitude: -71.28,
-            snowfall24h: 18,
-            snowfall48h: 30,
-            snowfall7d: 52,
-            elevation: 'summit',
-            elevationMeters: 2050,
-            timestamp: new Date(),
-          },
-          {
-            resortId: 'las-lenas',
-            resortName: 'Las Leñas',
-            latitude: -35.15,
-            longitude: -70.08,
-            snowfall24h: 12,
-            snowfall48h: 22,
-            snowfall7d: 45,
-            elevation: 'summit',
-            elevationMeters: 3430,
-            timestamp: new Date(),
-          },
-          {
-            resortId: 'cerro-castor',
-            resortName: 'Cerro Castor',
-            latitude: -54.78,
-            longitude: -68.08,
-            snowfall24h: 3,
-            snowfall48h: 8,
-            snowfall7d: 18,
-            elevation: 'summit',
-            elevationMeters: 1057,
-            timestamp: new Date(),
-          },
-        ],
-        lastUpdate: new Date(),
-        summary: {
-          totalResorts: 4,
-          resortsWithSnow: 4,
-          maxSnowfall24h: 25,
-          maxSnowfallResort: 'Cerro Catedral',
-        },
-      };
-      
-      setData(mockData);
-      
-      // TODO: Replace with real data
-      // const snowData = await getSnowMapData();
-      // setData(snowData);
+      setError(null);
+      const snowData = await getSnowMapData();
+      setData(snowData);
     } catch (error) {
       console.error('Error loading snow map:', error);
+      setError('No se pudo cargar el mapa de nieve');
+      setData(null);
     } finally {
       setLoading(false);
     }
@@ -102,12 +41,24 @@ export default function SnowMapCard({ onPress }: SnowMapCardProps) {
     );
   }
 
+  if (error && !data) {
+    return (
+      <View style={styles.card}>
+        <Text style={styles.title}>❄️ Mapa de Nieve</Text>
+        <Text style={styles.errorText}>{error}</Text>
+        <TouchableOpacity style={styles.retryButton} onPress={loadData}>
+          <Text style={styles.retryButtonText}>Reintentar</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
   if (!data) return null;
 
   const getPeriodLabel = () => {
     switch (selectedPeriod) {
-      case '24h': return 'Últimas 24h';
-      case '48h': return 'Últimas 48h';
+      case '24h': return 'Próximas 24h';
+      case '48h': return 'Próximas 48h';
       case '7d': return 'Próximos 7 días';
     }
   };
@@ -124,6 +75,9 @@ export default function SnowMapCard({ onPress }: SnowMapCardProps) {
   const resortData = data.dataPoints
     .filter(p => p.elevation === 'summit')
     .sort((a, b) => getSnowfallForPeriod(b) - getSnowfallForPeriod(a));
+
+  const topResort = resortData[0];
+  const topSnowfall = topResort ? getSnowfallForPeriod(topResort) : 0;
 
   return (
     <View style={styles.card}>
@@ -189,15 +143,16 @@ export default function SnowMapCard({ onPress }: SnowMapCardProps) {
       </ScrollView>
 
       {/* Summary */}
-      {data.summary.maxSnowfall24h > 0 && (
+      {topResort && topSnowfall > 0 && (
         <View style={styles.summary}>
           <Text style={styles.summaryText}>
-            🏆 Más nieve: <Text style={styles.summaryBold}>{data.summary.maxSnowfallResort}</Text>
+            🏆 Más nieve ({selectedPeriod}): <Text style={styles.summaryBold}>{topResort.resortName}</Text>
+            <Text style={styles.summaryBold}> {Math.round(topSnowfall)}cm</Text>
           </Text>
         </View>
       )}
 
-      <Text style={styles.source}>Datos de Andes Powder Snow Reality Engine</Text>
+      <Text style={styles.source}>Fuente: Andes Powder forecast ({getPeriodLabel()})</Text>
     </View>
   );
 }
@@ -308,5 +263,23 @@ const styles = StyleSheet.create({
     color: '#64748b',
     fontStyle: 'italic',
     marginTop: 8,
+  },
+  errorText: {
+    marginTop: 10,
+    color: '#fca5a5',
+    fontSize: 12,
+  },
+  retryButton: {
+    marginTop: 10,
+    alignSelf: 'flex-start',
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    backgroundColor: 'rgba(56, 189, 248, 0.2)',
+  },
+  retryButtonText: {
+    color: '#bae6fd',
+    fontWeight: '600',
+    fontSize: 12,
   },
 });
