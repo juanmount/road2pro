@@ -63,12 +63,44 @@ export class OpenMeteoProvider implements ForecastProvider {
     
     try {
       const response = await axios.get(baseUrl, { params });
+      const responseData = response.data;
+
+      if (model === 'ecmwf-ifs') {
+        const gusts = responseData?.hourly?.windgusts_10m;
+        const hasValidGusts = Array.isArray(gusts) && gusts.some((value: any) => typeof value === 'number');
+
+        if (!hasValidGusts) {
+          try {
+            const gustFallback = await axios.get('https://api.open-meteo.com/v1/forecast', {
+              params: {
+                latitude: resort.latitude,
+                longitude: resort.longitude,
+                elevation: resort.summitElevation,
+                hourly: 'windgusts_10m',
+                timezone: resort.timezone || 'auto',
+                forecast_days: 16
+              }
+            });
+
+            const fallbackGusts = gustFallback.data?.hourly?.windgusts_10m;
+            if (Array.isArray(fallbackGusts) && fallbackGusts.some((value: any) => typeof value === 'number')) {
+              responseData.hourly = {
+                ...responseData.hourly,
+                windgusts_10m: fallbackGusts
+              };
+              console.log(`    → ECMWF gust fallback applied for ${resort.name}`);
+            }
+          } catch (fallbackError) {
+            console.warn(`    ⚠ ECMWF gust fallback failed for ${resort.name}:`, fallbackError);
+          }
+        }
+      }
       
       return {
         provider: this.name,
         model,
         fetchedAt: new Date(),
-        data: response.data
+        data: responseData
       };
     } catch (error) {
       console.error(`Error fetching from Open-Meteo for ${resort.name}:`, error);
