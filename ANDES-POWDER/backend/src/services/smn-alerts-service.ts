@@ -228,25 +228,35 @@ class SMNAlertsService {
     try {
       const pool = (await import('../config/database')).default;
       
-      // Get wind impact forecasts for next 48 hours (SUMMIT ONLY - most critical)
+      // Get wind-impact forecasts for next 48 hours from the latest run per resort
       const result = await pool.query(`
-        SELECT 
-          resort_id,
-          elevation_band,
-          valid_time,
-          wind_speed_kmh,
-          wind_gust_kmh,
-          wind_impact
-        FROM elevation_forecasts
-        WHERE valid_time >= NOW()
-          AND valid_time <= NOW() + INTERVAL '48 hours'
-          AND elevation_band = 'summit'
-          AND (wind_speed_kmh >= 50 OR wind_gust_kmh >= 70)
-        ORDER BY resort_id, valid_time
+        WITH latest_runs AS (
+          SELECT DISTINCT ON (resort_id)
+            resort_id,
+            id AS forecast_run_id
+          FROM forecast_runs
+          ORDER BY resort_id, created_at DESC
+        )
+        SELECT
+          ef.resort_id,
+          ef.elevation_band,
+          ef.valid_time,
+          ef.wind_speed_kmh,
+          ef.wind_gust_kmh,
+          ef.wind_impact
+        FROM elevation_forecasts ef
+        INNER JOIN latest_runs lr ON lr.forecast_run_id = ef.forecast_run_id
+        WHERE ef.valid_time >= NOW()
+          AND ef.valid_time <= NOW() + INTERVAL '48 hours'
+          AND ef.elevation_band = 'summit'
+          AND (ef.wind_speed_kmh >= 50 OR ef.wind_gust_kmh >= 70)
+        ORDER BY ef.resort_id, ef.valid_time
       `);
       
       if (result.rows.length === 0) {
-        return; // No wind alerts
+        // No active wind alerts: clear old wind alerts from cache to avoid stale badges
+        this.alertsCache = this.alertsCache.filter(a => !a.id.startsWith('wind-'));
+        return;
       }
       
       // Group by resort and date
