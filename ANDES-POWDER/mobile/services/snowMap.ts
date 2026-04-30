@@ -67,9 +67,10 @@ export const getSnowMapData = async (): Promise<SnowMapData> => {
             .slice(0, 48)
             .reduce((sum: number, h: any) => sum + (h.snowfall || 0), 0);
 
-          // Get 7-day forecast
-          const dailyData = await resortsService.getDailyForecast(resort.id, band, 7);
-          const snowfall7d = dailyData?.reduce((sum: number, d: any) => sum + (d.snowfall || 0), 0) || 0;
+          // Calculate 7-day from hourly data (168 hours = 7 days)
+          const snowfall7d = hourlyData
+            .slice(0, Math.min(168, hourlyData.length))
+            .reduce((sum: number, h: any) => sum + (h.snowfall || 0), 0);
 
           const now = new Date();
 
