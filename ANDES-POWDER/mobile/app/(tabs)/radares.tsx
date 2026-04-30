@@ -47,12 +47,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    paddingTop: 12,
+    paddingTop: 60,
     paddingBottom: 100,
   },
   hero: {
     marginHorizontal: 16,
-    marginBottom: 12,
+    marginBottom: 16,
+    marginTop: 8,
   },
   heroTitle: {
     fontSize: 18,
