@@ -798,8 +798,10 @@ router.get('/:id/snow-depth', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     
+    // Try to find resort by slug first, then by id if it's a valid UUID
     const resortResult = await pool.query(
-      'SELECT * FROM resorts WHERE id = $1 OR slug = $1',
+      `SELECT * FROM resorts WHERE slug = $1 
+       OR (id::text = $1 AND $1 ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$')`,
       [id]
     );
     
