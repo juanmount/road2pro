@@ -60,21 +60,61 @@ router.post('/migrate', async (req, res) => {
 router.post('/trigger-forecast', async (req, res) => {
   try {
     const { forecastService } = await import('../services/forecast-service');
-    
+
     console.log('🔄 Force running forecast update...');
     await forecastService.processAllResorts();
-    
+
     console.log('✅ Forecast update completed successfully!');
-    res.json({ 
-      success: true, 
-      message: 'Forecast update completed successfully' 
+    res.json({
+      success: true,
+      message: 'Forecast update completed successfully'
     });
   } catch (error) {
     console.error('❌ Forecast update failed:', error);
-    res.status(500).json({ 
-      success: false, 
-      error: error instanceof Error ? error.message : 'Unknown error' 
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
     });
+  }
+});
+
+router.get('/forecast-status', async (req, res) => {
+  try {
+    const pool = (await import('../config/database')).default;
+
+    const result = await pool.query(`
+      SELECT
+        r.name,
+        r.slug,
+        fr.created_at as last_run,
+        fr.issued_at as forecast_issued,
+        fr.valid_from,
+        fr.valid_to,
+        COUNT(DISTINCT ef.id) as forecast_count
+      FROM resorts r
+      LEFT JOIN LATERAL (
+        SELECT id, created_at, issued_at, valid_from, valid_to
+        FROM forecast_runs
+        WHERE resort_id = r.id
+        ORDER BY created_at DESC
+        LIMIT 1
+      ) fr ON true
+      LEFT JOIN elevation_forecasts ef ON ef.forecast_run_id = fr.id
+      GROUP BY r.id, r.name, r.slug, fr.created_at, fr.issued_at, fr.valid_from, fr.valid_to
+      ORDER BY r.name
+    `);
+
+    res.json({
+      resorts: result.rows,
+      summary: {
+        total: result.rows.length,
+        with_forecasts: result.rows.filter(r => r.last_run !== null).length,
+        without_forecasts: result.rows.filter(r => r.last_run === null).length
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching forecast status:', error);
+    res.status(500).json({ error: 'Failed to fetch forecast status' });
   }
 });
 
