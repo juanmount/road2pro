@@ -6,6 +6,53 @@ import { MultiModelFetcher } from '../providers/open-meteo/multi-model-fetcher';
 
 const router = Router();
 
+type RuntimeVisibility = {
+  visibility: 'excellent' | 'good' | 'moderate' | 'poor' | 'whiteout';
+  visibilityMeters: number;
+  inCloud: boolean;
+  cloudBaseMeters?: number;
+};
+
+function estimateVisibilityRuntime(input: {
+  cloudCover: number;
+  precipitation: number;
+  windSpeed: number;
+  temperature: number;
+}): RuntimeVisibility {
+  const cloudCover = Math.max(0, Math.min(100, input.cloudCover || 0));
+  const precipitation = Math.max(0, input.precipitation || 0);
+  const windSpeed = Math.max(0, input.windSpeed || 0);
+  const temperature = input.temperature || 0;
+
+  let visibilityMeters = 10000;
+
+  visibilityMeters -= cloudCover * 35;
+  visibilityMeters -= precipitation * 2200;
+  visibilityMeters -= Math.max(0, windSpeed - 30) * 60;
+
+  if (temperature <= 1 && precipitation > 0.2) {
+    visibilityMeters -= 1500;
+  }
+
+  visibilityMeters = Math.max(50, Math.min(10000, Math.round(visibilityMeters)));
+
+  let visibility: RuntimeVisibility['visibility'];
+  if (visibilityMeters < 150) visibility = 'whiteout';
+  else if (visibilityMeters < 700) visibility = 'poor';
+  else if (visibilityMeters < 3000) visibility = 'moderate';
+  else if (visibilityMeters < 7000) visibility = 'good';
+  else visibility = 'excellent';
+
+  const inCloud = cloudCover >= 97 && visibilityMeters < 1200;
+
+  return {
+    visibility,
+    visibilityMeters,
+    inCloud,
+    cloudBaseMeters: undefined,
+  };
+}
+
 router.get('/', async (req: Request, res: Response) => {
   try {
     const result = await pool.query('SELECT * FROM resorts ORDER BY name');
@@ -266,16 +313,9 @@ router.get('/:id/forecast/hourly', async (req: Request, res: Response) => {
         wind_gust_kmh,
         wind_direction,
         cloud_cover,
-        cloud_cover_low,
-        cloud_cover_mid,
-        cloud_cover_high,
         powder_score,
         freezing_level_m,
-        phase_classification,
-        visibility,
-        visibility_meters,
-        in_cloud,
-        cloud_base_meters
+        phase_classification
       FROM elevation_forecasts
       WHERE resort_id = $1::uuid
       AND elevation_band = $2
@@ -291,27 +331,37 @@ router.get('/:id/forecast/hourly', async (req: Request, res: Response) => {
       [resort.id, elevationBand, hoursLimit]
     );
 
-    const hourlyForecasts = result.rows.map((row: any) => ({
-      time: row.valid_time, // PostgreSQL returns this in UTC, but it's stored with -03 offset
-      temperature: parseFloat(row.temperature_c),
-      precipitation: parseFloat(row.precipitation_mm || 0),
-      windSpeed: parseFloat(row.wind_speed_kmh || 0),
-      windGust: parseFloat(row.wind_gust_kmh || 0),
-      windDirection: row.wind_direction || 0,
-      humidity: 70,
-      cloudCover: parseFloat(row.cloud_cover || 0),
-      cloudCoverLow: row.cloud_cover_low ? parseFloat(row.cloud_cover_low) : undefined,
-      cloudCoverMid: row.cloud_cover_mid ? parseFloat(row.cloud_cover_mid) : undefined,
-      cloudCoverHigh: row.cloud_cover_high ? parseFloat(row.cloud_cover_high) : undefined,
-      phase: row.phase_classification || 'none', // Use DB phase classification
-      powderScore: parseFloat(row.powder_score || 0),
-      snowfall: parseFloat(row.snowfall_cm_corrected || 0),
-      freezingLevel: row.freezing_level_m ? parseInt(row.freezing_level_m) : 2000,
-      visibility: row.visibility || undefined,
-      visibilityMeters: row.visibility_meters ? parseInt(row.visibility_meters) : undefined,
-      inCloud: row.in_cloud || false,
-      cloudBaseMeters: row.cloud_base_meters ? parseInt(row.cloud_base_meters) : undefined,
-    }));
+    const hourlyForecasts = result.rows.map((row: any) => {
+      const temperature = parseFloat(row.temperature_c);
+      const precipitation = parseFloat(row.precipitation_mm || 0);
+      const windSpeed = parseFloat(row.wind_speed_kmh || 0);
+      const cloudCover = parseFloat(row.cloud_cover || 0);
+      const runtimeVisibility = estimateVisibilityRuntime({
+        cloudCover,
+        precipitation,
+        windSpeed,
+        temperature,
+      });
+
+      return {
+        time: row.valid_time,
+        temperature,
+        precipitation,
+        windSpeed,
+        windGust: parseFloat(row.wind_gust_kmh || 0),
+        windDirection: row.wind_direction || 0,
+        humidity: 70,
+        cloudCover,
+        phase: row.phase_classification || 'none',
+        powderScore: parseFloat(row.powder_score || 0),
+        snowfall: parseFloat(row.snowfall_cm_corrected || 0),
+        freezingLevel: row.freezing_level_m ? Math.round(parseFloat(row.freezing_level_m)) : 2000,
+        visibility: runtimeVisibility.visibility,
+        visibilityMeters: runtimeVisibility.visibilityMeters,
+        inCloud: runtimeVisibility.inCloud,
+        cloudBaseMeters: runtimeVisibility.cloudBaseMeters,
+      };
+    });
 
     console.log('[HOURLY] Returning', hourlyForecasts.length, 'forecasts');
 
