@@ -11,7 +11,6 @@ export default function SnowMapCard({ onPress }: SnowMapCardProps) {
   const [data, setData] = useState<SnowMapData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedPeriod, setSelectedPeriod] = useState<'24h' | '48h' | '7d'>('24h');
 
   useEffect(() => {
     loadData();
@@ -55,36 +54,19 @@ export default function SnowMapCard({ onPress }: SnowMapCardProps) {
 
   if (!data) return null;
 
-  const getPeriodLabel = () => {
-    switch (selectedPeriod) {
-      case '24h': return 'Próximas 24h';
-      case '48h': return 'Próximas 48h';
-      case '7d': return 'Próximos 7 días';
-    }
-  };
-
-  const getSnowfallForPeriod = (point: typeof data.dataPoints[0]) => {
-    switch (selectedPeriod) {
-      case '24h': return point.snowfall24h;
-      case '48h': return point.snowfall48h;
-      case '7d': return point.snowfall7d;
-    }
-  };
-
-  // Group by resort and get summit data
+  // Sort resorts by snow depth (highest first)
   const resortData = data.dataPoints
-    .filter(p => p.elevation === 'summit')
-    .sort((a, b) => getSnowfallForPeriod(b) - getSnowfallForPeriod(a));
+    .sort((a, b) => b.snowDepthCm - a.snowDepthCm);
 
   const topResort = resortData[0];
-  const topSnowfall = topResort ? getSnowfallForPeriod(topResort) : 0;
+  const topSnowDepth = topResort ? topResort.snowDepthCm : 0;
 
   return (
     <View style={styles.card}>
       <View style={styles.header}>
         <View>
           <Text style={styles.title}>❄️ Mapa de Nieve</Text>
-          <Text style={styles.subtitle}>Acumulación en cumbre (summit)</Text>
+          <Text style={styles.subtitle}>Nieve acumulada en mid (~1600m)</Text>
         </View>
         {onPress && (
           <TouchableOpacity onPress={onPress}>
@@ -93,39 +75,10 @@ export default function SnowMapCard({ onPress }: SnowMapCardProps) {
         )}
       </View>
 
-      {/* Period Selector */}
-      <View style={styles.periodSelector}>
-        <TouchableOpacity
-          style={[styles.periodButton, selectedPeriod === '24h' && styles.periodButtonActive]}
-          onPress={() => setSelectedPeriod('24h')}
-        >
-          <Text style={[styles.periodText, selectedPeriod === '24h' && styles.periodTextActive]}>
-            24h
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.periodButton, selectedPeriod === '48h' && styles.periodButtonActive]}
-          onPress={() => setSelectedPeriod('48h')}
-        >
-          <Text style={[styles.periodText, selectedPeriod === '48h' && styles.periodTextActive]}>
-            48h
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.periodButton, selectedPeriod === '7d' && styles.periodButtonActive]}
-          onPress={() => setSelectedPeriod('7d')}
-        >
-          <Text style={[styles.periodText, selectedPeriod === '7d' && styles.periodTextActive]}>
-            7d
-          </Text>
-        </TouchableOpacity>
-      </View>
-
       {/* Resort List */}
       <ScrollView style={styles.resortList} showsVerticalScrollIndicator={false}>
         {resortData.map((point) => {
-          const snowfall = getSnowfallForPeriod(point);
-          const intensity = getSnowIntensity(snowfall);
+          const intensity = getSnowIntensity(point.snowDepthCm);
           
           return (
             <View key={point.resortId} style={styles.resortRow}>
@@ -134,7 +87,7 @@ export default function SnowMapCard({ onPress }: SnowMapCardProps) {
                 <Text style={styles.resortName}>{point.resortName}</Text>
               </View>
               <View style={styles.snowfallInfo}>
-                <Text style={styles.snowfallValue}>{Math.round(snowfall)}cm</Text>
+                <Text style={styles.snowfallValue}>{Math.round(point.snowDepthCm)}cm</Text>
                 <Text style={styles.snowfallLabel}>{intensity.label}</Text>
               </View>
             </View>
@@ -143,16 +96,16 @@ export default function SnowMapCard({ onPress }: SnowMapCardProps) {
       </ScrollView>
 
       {/* Summary */}
-      {topResort && topSnowfall > 0 && (
+      {topResort && topSnowDepth > 0 && (
         <View style={styles.summary}>
           <Text style={styles.summaryText}>
-            🏆 Más nieve ({selectedPeriod}): <Text style={styles.summaryBold}>{topResort.resortName}</Text>
-            <Text style={styles.summaryBold}> {Math.round(topSnowfall)}cm</Text>
+            🏆 Más nieve acumulada: <Text style={styles.summaryBold}>{topResort.resortName}</Text>
+            <Text style={styles.summaryBold}> {Math.round(topSnowDepth)}cm</Text>
           </Text>
         </View>
       )}
 
-      <Text style={styles.source}>Fuente: Andes Powder forecast ({getPeriodLabel()})</Text>
+      <Text style={styles.source}>Fuente: Open-Meteo (nieve actual en el suelo)</Text>
     </View>
   );
 }
@@ -180,30 +133,6 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 11,
     color: '#94a3b8',
-  },
-  periodSelector: {
-    flexDirection: 'row',
-    gap: 8,
-    marginBottom: 12,
-  },
-  periodButton: {
-    flex: 1,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    backgroundColor: 'rgba(100, 116, 139, 0.2)',
-    alignItems: 'center',
-  },
-  periodButtonActive: {
-    backgroundColor: '#3b82f6',
-  },
-  periodText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#94a3b8',
-  },
-  periodTextActive: {
-    color: '#fff',
   },
   resortList: {
     maxHeight: 200,

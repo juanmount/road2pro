@@ -793,4 +793,79 @@ router.get('/:id/best-time', async (req: Request, res: Response) => {
   }
 });
 
+// Get current snow depth (accumulated snow on ground)
+router.get('/:id/snow-depth', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    
+    const resortResult = await pool.query(
+      'SELECT * FROM resorts WHERE id = $1 OR slug = $1',
+      [id]
+    );
+    
+    if (resortResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Resort not found' });
+    }
+    
+    const resort = resortResult.rows[0];
+    
+    // Fetch current snow depth from Open-Meteo for each elevation
+    const axios = (await import('axios')).default;
+    
+    const elevations = [
+      { band: 'base', meters: resort.base_elevation },
+      { band: 'mid', meters: resort.mid_elevation },
+      { band: 'summit', meters: resort.summit_elevation }
+    ];
+    
+    const snowDepthData = await Promise.all(
+      elevations.map(async ({ band, meters }) => {
+        try {
+          const response = await axios.get('https://api.open-meteo.com/v1/forecast', {
+            params: {
+              latitude: resort.latitude,
+              longitude: resort.longitude,
+              elevation: meters,
+              current: 'snow_depth',
+              timezone: 'auto'
+            }
+          });
+          
+          const snowDepthMeters = response.data.current?.snow_depth || 0;
+          const snowDepthCm = Math.round(snowDepthMeters * 100);
+          
+          return {
+            elevation: band,
+            elevationMeters: meters,
+            snowDepthCm,
+            lastUpdate: response.data.current?.time || new Date().toISOString()
+          };
+        } catch (error) {
+          console.error(`Error fetching snow depth for ${band}:`, error);
+          return {
+            elevation: band,
+            elevationMeters: meters,
+            snowDepthCm: 0,
+            lastUpdate: new Date().toISOString()
+          };
+        }
+      })
+    );
+    
+    res.json({
+      resort: {
+        id: resort.id,
+        name: resort.name,
+        slug: resort.slug
+      },
+      snowDepth: snowDepthData,
+      source: 'Open-Meteo Forecast API',
+      note: 'Current accumulated snow depth on ground (not forecast)'
+    });
+  } catch (error) {
+    console.error('Error fetching snow depth:', error);
+    res.status(500).json({ error: 'Failed to fetch snow depth' });
+  }
+});
+
 export default router;

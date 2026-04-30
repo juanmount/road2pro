@@ -12,7 +12,7 @@
     "@react-native-async-storage/async-storage": "1.23.1",
     "@react-native-community/slider": "^5.2.0",
     "@supabase/supabase-js": "^2.99.2",
-    "axios": "^1.6.2",
+    "axios": "^1.15.2",
     "expo": "~51.0.0",
     "expo-blur": "~13.0.3",
     "expo-constants": "~16.0.2",
