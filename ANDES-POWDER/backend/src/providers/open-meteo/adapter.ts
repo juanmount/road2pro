@@ -30,7 +30,7 @@ export class OpenMeteoProvider implements ForecastProvider {
     const params: any = {
       latitude: resort.latitude,
       longitude: resort.longitude,
-      elevation: resort.midElevation, // Use mid elevation as reference for GFS
+      elevation: resort.summitElevation, // Use summit elevation as reference for most accurate wind data
       hourly: [
         'temperature_2m',
         'apparent_temperature',
@@ -88,12 +88,12 @@ export class OpenMeteoProvider implements ForecastProvider {
     
     // Parse hourly data
     const times = data.hourly.time.map((t: string) => new Date(t));
-    const hourlyData = this.parseHourlyData(data.hourly, times, resort.midElevation);
+    const hourlyData = this.parseHourlyData(data.hourly, times, resort.summitElevation);
     
-    // Interpolate for different elevations
-    const base = this.interpolateForElevation(hourlyData, resort.baseElevation, resort.midElevation);
-    const mid = hourlyData; // Mid is our reference elevation
-    const summit = this.interpolateForElevation(hourlyData, resort.summitElevation, resort.midElevation);
+    // Interpolate for different elevations (summit is reference)
+    const summit = hourlyData; // Summit is our reference elevation
+    const mid = this.interpolateForElevation(hourlyData, resort.midElevation, resort.summitElevation);
+    const base = this.interpolateForElevation(hourlyData, resort.baseElevation, resort.summitElevation);
     
     // Extract freezing levels
     const freezingLevels = times.map((time: Date, i: number) => ({
