@@ -18,11 +18,26 @@ export function initializeFirebase() {
         credential: admin.credential.cert(serviceAccount),
       });
     } else if (process.env.FIREBASE_PROJECT_ID && process.env.FIREBASE_PRIVATE_KEY) {
+      // Handle private key - support both base64 and regular format
+      let privateKey = process.env.FIREBASE_PRIVATE_KEY;
+      
+      // If it looks like base64, decode it
+      if (!privateKey.includes('BEGIN PRIVATE KEY')) {
+        try {
+          privateKey = Buffer.from(privateKey, 'base64').toString('utf-8');
+        } catch (e) {
+          console.warn('Failed to decode base64 private key, using as-is');
+        }
+      } else {
+        // Replace escaped newlines with actual newlines
+        privateKey = privateKey.replace(/\\n/g, '\n');
+      }
+      
       firebaseApp = admin.initializeApp({
         credential: admin.credential.cert({
           projectId: process.env.FIREBASE_PROJECT_ID,
           clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-          privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+          privateKey: privateKey,
         }),
       });
     } else {
