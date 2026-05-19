@@ -19,13 +19,16 @@ export async function authenticateUser(
     const authHeader = req.headers.authorization;
 
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.log('No auth header provided for:', req.path);
       res.status(401).json({ error: 'No authorization token provided' });
       return;
     }
 
     const token = authHeader.split('Bearer ')[1];
+    console.log('Verifying token for:', req.path, 'Token length:', token?.length);
 
     const decodedToken = await getFirebaseAuth().verifyIdToken(token);
+    console.log('Token verified successfully for UID:', decodedToken.uid);
 
     const result = await pool.query(
       'SELECT id, firebase_uid, email FROM users WHERE firebase_uid = $1 AND is_active = true',
@@ -51,8 +54,10 @@ export async function authenticateUser(
     );
 
     next();
-  } catch (error) {
-    console.error('Authentication error:', error);
+  } catch (error: any) {
+    console.error('Authentication error for:', req.path);
+    console.error('Error message:', error.message);
+    console.error('Error code:', error.code);
     res.status(401).json({ error: 'Invalid or expired token' });
   }
 }
