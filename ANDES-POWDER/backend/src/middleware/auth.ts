@@ -31,7 +31,7 @@ export async function authenticateUser(
     console.log('Token verified successfully for UID:', decodedToken.uid);
 
     const result = await pool.query(
-      'SELECT id, firebase_uid, email FROM users WHERE firebase_uid = $1 AND is_active = true',
+      'SELECT id, firebase_uid, email FROM users WHERE firebase_uid = $1',
       [decodedToken.uid]
     );
 
@@ -79,7 +79,7 @@ export async function optionalAuth(
     const decodedToken = await getFirebaseAuth().verifyIdToken(token);
 
     const result = await pool.query(
-      'SELECT id, firebase_uid, email FROM users WHERE firebase_uid = $1 AND is_active = true',
+      'SELECT id, firebase_uid, email FROM users WHERE firebase_uid = $1',
       [decodedToken.uid]
     );
 
