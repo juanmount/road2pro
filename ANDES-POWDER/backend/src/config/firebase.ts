@@ -40,8 +40,8 @@ export function initializeFirebase() {
         }
       } else {
         console.log('Private key appears to be in PEM format already');
-        // Replace escaped newlines with actual newlines
-        privateKey = privateKey.replace(/\\n/g, '\n');
+        // Replace escaped newlines with actual newlines (handle both \n and \\n)
+        privateKey = privateKey.replace(/\\\\n/g, '\n').replace(/\\n/g, '\n');
       }
       
       firebaseApp = admin.initializeApp({
