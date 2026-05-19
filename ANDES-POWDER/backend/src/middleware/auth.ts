@@ -40,23 +40,27 @@ export async function authenticateUser(
       console.log('User not found in database, creating automatically:', decodedToken.uid);
       
       try {
+        // First, ensure UUID extension is enabled
+        await pool.query('CREATE EXTENSION IF NOT EXISTS "uuid-ossp"');
+        
         const insertResult = await pool.query(
-          `INSERT INTO users (firebase_uid, email, display_name, last_login_at)
-           VALUES ($1, $2, $3, NOW())
+          `INSERT INTO users (firebase_uid, email, display_name, last_login_at, created_at, updated_at)
+           VALUES ($1, $2, $3, NOW(), NOW(), NOW())
            RETURNING id, firebase_uid, email`,
           [decodedToken.uid, decodedToken.email, decodedToken.name || null]
         );
         
         // Create user preferences
         await pool.query(
-          'INSERT INTO user_preferences (user_id) VALUES ($1)',
+          'INSERT INTO user_preferences (user_id, created_at, updated_at) VALUES ($1, NOW(), NOW())',
           [insertResult.rows[0].id]
         );
         
         result = insertResult;
         console.log('User created successfully:', insertResult.rows[0].id);
-      } catch (insertError) {
+      } catch (insertError: any) {
         console.error('Error creating user:', insertError);
+        console.error('Error details:', insertError.message, insertError.code);
         res.status(500).json({ error: 'Failed to create user' });
         return;
       }
