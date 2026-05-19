@@ -30,14 +30,36 @@ export async function authenticateUser(
     const decodedToken = await getFirebaseAuth().verifyIdToken(token);
     console.log('Token verified successfully for UID:', decodedToken.uid);
 
-    const result = await pool.query(
+    let result = await pool.query(
       'SELECT id, firebase_uid, email FROM users WHERE firebase_uid = $1',
       [decodedToken.uid]
     );
 
+    // If user doesn't exist in database, create it automatically
     if (result.rows.length === 0) {
-      res.status(404).json({ error: 'User not found' });
-      return;
+      console.log('User not found in database, creating automatically:', decodedToken.uid);
+      
+      try {
+        const insertResult = await pool.query(
+          `INSERT INTO users (firebase_uid, email, display_name, last_login_at)
+           VALUES ($1, $2, $3, NOW())
+           RETURNING id, firebase_uid, email`,
+          [decodedToken.uid, decodedToken.email, decodedToken.name || null]
+        );
+        
+        // Create user preferences
+        await pool.query(
+          'INSERT INTO user_preferences (user_id) VALUES ($1)',
+          [insertResult.rows[0].id]
+        );
+        
+        result = insertResult;
+        console.log('User created successfully:', insertResult.rows[0].id);
+      } catch (insertError) {
+        console.error('Error creating user:', insertError);
+        res.status(500).json({ error: 'Failed to create user' });
+        return;
+      }
     }
 
     const user = result.rows[0];
