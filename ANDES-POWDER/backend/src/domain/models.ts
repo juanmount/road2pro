@@ -263,6 +263,7 @@ export interface TimeSeriesPoint {
   cloudCoverHigh?: number;
   pressure?: number;
   freezingLevel?: number;
+  temperature850hPa?: number;  // Temperature at 850 hPa (~1500m) for better phase classification
 }
 
 /**

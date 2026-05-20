@@ -6,18 +6,21 @@
 
 import { PhaseResult, PrecipitationPhase } from '../domain/models';
 import { calculateWetBulbTemperature, determinePrecipitationPhase } from '../utils/meteorology';
+import { FEATURES } from '../config/features';
 
 export class PhaseClassifier {
   /**
    * Classify precipitation phase based on wet bulb temperature and freezing level
    * Uses Catedral's operational threshold of -2.5°C wet bulb for technical snow
+   * Optionally uses T850 (temperature at 850 hPa) for better phase determination
    */
   classifyPrecipitation(
     temp: number,
     freezingLevel: number,
     elevation: number,
     precipMm: number,
-    humidity: number = 70
+    humidity: number = 70,
+    temperature850hPa?: number
   ): PhaseResult {
     // If no precipitation, return 'none'
     if (precipMm < 0.1) {
@@ -28,7 +31,12 @@ export class PhaseClassifier {
       };
     }
     
-    // Calculate wet bulb temperature for more accurate phase determination
+    // NEW: Use T850 if feature flag is enabled and data is available
+    if (FEATURES.USE_T850 && temperature850hPa !== undefined) {
+      return this.classifyWithT850(temp, temperature850hPa, freezingLevel, elevation, humidity);
+    }
+    
+    // LEGACY: Calculate wet bulb temperature for more accurate phase determination
     const wetBulb = calculateWetBulbTemperature(temp, humidity);
     
     // Use wet bulb temperature to determine phase
@@ -152,5 +160,110 @@ export class PhaseClassifier {
     if (snowRatio >= 0.1) return 'sleet';
     if (snowRatio === 0 && snowRatio !== undefined) return 'none';
     return 'rain';
+  }
+  
+  /**
+   * NEW: Classify precipitation using T850 (temperature at 850 hPa ~1500m)
+   * T850 is a better indicator of cold air mass than surface temperature
+   * Helps detect snow at summit even when base is warm (inversion)
+   */
+  private classifyWithT850(
+    surfaceTemp: number,
+    t850: number,
+    freezingLevel: number,
+    elevation: number,
+    humidity: number
+  ): PhaseResult {
+    const margin = freezingLevel - elevation;
+    
+    // T850 thresholds for snow/rain determination
+    // Based on meteorological research for mountain precipitation
+    const T850_SNOW_THRESHOLD = -8;    // Below -8°C at 850hPa = strong cold air mass
+    const T850_MIXED_THRESHOLD = -3;   // -8°C to -3°C = transition zone
+    const T850_RAIN_THRESHOLD = 2;     // Above 2°C = warm air mass
+    
+    // Primary criterion: T850
+    if (t850 < T850_SNOW_THRESHOLD) {
+      // Strong cold air mass - high confidence snow
+      if (margin < 100) {
+        return { phase: 'snow', confidence: 'high', snowRatio: 1.0 };
+      }
+      // Even if above freezing level, T850 indicates cold mass
+      return { phase: 'snow', confidence: 'medium', snowRatio: 0.85 };
+    }
+    
+    if (t850 > T850_RAIN_THRESHOLD) {
+      // Warm air mass - high confidence rain
+      if (margin > 200 || surfaceTemp > 3) {
+        return { phase: 'rain', confidence: 'high', snowRatio: 0.0 };
+      }
+      // Marginal case - mostly rain
+      return { phase: 'rain', confidence: 'medium', snowRatio: 0.0 };
+    }
+    
+    // Transition zone: -8°C to 2°C at 850hPa
+    // Use combination of T850, surface temp, and elevation margin
+    if (t850 < T850_MIXED_THRESHOLD) {
+      // -8°C to -3°C: Favor snow
+      if (margin < -100) {
+        return { phase: 'snow', confidence: 'high', snowRatio: 1.0 };
+      }
+      if (margin < 100) {
+        return { phase: 'snow', confidence: 'medium', snowRatio: 0.9 };
+      }
+      // Mixed conditions
+      const snowRatio = this.calculateT850TransitionRatio(t850, surfaceTemp, margin);
+      return { phase: 'mixed', confidence: 'low', snowRatio };
+    } else {
+      // -3°C to 2°C: Transition to rain
+      if (margin > 200) {
+        return { phase: 'rain', confidence: 'high', snowRatio: 0.0 };
+      }
+      if (margin > 50) {
+        return { phase: 'rain', confidence: 'medium', snowRatio: 0.1 };
+      }
+      // Mixed conditions
+      const snowRatio = this.calculateT850TransitionRatio(t850, surfaceTemp, margin);
+      return { phase: 'mixed', confidence: 'low', snowRatio };
+    }
+  }
+  
+  /**
+   * Calculate snow ratio in T850 transition zone
+   * Combines T850, surface temperature, and elevation margin
+   */
+  private calculateT850TransitionRatio(
+    t850: number,
+    surfaceTemp: number,
+    elevationMargin: number
+  ): number {
+    // Base ratio from T850 (-8°C to 2°C range)
+    let ratio = 0.5;
+    
+    if (t850 < -5) {
+      ratio = 0.8; // Cold air mass, favor snow
+    } else if (t850 < -1) {
+      ratio = 0.6; // Moderate, slight snow favor
+    } else if (t850 < 1) {
+      ratio = 0.4; // Warming, favor rain
+    } else {
+      ratio = 0.2; // Warm, mostly rain
+    }
+    
+    // Adjust based on surface temperature
+    if (surfaceTemp < -2) {
+      ratio += 0.2; // Cold surface boosts snow
+    } else if (surfaceTemp > 2) {
+      ratio -= 0.3; // Warm surface reduces snow
+    }
+    
+    // Adjust based on elevation margin
+    if (elevationMargin < -200) {
+      ratio = Math.min(1.0, ratio + 0.3); // Well below freezing level
+    } else if (elevationMargin > 200) {
+      ratio = Math.max(0.0, ratio - 0.5); // Well above freezing level
+    }
+    
+    return Math.max(0, Math.min(1, ratio));
   }
 }

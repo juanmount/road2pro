@@ -47,7 +47,8 @@ export class OpenMeteoProvider implements ForecastProvider {
         'cloudcover_mid',
         'cloudcover_high',
         'pressure_msl',
-        'freezinglevel_height'
+        'freezinglevel_height',
+        'temperature_850hPa'  // T850 for better phase classification (GFS only)
       ].join(','),
       daily: [
         'temperature_2m_max',
@@ -166,7 +167,8 @@ export class OpenMeteoProvider implements ForecastProvider {
       pressure: hourly.pressure_msl?.[i],
       // If ECMWF doesn't provide freezing level, calculate it from temperature
       freezingLevel: hourly.freezinglevel_height?.[i] || 
-                     this.estimateFreezingLevel(hourly.temperature_2m[i], referenceElevation)
+                     this.estimateFreezingLevel(hourly.temperature_2m[i], referenceElevation),
+      temperature850hPa: hourly.temperature_850hPa?.[i]  // T850 for better phase classification (GFS only)
     }));
   }
   
@@ -193,7 +195,8 @@ export class OpenMeteoProvider implements ForecastProvider {
       humidity: point.humidity,
       cloudCover: point.cloudCover,
       pressure: point.pressure,
-      freezingLevel: point.freezingLevel
+      freezingLevel: point.freezingLevel,
+      temperature850hPa: point.temperature850hPa  // T850 is constant across elevations (fixed pressure level)
     }));
   }
   

@@ -298,7 +298,7 @@ export class SnowEngine {
       console.log(`  [${elevationBand}] Hour ${forecastHour}: temp=${data.temperature.toFixed(1)}°C, precip=${data.precipitation.toFixed(2)}mm, windDir=${data.windDirection || 'null'}, time=${data.time.toISOString()}, freezing=${data.freezingLevel || 'null'}`);
     }
     
-    // 1. Classify precipitation phase using wet bulb temperature
+    // 1. Classify precipitation phase using wet bulb temperature (and T850 if available)
     const freezingLevel = data.freezingLevel || this.estimateFreezingLevel(data.temperature, elevationMeters);
     const humidity = data.humidity || 70; // Default to 70% if not available
     const phase = this.phaseClassifier.classifyPrecipitation(
@@ -306,7 +306,8 @@ export class SnowEngine {
       freezingLevel,
       elevationMeters,
       data.precipitation,
-      humidity
+      humidity,
+      data.temperature850hPa  // T850 for better phase classification (GFS only)
     );
     
     // Debug phase classification
