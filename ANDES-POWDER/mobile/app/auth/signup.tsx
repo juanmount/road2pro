@@ -3,6 +3,7 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, KeyboardAvo
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../contexts/AuthContext';
+import { Ionicons } from '@expo/vector-icons';
 
 export default function SignupScreen() {
   const router = useRouter();
@@ -13,6 +14,8 @@ export default function SignupScreen() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [rideType, setRideType] = useState<'ski' | 'snowboard' | null>(null);
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const handleSignup = async () => {
     if (!email || !password || !displayName) {
@@ -65,7 +68,7 @@ export default function SignupScreen() {
                 style={styles.logo}
                 resizeMode="contain"
               />
-              <Text style={styles.subtitle}>Pronósticos científicos para Patagonia</Text>
+              <Text style={styles.subtitle}>Lectura local para la nieve de Andes argentinos</Text>
             </View>
 
           <View style={styles.form}>
@@ -121,29 +124,53 @@ export default function SignupScreen() {
               </View>
             </View>
 
-            <TextInput
-              style={styles.input}
-              placeholder="Password (min 6 characters)"
-              placeholderTextColor="#a0aec0"
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-              textContentType="newPassword"
-              autoComplete="password-new"
-              editable={!loading}
-            />
+            <View style={styles.inputContainer}>
+              <TextInput
+                style={styles.input}
+                placeholder="Password (min 6 characters)"
+                placeholderTextColor="#a0aec0"
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry={!showPassword}
+                textContentType="newPassword"
+                autoComplete="password-new"
+                editable={!loading}
+              />
+              <TouchableOpacity 
+                style={styles.eyeIcon}
+                onPress={() => setShowPassword(!showPassword)}
+              >
+                <Ionicons 
+                  name={showPassword ? 'eye-off' : 'eye'} 
+                  size={24} 
+                  color="#94a3b8" 
+                />
+              </TouchableOpacity>
+            </View>
 
-            <TextInput
-              style={styles.input}
-              placeholder="Confirm Password"
-              placeholderTextColor="#a0aec0"
-              value={confirmPassword}
-              onChangeText={setConfirmPassword}
-              secureTextEntry
-              textContentType="newPassword"
-              autoComplete="password-new"
-              editable={!loading}
-            />
+            <View style={styles.inputContainer}>
+              <TextInput
+                style={styles.input}
+                placeholder="Confirm Password"
+                placeholderTextColor="#a0aec0"
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+                secureTextEntry={!showConfirmPassword}
+                textContentType="newPassword"
+                autoComplete="password-new"
+                editable={!loading}
+              />
+              <TouchableOpacity 
+                style={styles.eyeIcon}
+                onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+              >
+                <Ionicons 
+                  name={showConfirmPassword ? 'eye-off' : 'eye'} 
+                  size={24} 
+                  color="#94a3b8" 
+                />
+              </TouchableOpacity>
+            </View>
 
             <TouchableOpacity
               style={[styles.button, loading && styles.buttonDisabled]}
@@ -284,5 +311,15 @@ const styles = StyleSheet.create({
   },
   rideTypeButtonTextActive: {
     color: '#fff',
+  },
+  inputContainer: {
+    position: 'relative',
+    marginBottom: 16,
+  },
+  eyeIcon: {
+    position: 'absolute',
+    right: 18,
+    top: 18,
+    zIndex: 1,
   },
 });
