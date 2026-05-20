@@ -12,11 +12,13 @@ import validationRouter from './routes/validation';
 import weatherStationRouter from './routes/weather-station';
 import snapshotsRouter from './routes/snapshots';
 import alertsRouter from './routes/alerts';
+import iapRouter from './routes/iap';
 import { forecastCronService } from './services/forecast-cron';
 import { initializeFirebase } from './config/firebase';
 import { startSnapshotCron } from './jobs/daily-snapshot';
 import { smnAlertsService } from './services/smn-alerts-service';
 import { startNotificationScanner } from './jobs/notification-scanner';
+import { logFeatureFlags } from './config/features';
 
 dotenv.config();
 
@@ -47,6 +49,7 @@ app.use('/api/validation', validationRouter);
 app.use('/api/weather-station', weatherStationRouter);
 app.use('/api/snapshots', snapshotsRouter);
 app.use('/api/alerts', alertsRouter);
+app.use('/api/iap', iapRouter);
 
 // Admin endpoint to clean old forecast data
 app.post('/api/admin/clean-old-forecasts', async (req, res) => {
@@ -298,6 +301,9 @@ app.get('/api/admin/test-hourly/:slug', async (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`🏔️  Andes Powder API running on port ${PORT}`);
+  
+  // Log feature flags status
+  logFeatureFlags();
   
   // Start weather sync scheduler
   const scheduler = getWeatherSyncScheduler();

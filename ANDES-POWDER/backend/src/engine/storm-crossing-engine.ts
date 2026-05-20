@@ -13,6 +13,8 @@ import { Resort, ModelAgreement, NormalizedForecast, StormCrossingProbability, C
 import { chileanWeatherService, ChileanStormIndicators } from '../services/chilean-weather-service';
 import { observationProvider } from '../services/observation-provider';
 import { ENSOService } from '../services/enso-service';
+import { FEATURES } from '../config/features';
+import { forecastHistoryService } from '../services/forecast-history-service';
 
 
 /**
@@ -85,7 +87,7 @@ export class StormCrossingEngine {
     // Calculate component scores
     const modelAgreementScore = this.calculateModelAgreementScore(modelAgreement);
     const ensembleSpreadScore = this.calculateEnsembleSpreadScore(gefs, validTime);
-    const persistenceScore = this.calculatePrecipitationPersistence(forecastHistory);
+    const persistenceScore = await this.calculatePrecipitationPersistence(resort, forecastHistory);
     const freezingLevelScore = this.calculateFreezingLevelSuitability(resort, ecmwf, gfs, validTime, observedFreezingLevel);
     const windDirectionScore = this.calculateWindDirectionSuitability(ecmwf, gfs, validTime);
     const precipBiasScore = this.calculatePrecipitationBias(ecmwf, gfs, validTime);
@@ -193,10 +195,29 @@ export class StormCrossingEngine {
   /**
    * Calculate precipitation persistence score (0-100)
    * Decreasing precipitation across runs = degrading storm = lower score
+   * NEW: Uses ForecastHistoryService when feature flag is enabled
    */
-  private calculatePrecipitationPersistence(
+  private async calculatePrecipitationPersistence(
+    resort: Resort,
     history: ForecastRunHistory[] | undefined
-  ): number {
+  ): Promise<number> {
+    
+    // NEW: Use ForecastHistoryService if feature flag is enabled
+    if (FEATURES.USE_FORECAST_HISTORY) {
+      try {
+        const runs = await forecastHistoryService.getRecentRuns(resort.id, 'ecmwf-ifs', 6);
+        
+        if (runs.length >= 3) {
+          const trend = await forecastHistoryService.calculatePrecipitationTrend(runs, resort.id);
+          console.log(`[StormCrossing] ForecastHistory trend for ${resort.name}:`, trend);
+          return trend.score;
+        }
+      } catch (error) {
+        console.error('[StormCrossing] Error using ForecastHistory, falling back to legacy:', error);
+      }
+    }
+    
+    // LEGACY: Fallback to old method if feature flag is off or if new method fails
     if (!history || history.length < 2) return 70; // Neutral if no history
     
     // Analyze trend across last 3-4 runs
