@@ -176,15 +176,25 @@ export class PhaseClassifier {
   ): PhaseResult {
     const margin = freezingLevel - elevation;
     
-    // T850 thresholds for snow/rain determination
+    // PRIORITY 1: Strong elevation signal (same as determinePrecipitationPhase)
+    // If clearly below freezing level, it's snow regardless of T850
+    if (margin < -200) {
+      return { phase: 'snow', confidence: 'high', snowRatio: 1.0 };
+    }
+    
+    // If clearly above freezing level, it's rain regardless of T850
+    if (margin > 300) {
+      return { phase: 'rain', confidence: 'high', snowRatio: 0.0 };
+    }
+    
+    // PRIORITY 2: T850 thresholds for marginal cases
     // Based on meteorological research for mountain precipitation
     const T850_SNOW_THRESHOLD = -8;    // Below -8°C at 850hPa = strong cold air mass
     const T850_MIXED_THRESHOLD = -3;   // -8°C to -3°C = transition zone
     const T850_RAIN_THRESHOLD = 2;     // Above 2°C = warm air mass
     
-    // Primary criterion: T850
+    // Strong cold air mass
     if (t850 < T850_SNOW_THRESHOLD) {
-      // Strong cold air mass - high confidence snow
       if (margin < 100) {
         return { phase: 'snow', confidence: 'high', snowRatio: 1.0 };
       }
@@ -192,8 +202,8 @@ export class PhaseClassifier {
       return { phase: 'snow', confidence: 'medium', snowRatio: 0.85 };
     }
     
+    // Warm air mass
     if (t850 > T850_RAIN_THRESHOLD) {
-      // Warm air mass - high confidence rain
       if (margin > 200 || surfaceTemp > 3) {
         return { phase: 'rain', confidence: 'high', snowRatio: 0.0 };
       }
@@ -216,6 +226,10 @@ export class PhaseClassifier {
       return { phase: 'mixed', confidence: 'low', snowRatio };
     } else {
       // -3°C to 2°C: Transition to rain
+      // But still check elevation margin
+      if (margin < -100) {
+        return { phase: 'snow', confidence: 'medium', snowRatio: 0.9 };
+      }
       if (margin > 200) {
         return { phase: 'rain', confidence: 'high', snowRatio: 0.0 };
       }
