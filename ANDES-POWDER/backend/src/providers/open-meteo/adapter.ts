@@ -270,6 +270,11 @@ export class OpenMeteoProvider implements ForecastProvider {
     let lastKnownFRZ: number | null = null;
     let lastKnownTemp: number | null = null;
     
+    // Debug: Log first 3 ECMWF values
+    console.log('[buildStableFreezingLevels] First 3 ECMWF FRZ:', ecmwfFreezingLevels.slice(0, 3));
+    console.log('[buildStableFreezingLevels] First 3 temps:', temperatures.slice(0, 3));
+    console.log('[buildStableFreezingLevels] Reference elevation:', referenceElevation);
+    
     for (let i = 0; i < times.length; i++) {
       const ecmwfFRZ = ecmwfFreezingLevels[i];
       const temp = temperatures[i];
@@ -279,6 +284,7 @@ export class OpenMeteoProvider implements ForecastProvider {
         lastKnownFRZ = ecmwfFRZ;
         lastKnownTemp = temp;
         result.push({ time: times[i], heightM: ecmwfFRZ });
+        if (i < 3) console.log(`[buildStableFreezingLevels] Hour ${i}: Using ECMWF ${ecmwfFRZ}m`);
       } else if (lastKnownFRZ !== null && lastKnownTemp !== null) {
         // ECMWF data missing - adjust last known FRZ based on temperature change
         // Formula: ΔFreezingLevel = ΔTemperature / lapseRate
@@ -292,6 +298,7 @@ export class OpenMeteoProvider implements ForecastProvider {
         lastKnownTemp = temp;
         
         result.push({ time: times[i], heightM: Math.max(0, adjustedFRZ) });
+        if (i < 3) console.log(`[buildStableFreezingLevels] Hour ${i}: Adjusted from ${lastKnownFRZ}m to ${adjustedFRZ}m (temp change: ${tempChange}°C)`);
       } else {
         // No ECMWF data and no previous reference - use conservative estimate
         // Use temperature-based estimation but cap at reasonable values
@@ -303,9 +310,11 @@ export class OpenMeteoProvider implements ForecastProvider {
         lastKnownTemp = temp;
         
         result.push({ time: times[i], heightM: cappedFRZ });
+        if (i < 3) console.log(`[buildStableFreezingLevels] Hour ${i}: Estimated ${cappedFRZ}m (temp: ${temp}°C, ref: ${referenceElevation}m)`);
       }
     }
     
+    console.log('[buildStableFreezingLevels] First 3 results:', result.slice(0, 3).map(r => r.heightM));
     return result;
   }
   
