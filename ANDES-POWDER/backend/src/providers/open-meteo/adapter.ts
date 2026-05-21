@@ -123,12 +123,19 @@ export class OpenMeteoProvider implements ForecastProvider {
     // Build stable freezing level array
     const times = data.hourly.time.map((t: string) => new Date(t));
     console.log(`[OpenMeteo] Building stable FRZ for ${resort.name}...`);
-    const freezingLevels = this.buildStableFreezingLevels(
-      data.hourly.freezinglevel_height || [],
-      data.hourly.temperature_2m,
-      times,
-      resort.midElevation
-    );
+    let freezingLevels;
+    try {
+      freezingLevels = this.buildStableFreezingLevels(
+        data.hourly.freezinglevel_height || [],
+        data.hourly.temperature_2m,
+        times,
+        resort.midElevation
+      );
+      console.log(`[OpenMeteo] buildStableFreezingLevels completed for ${resort.name}`);
+    } catch (error) {
+      console.error(`[OpenMeteo] ERROR in buildStableFreezingLevels for ${resort.name}:`, error);
+      throw error;
+    }
     
     // Parse hourly data with stable freezing levels
     const hourlyData = this.parseHourlyDataWithFreezingLevel(
