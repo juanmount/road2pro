@@ -388,7 +388,7 @@ const styles = StyleSheet.create({
   listContainer: {
     paddingTop: 16,
     paddingHorizontal: 16,
-    paddingBottom: 32,
+    paddingBottom: 100, // Extra space so last card (Las Leñas) isn't covered by bottom nav
   },
   
   // Resort Card
