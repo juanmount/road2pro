@@ -62,31 +62,46 @@ export function determinePrecipitationPhase(
   freezingLevelM: number,
   elevationM: number
 ): 'snow' | 'mixed' | 'rain' | 'none' {
-  // Primary criterion: wet bulb temperature
+  // Calculate elevation margin (negative = below freezing level = snow)
+  const margin = freezingLevelM - elevationM;
+  
+  // PRIORITY 1: Strong elevation signal overrides wet bulb
+  // If clearly below freezing level, it's snow regardless of wet bulb
+  if (margin < -200) {
+    return 'snow'; // Well below freezing level (>200m) = definite snow
+  }
+  
+  // If clearly above freezing level, it's rain regardless of wet bulb
+  if (margin > 300) {
+    return 'rain'; // Well above freezing level (>300m) = definite rain
+  }
+  
+  // PRIORITY 2: Wet bulb temperature for marginal cases
   // Catedral uses -2.5°C wet bulb for technical snow operations
   if (wetBulbC < -2.5) {
-    return 'snow';
+    // Cold wet bulb + reasonable elevation = snow
+    if (margin < 100) return 'snow';
+    return 'mixed'; // Cold but above freezing level
   }
   
   if (wetBulbC < 0) {
     // Mixed precipitation zone: wet bulb between -2.5°C and 0°C
-    // Check freezing level as secondary criterion
-    const margin = freezingLevelM - elevationM;
-    if (margin < -100) return 'snow'; // Well below freezing level
-    if (margin > 100) return 'rain';  // Well above freezing level
-    return 'mixed';
+    if (margin < -100) return 'snow'; // Below freezing level
+    if (margin > 150) return 'rain';  // Above freezing level
+    return 'mixed'; // Transition zone
   }
   
   if (wetBulbC < 2) {
     // Marginal rain zone: wet bulb between 0°C and 2°C
-    // Could still have some snow at higher elevations
-    const margin = freezingLevelM - elevationM;
-    if (margin < -200) return 'snow';
-    if (margin < 0) return 'mixed';
-    return 'rain';
+    // Elevation becomes critical here
+    if (margin < -100) return 'snow'; // Still below freezing level
+    if (margin < 50) return 'mixed';  // Near freezing level
+    return 'rain'; // Above freezing level
   }
   
   // Warm rain: wet bulb > 2°C
+  // Only snow if significantly below freezing level
+  if (margin < -150) return 'mixed'; // Unusual but possible (warm surface, cold aloft)
   return 'rain';
 }
 
