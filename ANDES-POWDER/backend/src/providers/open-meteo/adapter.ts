@@ -120,47 +120,27 @@ export class OpenMeteoProvider implements ForecastProvider {
       throw new Error('Invalid Open-Meteo response: missing hourly data');
     }
     
-    // Check if ECMWF has freezing level data
-    const hasFreezingLevel = data.hourly.freezinglevel_height && 
-                             data.hourly.freezinglevel_height.some((v: any) => v !== null && v !== undefined);
-    
-    // If ECMWF doesn't have freezing level, fetch from forecast model (ICON)
-    let forecastFreezingLevels: number[] = [];
-    if (!hasFreezingLevel && raw.model === 'ecmwf-ifs') {
-      console.log(`    → ECMWF missing freezing level, fetching from forecast model...`);
-      const times = data.hourly.time.map((t: string) => new Date(t));
-      const startDate = times[0].toISOString().split('T')[0];
-      const endDate = times[times.length - 1].toISOString().split('T')[0];
-      
-      forecastFreezingLevels = await this.fetchFreezingLevelFromForecast(
-        resort.latitude,
-        resort.longitude,
-        startDate,
-        endDate
-      );
-    }
-    
-    // Parse hourly data with accurate freezing levels
+    // Build stable freezing level array
     const times = data.hourly.time.map((t: string) => new Date(t));
+    const freezingLevels = this.buildStableFreezingLevels(
+      data.hourly.freezinglevel_height || [],
+      data.hourly.temperature_2m,
+      times,
+      resort.midElevation
+    );
+    
+    // Parse hourly data with stable freezing levels
     const hourlyData = this.parseHourlyDataWithFreezingLevel(
       data.hourly, 
       times, 
       resort.summitElevation,
-      forecastFreezingLevels
+      freezingLevels.map(f => f.heightM)
     );
     
     // Interpolate for different elevations (summit is reference)
     const summit = hourlyData; // Summit is our reference elevation
     const mid = this.interpolateForElevation(hourlyData, resort.midElevation, resort.summitElevation);
     const base = this.interpolateForElevation(hourlyData, resort.baseElevation, resort.summitElevation);
-    
-    // Extract freezing levels (use forecast model if available, otherwise ECMWF or estimate)
-    const freezingLevels = times.map((time: Date, i: number) => ({
-      time,
-      heightM: forecastFreezingLevels[i] || 
-               data.hourly.freezinglevel_height?.[i] || 
-               this.estimateFreezingLevel(data.hourly.temperature_2m[i], resort.midElevation)
-    }));
     
     return {
       provider: this.name,
@@ -275,6 +255,60 @@ export class OpenMeteoProvider implements ForecastProvider {
       console.warn('    ⚠ Failed to fetch freezing level from forecast model:', error);
       return [];
     }
+  }
+  
+  /**
+   * Build stable freezing level array
+   * Strategy: Use ECMWF data when available, then smoothly transition using temperature
+   * This avoids jumps from ~1650m (ECMWF) to ~3700m (ICON fallback)
+   */
+  private buildStableFreezingLevels(
+    ecmwfFreezingLevels: (number | null)[],
+    temperatures: number[],
+    times: Date[],
+    referenceElevation: number
+  ): Array<{ time: Date; heightM: number }> {
+    const result: Array<{ time: Date; heightM: number }> = [];
+    let lastKnownFRZ: number | null = null;
+    let lastKnownTemp: number | null = null;
+    
+    for (let i = 0; i < times.length; i++) {
+      const ecmwfFRZ = ecmwfFreezingLevels[i];
+      const temp = temperatures[i];
+      
+      if (ecmwfFRZ !== null && ecmwfFRZ !== undefined) {
+        // Use ECMWF data directly
+        lastKnownFRZ = ecmwfFRZ;
+        lastKnownTemp = temp;
+        result.push({ time: times[i], heightM: ecmwfFRZ });
+      } else if (lastKnownFRZ !== null && lastKnownTemp !== null) {
+        // ECMWF data missing - adjust last known FRZ based on temperature change
+        // Formula: ΔFreezingLevel = ΔTemperature / lapseRate
+        const lapseRate = 0.0065; // °C per meter
+        const tempChange: number = temp - lastKnownTemp;
+        const frzAdjustment: number = tempChange / lapseRate;
+        const adjustedFRZ: number = lastKnownFRZ + frzAdjustment;
+        
+        // Update for next iteration
+        lastKnownFRZ = adjustedFRZ;
+        lastKnownTemp = temp;
+        
+        result.push({ time: times[i], heightM: Math.max(0, adjustedFRZ) });
+      } else {
+        // No ECMWF data and no previous reference - use conservative estimate
+        // Use temperature-based estimation but cap at reasonable values
+        const lapseRate = 0.0065;
+        const estimatedFRZ = referenceElevation + (temp / lapseRate);
+        const cappedFRZ = Math.min(3000, Math.max(500, estimatedFRZ)); // Cap between 500-3000m
+        
+        lastKnownFRZ = cappedFRZ;
+        lastKnownTemp = temp;
+        
+        result.push({ time: times[i], heightM: cappedFRZ });
+      }
+    }
+    
+    return result;
   }
   
   private estimateFreezingLevel(temperature: number, referenceElevation: number): number {
