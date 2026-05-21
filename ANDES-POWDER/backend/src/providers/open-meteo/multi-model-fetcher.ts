@@ -17,6 +17,7 @@ export class MultiModelFetcher {
   private provider: OpenMeteoProvider;
   
   constructor() {
+    console.log('[MultiModelFetcher] Initializing with NEW OpenMeteoProvider v2.0');
     this.provider = new OpenMeteoProvider();
   }
   
