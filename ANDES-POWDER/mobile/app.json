@@ -2,7 +2,7 @@
   "expo": {
     "name": "Andes Powder",
     "slug": "andes-powder",
-    "version": "1.0.0",
+    "version": "1.0.2",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -16,25 +16,31 @@
     ],
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.andespowder.app"
+      "bundleIdentifier": "com.andespowder.app",
+      "buildNumber": "1"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#1e293b"
       },
-      "package": "com.andespowder.app",
+      "package": "com.andespowder.mobile",
+      "versionCode": 4,
       "permissions": [
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",
         "INTERNET",
-        "VIBRATE",
-        "RECEIVE_BOOT_COMPLETED",
-        "SCHEDULE_EXACT_ALARM"
+        "VIBRATE"
+      ],
+      "blockedPermissions": [
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.SCHEDULE_EXACT_ALARM",
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.RECORD_AUDIO"
       ],
       "config": {
         "googleMaps": {
-          "apiKey": "YOUR_GOOGLE_MAPS_API_KEY"
+          "apiKey": "${GOOGLE_MAPS_API_KEY}"
         }
       }
     },
@@ -43,7 +49,8 @@
     },
     "scheme": "andespowder",
     "plugins": [
-      "expo-router"
+      "expo-router",
+      "expo-font"
     ],
     "extra": {
       "router": {
