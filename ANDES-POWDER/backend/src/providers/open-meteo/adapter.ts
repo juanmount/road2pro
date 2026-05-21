@@ -10,6 +10,7 @@ import { Resort, NormalizedForecast, ModelName, TimeSeriesPoint } from '../../do
 export class OpenMeteoProvider implements ForecastProvider {
   readonly name = 'open-meteo' as const;
   readonly models: ModelName[] = ['ecmwf-ifs', 'gfs', 'gefs'];
+  private freezingLevelCache: Map<string, number[]> = new Map();
   
   async fetchForecast(
     resort: Resort,
@@ -119,19 +120,46 @@ export class OpenMeteoProvider implements ForecastProvider {
       throw new Error('Invalid Open-Meteo response: missing hourly data');
     }
     
-    // Parse hourly data
+    // Check if ECMWF has freezing level data
+    const hasFreezingLevel = data.hourly.freezinglevel_height && 
+                             data.hourly.freezinglevel_height.some((v: any) => v !== null && v !== undefined);
+    
+    // If ECMWF doesn't have freezing level, fetch from forecast model (ICON)
+    let forecastFreezingLevels: number[] = [];
+    if (!hasFreezingLevel && raw.model === 'ecmwf-ifs') {
+      console.log(`    → ECMWF missing freezing level, fetching from forecast model...`);
+      const times = data.hourly.time.map((t: string) => new Date(t));
+      const startDate = times[0].toISOString().split('T')[0];
+      const endDate = times[times.length - 1].toISOString().split('T')[0];
+      
+      forecastFreezingLevels = await this.fetchFreezingLevelFromForecast(
+        resort.latitude,
+        resort.longitude,
+        startDate,
+        endDate
+      );
+    }
+    
+    // Parse hourly data with accurate freezing levels
     const times = data.hourly.time.map((t: string) => new Date(t));
-    const hourlyData = this.parseHourlyData(data.hourly, times, resort.summitElevation);
+    const hourlyData = this.parseHourlyDataWithFreezingLevel(
+      data.hourly, 
+      times, 
+      resort.summitElevation,
+      forecastFreezingLevels
+    );
     
     // Interpolate for different elevations (summit is reference)
     const summit = hourlyData; // Summit is our reference elevation
     const mid = this.interpolateForElevation(hourlyData, resort.midElevation, resort.summitElevation);
     const base = this.interpolateForElevation(hourlyData, resort.baseElevation, resort.summitElevation);
     
-    // Extract freezing levels
+    // Extract freezing levels (use forecast model if available, otherwise ECMWF or estimate)
     const freezingLevels = times.map((time: Date, i: number) => ({
       time,
-      heightM: data.hourly.freezinglevel_height?.[i] || this.estimateFreezingLevel(data.hourly.temperature_2m[i], resort.midElevation)
+      heightM: forecastFreezingLevels[i] || 
+               data.hourly.freezinglevel_height?.[i] || 
+               this.estimateFreezingLevel(data.hourly.temperature_2m[i], resort.midElevation)
     }));
     
     return {
@@ -150,7 +178,12 @@ export class OpenMeteoProvider implements ForecastProvider {
     };
   }
   
-  private parseHourlyData(hourly: any, times: Date[], referenceElevation: number): TimeSeriesPoint[] {
+  private parseHourlyDataWithFreezingLevel(
+    hourly: any, 
+    times: Date[], 
+    referenceElevation: number,
+    forecastFreezingLevels: number[] = []
+  ): TimeSeriesPoint[] {
     return times.map((time, i) => ({
       time,
       temperature: hourly.temperature_2m[i] || 0,
@@ -165,8 +198,9 @@ export class OpenMeteoProvider implements ForecastProvider {
       cloudCoverMid: hourly.cloudcover_mid?.[i],
       cloudCoverHigh: hourly.cloudcover_high?.[i],
       pressure: hourly.pressure_msl?.[i],
-      // If ECMWF doesn't provide freezing level, calculate it from temperature
-      freezingLevel: hourly.freezinglevel_height?.[i] || 
+      // Priority: 1) Forecast model (ICON), 2) ECMWF, 3) Estimation
+      freezingLevel: forecastFreezingLevels[i] || 
+                     hourly.freezinglevel_height?.[i] || 
                      this.estimateFreezingLevel(hourly.temperature_2m[i], referenceElevation),
       temperature850hPa: hourly.temperature_850hPa?.[i]  // T850 for better phase classification (GFS only)
     }));
@@ -200,8 +234,51 @@ export class OpenMeteoProvider implements ForecastProvider {
     }));
   }
   
+  /**
+   * Fetch accurate freezing level from forecast model (ICON)
+   * Used as fallback when ECMWF doesn't provide freezing level
+   */
+  private async fetchFreezingLevelFromForecast(
+    latitude: number,
+    longitude: number,
+    startDate: string,
+    endDate: string
+  ): Promise<number[]> {
+    const cacheKey = `${latitude},${longitude},${startDate}`;
+    
+    // Check cache first
+    if (this.freezingLevelCache.has(cacheKey)) {
+      return this.freezingLevelCache.get(cacheKey)!;
+    }
+    
+    try {
+      const response = await axios.get('https://api.open-meteo.com/v1/forecast', {
+        params: {
+          latitude,
+          longitude,
+          hourly: 'freezinglevel_height',
+          start_date: startDate,
+          end_date: endDate,
+          timezone: 'GMT'
+        },
+        timeout: 5000
+      });
+      
+      const freezingLevels = response.data.hourly.freezinglevel_height || [];
+      
+      // Cache for 1 hour (will be cleared on next fetch)
+      this.freezingLevelCache.set(cacheKey, freezingLevels);
+      
+      console.log(`    → Fetched ${freezingLevels.length} freezing level values from forecast model`);
+      return freezingLevels;
+    } catch (error) {
+      console.warn('    ⚠ Failed to fetch freezing level from forecast model:', error);
+      return [];
+    }
+  }
+  
   private estimateFreezingLevel(temperature: number, referenceElevation: number): number {
-    // Estimate freezing level from temperature at reference elevation
+    // Fallback estimation (less accurate)
     // Formula: freezingLevel = referenceElevation + (temperature / lapseRate)
     const lapseRate = 0.0065; // °C per meter
     const heightAboveReference = temperature / lapseRate;
