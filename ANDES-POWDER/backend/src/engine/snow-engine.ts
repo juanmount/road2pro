@@ -50,6 +50,7 @@ export class SnowEngine {
     
     // 0. Get real observed conditions for calibration
     const observed = await observationProvider.getLatestTemperatures(resort.id);
+    let observedFreezingLevel: number | null = null;
     if (observed) {
       console.log('  ✓ Using real observed temperatures for calibration:');
       if (observed.temperature.base) console.log(`    Base: ${observed.temperature.base.toFixed(1)}°C`);
@@ -57,7 +58,7 @@ export class SnowEngine {
       if (observed.temperature.summit) console.log(`    Summit: ${observed.temperature.summit.toFixed(1)}°C`);
       
       // Calculate observed freezing level
-      const observedFreezingLevel = observationProvider.calculateFreezingLevel(observed, {
+      observedFreezingLevel = observationProvider.calculateFreezingLevel(observed, {
         base: resort.baseElevation,
         mid: resort.midElevation,
         summit: resort.summitElevation
@@ -104,7 +105,8 @@ export class SnowEngine {
     const elevationForecasts = await this.processElevationForecasts(
       resort,
       primaryForecast,
-      modelAgreements
+      modelAgreements,
+      observedFreezingLevel
     );
     
     // 5. Calculate overall confidence
@@ -230,7 +232,8 @@ export class SnowEngine {
   private async processElevationForecasts(
     resort: Resort,
     forecast: NormalizedForecast,
-    modelAgreements: ModelAgreement[]
+    modelAgreements: ModelAgreement[],
+    observedFreezingLevel?: number | null
   ): Promise<{
     base: ElevationForecast[];
     mid: ElevationForecast[];
@@ -243,6 +246,23 @@ export class SnowEngine {
     // Process each elevation band - up to 168 hours (7 days)
     const hoursToProcess = Math.min(forecast.base.length, 168);
     console.log(`  Processing ${hoursToProcess} hours of forecast data...`);
+    
+    // Apply observed freezing level correction: blend observed FRZ into forecast
+    // First 24h: 100% observed, 24-48h: gradual transition, 48h+: 100% forecast
+    if (observedFreezingLevel) {
+      console.log(`  → Applying observed FRZ correction: ${observedFreezingLevel}m`);
+      for (let i = 0; i < hoursToProcess; i++) {
+        const blendWeight = i <= 24 ? 1.0 : i <= 48 ? 1.0 - ((i - 24) / 24) : 0;
+        if (blendWeight > 0) {
+          const blendFrz = (frzForecast: number) => 
+            Math.round(observedFreezingLevel * blendWeight + frzForecast * (1 - blendWeight));
+          if (forecast.base[i]) forecast.base[i].freezingLevel = blendFrz(forecast.base[i].freezingLevel || 2000);
+          if (forecast.mid[i]) forecast.mid[i].freezingLevel = blendFrz(forecast.mid[i].freezingLevel || 2000);
+          if (forecast.summit[i]) forecast.summit[i].freezingLevel = blendFrz(forecast.summit[i].freezingLevel || 2000);
+        }
+      }
+      console.log(`  → FRZ after correction - Hour 0: ${forecast.mid[0]?.freezingLevel}m, Hour 24: ${forecast.mid[24]?.freezingLevel}m, Hour 48: ${forecast.mid[48]?.freezingLevel}m`);
+    }
     
     for (let i = 0; i < hoursToProcess; i++) {
       // Base elevation
