@@ -178,10 +178,8 @@ export class OpenMeteoProvider implements ForecastProvider {
       cloudCoverMid: hourly.cloudcover_mid?.[i],
       cloudCoverHigh: hourly.cloudcover_high?.[i],
       pressure: hourly.pressure_msl?.[i],
-      // Priority: 1) Forecast model (ICON), 2) ECMWF, 3) Estimation
-      freezingLevel: forecastFreezingLevels[i] || 
-                     hourly.freezinglevel_height?.[i] || 
-                     this.estimateFreezingLevel(hourly.temperature_2m[i], referenceElevation),
+      // Use stable freezing level from buildStableFreezingLevels
+      freezingLevel: forecastFreezingLevels[i] || 2000, // Fallback to 2000m if somehow missing
       temperature850hPa: hourly.temperature_850hPa?.[i]  // T850 for better phase classification (GFS only)
     }));
   }
