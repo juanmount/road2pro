@@ -129,10 +129,10 @@ class SmartNotificationService {
       FROM users u
       INNER JOIN push_tokens pt ON u.id = pt.user_id
       LEFT JOIN user_preferences up ON u.id = up.user_id
-      WHERE pt.active = true
+      WHERE pt.updated_at > NOW() - INTERVAL '30 days'
     `);
 
-    return result.rows.map(row => ({
+    return result.rows.map((row: any) => ({
       userId: row.user_id,
       pushToken: row.push_token,
       snowAlerts: row.snow_alerts,
@@ -263,7 +263,7 @@ class SmartNotificationService {
         ORDER BY ef.valid_time
       `);
 
-      const forecasts: ForecastData[] = forecastResult.rows.map(row => ({
+      const forecasts: ForecastData[] = forecastResult.rows.map((row: any) => ({
         resortId: row.resort_id,
         resortName: row.resort_name,
         snowfallCm: row.snowfall_cm || 0,
