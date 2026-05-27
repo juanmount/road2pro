@@ -34,11 +34,13 @@ export class PushNotificationService {
       }
 
       // Upsert token in database (PostgreSQL syntax)
+      // Since user_id has a UNIQUE constraint, we handle the conflict on user_id 
+      // allowing the user to update their device token.
       await pool.query(
         `INSERT INTO push_tokens (user_id, token, created_at, updated_at)
          VALUES ($1, $2, NOW(), NOW())
-         ON CONFLICT (token) 
-         DO UPDATE SET user_id = $1, updated_at = NOW()`,
+         ON CONFLICT (user_id) 
+         DO UPDATE SET token = $2, updated_at = NOW()`,
         [userId, token]
       );
 
