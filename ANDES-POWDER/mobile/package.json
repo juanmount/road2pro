@@ -7,7 +7,7 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
-    "postinstall": "sed -i '' 's/from components\\.release/from components.named(\"release\")/' node_modules/expo-modules-core/android/ExpoModulesCorePlugin.gradle 2>/dev/null || true"
+    "postinstall": "node -e \"const fs=require('fs'),f='node_modules/expo-modules-core/android/ExpoModulesCorePlugin.gradle';if(fs.existsSync(f)){fs.writeFileSync(f,fs.readFileSync(f,'utf8').replace(/from components\\.release/g,'from components.named(\\\"release\\\")'))};\" || true"
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "1.23.1",
