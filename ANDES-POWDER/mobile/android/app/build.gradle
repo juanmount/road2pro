@@ -91,8 +91,8 @@ android {
         applicationId 'com.andespowder.mobile'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 17
-        versionName "1.0.13"
+        versionCode 18
+        versionName "1.0.14"
     }
     signingConfigs {
         debug {
@@ -101,15 +101,19 @@ android {
             keyAlias 'androiddebugkey'
             keyPassword 'android'
         }
+        release {
+            storeFile file('@juanmount__andes-powder.jks')
+            storePassword '5310c008393e9f169e8143c18c526100'
+            keyAlias '3001fb741edcc10ac4702a7458785d43'
+            keyPassword 'e0312fd751512fbed58a301b26813ba0'
+        }
     }
     buildTypes {
         debug {
             signingConfig signingConfigs.debug
         }
         release {
-            // Caution! In production, you need to generate your own keystore file.
-            // see https://reactnative.dev/docs/signed-apk-android.
-            signingConfig signingConfigs.debug
+            signingConfig signingConfigs.release
             shrinkResources (findProperty('android.enableShrinkResourcesInReleaseBuilds')?.toBoolean() ?: false)
             minifyEnabled enableProguardInReleaseBuilds
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
