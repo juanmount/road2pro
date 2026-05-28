@@ -49,6 +49,18 @@ router.post('/test', async (req: Request, res: Response) => {
   }
 });
 
+// List user IDs with active tokens (admin)
+router.get('/users', async (req: Request, res: Response) => {
+  try {
+    const result = await pool.query(
+      `SELECT user_id, updated_at FROM push_tokens WHERE updated_at > NOW() - INTERVAL '30 days' ORDER BY updated_at DESC`
+    );
+    res.json({ success: true, users: result.rows });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to list users' });
+  }
+});
+
 // Get stats about registered tokens
 router.get('/stats', async (req: Request, res: Response) => {
   try {
