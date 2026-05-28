@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "947154519695",
+    "project_id": "andes-powder",
+    "storage_bucket": "andes-powder.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:947154519695:android:db4db75f97d3f4a5a452fa",
+        "android_client_info": {
+          "package_name": "com.andespowder.mobile"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAXMxXm8v7fGE9XkdmH-q2PRb4kXVT0_ps"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
