@@ -18,6 +18,8 @@ interface UserPreferences {
   quietHoursEnd: string;
 }
 
+type AlertType = 'snow' | 'wind' | 'storm' | 'snow5d' | 'snow36h';
+
 interface ForecastData {
   resortId: string;
   resortName: string;
@@ -85,6 +87,19 @@ class SmartNotificationService {
   }
 
   /**
+   * Check if user should receive storm crossing alert based on preferences
+   */
+  private shouldSendStormAlert(forecast: ForecastData, prefs: UserPreferences): boolean {
+    if (!prefs.stormAlerts) return false;
+    if (this.isQuietHours(prefs)) return false;
+    if (!this.isWithinAdvanceNotice(forecast.validTime, prefs.advanceNoticeDays)) return false;
+    if (!prefs.allResorts && !prefs.favoriteResorts.includes(forecast.resortId)) return false;
+    // Storm crossing: significant snowfall (>=15cm) combined with strong wind (>=40 km/h)
+    // This indicates a high-probability storm system crossing the Andes
+    return forecast.snowfallCm >= 15 && forecast.windSpeedKmh >= 40;
+  }
+
+  /**
    * Check if user should receive wind alert based on preferences
    */
   private shouldSendWindAlert(forecast: ForecastData, prefs: UserPreferences): boolean {
@@ -112,7 +127,7 @@ class SmartNotificationService {
   private async getUsersWithPreferences(): Promise<UserPreferences[]> {
     const result = await pool.query(`
       SELECT 
-        u.id as user_id,
+        pt.user_id as user_id,
         pt.token as push_token,
         COALESCE(up.snow_alerts, true) as snow_alerts,
         COALESCE(up.storm_alerts, true) as storm_alerts,
@@ -126,9 +141,8 @@ class SmartNotificationService {
         COALESCE(up.quiet_hours_enabled, false) as quiet_hours_enabled,
         COALESCE(up.quiet_hours_start::text, '22:00') as quiet_hours_start,
         COALESCE(up.quiet_hours_end::text, '08:00') as quiet_hours_end
-      FROM users u
-      INNER JOIN push_tokens pt ON u.id = pt.user_id
-      LEFT JOIN user_preferences up ON u.id = up.user_id
+      FROM push_tokens pt
+      LEFT JOIN user_preferences up ON pt.user_id = up.user_id
       WHERE pt.updated_at > NOW() - INTERVAL '30 days'
     `);
 
@@ -151,42 +165,169 @@ class SmartNotificationService {
   }
 
   /**
+   * Check if a notification was already sent within a configurable window (deduplication)
+   */
+  private async wasRecentlySentWithin(userId: string, resortId: string, alertType: AlertType, hours: number): Promise<boolean> {
+    const intervalHours = Math.max(1, Math.floor(hours));
+    const result = await pool.query(
+      `SELECT 1 FROM notification_log
+       WHERE user_id = $1 AND resort_id = $2 AND alert_type = $3
+         AND sent_at > NOW() - INTERVAL '${intervalHours} hours'
+       LIMIT 1`,
+      [userId, resortId, alertType]
+    );
+    return result.rows.length > 0;
+  }
+
+  /**
+   * Log sent notifications for deduplication
+   */
+  private async logSentNotifications(
+    entries: Array<{ userId: string; resortId: string; alertType: AlertType }>
+  ): Promise<void> {
+    if (entries.length === 0) return;
+    const values = entries.map((_, i) => `($${i * 3 + 1}, $${i * 3 + 2}, $${i * 3 + 3})`).join(', ');
+    const params = entries.flatMap(e => [e.userId, e.resortId, e.alertType]);
+    await pool.query(
+      `INSERT INTO notification_log (user_id, resort_id, alert_type) VALUES ${values}`,
+      params
+    );
+    // Clean entries older than 48h
+    await pool.query(`DELETE FROM notification_log WHERE sent_at < NOW() - INTERVAL '48 hours'`);
+  }
+
+  /**
+   * Send accumulation-based snow alerts for a given time window (e.g., 120h or 36h)
+   * Uses the same user threshold (minSnowfallCm) and respects quiet hours and resort filters.
+   */
+  private async sendAccumulationAlertsByWindow(
+    forecasts: ForecastData[],
+    hoursWindow: number,
+    alertType: AlertType
+  ): Promise<void> {
+    try {
+      const users = await this.getUsersWithPreferences();
+      const tokensToSend: Array<{ token: string; title: string; body: string; data: any }> = [];
+      const logEntries: Array<{ userId: string; resortId: string; alertType: AlertType }> = [];
+
+      const now = Date.now();
+      const windowEnd = now + hoursWindow * 60 * 60 * 1000;
+
+      // Group forecasts by resort
+      const byResort = new Map<string, { name: string; points: ForecastData[] }>();
+      for (const f of forecasts) {
+        let bucket = byResort.get(f.resortId);
+        if (!bucket) {
+          bucket = { name: f.resortName, points: [] };
+          byResort.set(f.resortId, bucket);
+        }
+        bucket.points.push(f);
+      }
+
+      // Compute sums and peak time per resort for the window
+      const resortWindows = new Map<string, { name: string; sumCm: number; peakTime?: Date }>();
+      for (const [resortId, bucket] of byResort.entries()) {
+        const windowPoints = bucket.points.filter(p => p.validTime.getTime() >= now && p.validTime.getTime() <= windowEnd);
+        if (windowPoints.length === 0) continue;
+        const sumCm = windowPoints.reduce((acc, p) => acc + (p.snowfallCm || 0), 0);
+        let peakTime: Date | undefined = undefined;
+        let peakVal = -1;
+        for (const p of windowPoints) {
+          const v = p.snowfallCm || 0;
+          if (v > peakVal) {
+            peakVal = v; peakTime = p.validTime;
+          }
+        }
+        resortWindows.set(resortId, { name: bucket.name, sumCm, peakTime });
+      }
+
+      // Build notifications per user respecting preferences
+      for (const user of users) {
+        if (!user.snowAlerts) continue;
+        if (this.isQuietHours(user)) continue;
+
+        for (const [resortId, info] of resortWindows.entries()) {
+          // Resort filter
+          if (!user.allResorts && !user.favoriteResorts.includes(resortId)) continue;
+
+          if ((info.sumCm || 0) < user.minSnowfallCm) continue;
+
+          // Dedup windows: 12h for 5d, 6h for 36h
+          const dedupHours = alertType === 'snow5d' ? 12 : 6;
+          if (await this.wasRecentlySentWithin(user.userId, resortId, alertType, dedupHours)) continue;
+
+          // Compose time text from peak time if available
+          let timeText = '';
+          if (info.peakTime) {
+            const diffMs = info.peakTime.getTime() - now;
+            const diffH = Math.max(0, Math.round(diffMs / (1000 * 60 * 60)));
+            if (diffH <= 24) timeText = 'hoy';
+            else if (diffH <= 48) timeText = 'mañana';
+            else timeText = `en ~${Math.ceil(diffH / 24)} días`;
+          }
+
+          const rounded = Math.round(info.sumCm);
+          const title = alertType === 'snow5d'
+            ? `❄️ Heads‑up: ${rounded}cm en ${info.name}`
+            : `❄️ ${rounded}cm en 36h — ${info.name}`;
+          const body = alertType === 'snow5d'
+            ? `Acumulado en 5 días ${timeText ? `(${timeText})` : ''}`
+            : `Acumulado próximas 36h ${timeText ? `(${timeText})` : ''}`;
+
+          tokensToSend.push({
+            token: user.pushToken,
+            title,
+            body,
+            data: { type: alertType, resortId, sumCm: rounded, windowHours: hoursWindow, peakTime: info.peakTime?.toISOString() }
+          });
+          logEntries.push({ userId: user.userId, resortId, alertType });
+        }
+      }
+
+      if (tokensToSend.length > 0) {
+        await pushNotificationService.sendBulkNotifications(tokensToSend);
+        await this.logSentNotifications(logEntries);
+        console.log(`[SMART NOTIFICATIONS] Sent ${tokensToSend.length} ${alertType} alerts`);
+      }
+    } catch (error) {
+      console.error(`[SMART NOTIFICATIONS] Error sending ${alertType} alerts:`, error);
+    }
+  }
+
+  /**
    * Send smart snow alerts based on user preferences
    */
   async sendSnowAlerts(forecasts: ForecastData[]): Promise<void> {
     try {
       const users = await this.getUsersWithPreferences();
       const notifications: Array<{ token: string; title: string; body: string; data: any }> = [];
+      const logEntries: Array<{ userId: string; resortId: string; alertType: 'snow' | 'wind' | 'storm' }> = [];
 
       for (const user of users) {
         for (const forecast of forecasts) {
-          if (this.shouldSendSnowAlert(forecast, user)) {
-            const daysUntil = Math.ceil(
-              (forecast.validTime.getTime() - Date.now()) / (1000 * 60 * 60 * 24)
-            );
-            
-            const timeText = daysUntil === 0 ? 'hoy' : 
-                           daysUntil === 1 ? 'mañana' : 
-                           `en ${daysUntil} días`;
+          if (!this.shouldSendSnowAlert(forecast, user)) continue;
+          if (await this.wasRecentlySentWithin(user.userId, forecast.resortId, 'snow', 12)) continue;
 
-            notifications.push({
-              token: user.pushToken,
-              title: `❄️ ${forecast.snowfallCm}cm en ${forecast.resortName}`,
-              body: `Nevada importante pronosticada para ${timeText}`,
-              data: {
-                type: 'snow_alert',
-                resortId: forecast.resortId,
-                snowfall: forecast.snowfallCm,
-                validTime: forecast.validTime.toISOString(),
-              },
-            });
-          }
+          const daysUntil = Math.ceil(
+            (forecast.validTime.getTime() - Date.now()) / (1000 * 60 * 60 * 24)
+          );
+          const timeText = daysUntil === 0 ? 'hoy' :
+                         daysUntil === 1 ? 'mañana' :
+                         `en ${daysUntil} días`;
+
+          notifications.push({
+            token: user.pushToken,
+            title: `❄️ ${forecast.snowfallCm}cm en ${forecast.resortName}`,
+            body: `Nevada importante pronosticada para ${timeText}`,
+            data: { type: 'snow_alert', resortId: forecast.resortId, snowfall: forecast.snowfallCm, validTime: forecast.validTime.toISOString() },
+          });
+          logEntries.push({ userId: user.userId, resortId: forecast.resortId, alertType: 'snow' });
         }
       }
 
-      // Send notifications in batches
       if (notifications.length > 0) {
         await pushNotificationService.sendBulkNotifications(notifications);
+        await this.logSentNotifications(logEntries);
         console.log(`[SMART NOTIFICATIONS] Sent ${notifications.length} snow alerts`);
       }
     } catch (error) {
@@ -201,40 +342,78 @@ class SmartNotificationService {
     try {
       const users = await this.getUsersWithPreferences();
       const notifications: Array<{ token: string; title: string; body: string; data: any }> = [];
+      const logEntries: Array<{ userId: string; resortId: string; alertType: 'snow' | 'wind' | 'storm' }> = [];
 
       for (const user of users) {
         for (const forecast of forecasts) {
-          if (this.shouldSendWindAlert(forecast, user)) {
-            const daysUntil = Math.ceil(
-              (forecast.validTime.getTime() - Date.now()) / (1000 * 60 * 60 * 24)
-            );
-            
-            const timeText = daysUntil === 0 ? 'hoy' : 
-                           daysUntil === 1 ? 'mañana' : 
-                           `en ${daysUntil} días`;
+          if (!this.shouldSendWindAlert(forecast, user)) continue;
+          if (await this.wasRecentlySentWithin(user.userId, forecast.resortId, 'wind', 12)) continue;
 
-            notifications.push({
-              token: user.pushToken,
-              title: `💨 Viento Fuerte en ${forecast.resortName}`,
-              body: `Ráfagas de ${forecast.windSpeedKmh} km/h pronosticadas para ${timeText}`,
-              data: {
-                type: 'wind_alert',
-                resortId: forecast.resortId,
-                windSpeed: forecast.windSpeedKmh,
-                validTime: forecast.validTime.toISOString(),
-              },
-            });
-          }
+          const daysUntil = Math.ceil(
+            (forecast.validTime.getTime() - Date.now()) / (1000 * 60 * 60 * 24)
+          );
+          const timeText = daysUntil === 0 ? 'hoy' :
+                         daysUntil === 1 ? 'mañana' :
+                         `en ${daysUntil} días`;
+
+          notifications.push({
+            token: user.pushToken,
+            title: `💨 Viento Fuerte en ${forecast.resortName}`,
+            body: `Ráfagas de ${forecast.windSpeedKmh} km/h pronosticadas para ${timeText}`,
+            data: { type: 'wind_alert', resortId: forecast.resortId, windSpeed: forecast.windSpeedKmh, validTime: forecast.validTime.toISOString() },
+          });
+          logEntries.push({ userId: user.userId, resortId: forecast.resortId, alertType: 'wind' });
         }
       }
 
-      // Send notifications in batches
       if (notifications.length > 0) {
         await pushNotificationService.sendBulkNotifications(notifications);
+        await this.logSentNotifications(logEntries);
         console.log(`[SMART NOTIFICATIONS] Sent ${notifications.length} wind alerts`);
       }
     } catch (error) {
       console.error('[SMART NOTIFICATIONS] Error sending wind alerts:', error);
+    }
+  }
+
+  /**
+   * Send storm crossing alerts based on user preferences
+   */
+  async sendStormAlerts(forecasts: ForecastData[]): Promise<void> {
+    try {
+      const users = await this.getUsersWithPreferences();
+      const notifications: Array<{ token: string; title: string; body: string; data: any }> = [];
+      const logEntries: Array<{ userId: string; resortId: string; alertType: 'snow' | 'wind' | 'storm' }> = [];
+
+      for (const user of users) {
+        for (const forecast of forecasts) {
+          if (!this.shouldSendStormAlert(forecast, user)) continue;
+          if (await this.wasRecentlySentWithin(user.userId, forecast.resortId, 'storm', 12)) continue;
+
+          const daysUntil = Math.ceil(
+            (forecast.validTime.getTime() - Date.now()) / (1000 * 60 * 60 * 24)
+          );
+          const timeText = daysUntil === 0 ? 'hoy' :
+                         daysUntil === 1 ? 'mañana' :
+                         `en ${daysUntil} días`;
+
+          notifications.push({
+            token: user.pushToken,
+            title: `⛈️ Tormenta cruzando en ${forecast.resortName}`,
+            body: `Sistema con ${forecast.snowfallCm}cm y vientos de ${forecast.windSpeedKmh} km/h para ${timeText}`,
+            data: { type: 'storm_crossing_alert', resortId: forecast.resortId, snowfall: forecast.snowfallCm, windSpeed: forecast.windSpeedKmh, validTime: forecast.validTime.toISOString() },
+          });
+          logEntries.push({ userId: user.userId, resortId: forecast.resortId, alertType: 'storm' });
+        }
+      }
+
+      if (notifications.length > 0) {
+        await pushNotificationService.sendBulkNotifications(notifications);
+        await this.logSentNotifications(logEntries);
+        console.log(`[SMART NOTIFICATIONS] Sent ${notifications.length} storm crossing alerts`);
+      }
+    } catch (error) {
+      console.error('[SMART NOTIFICATIONS] Error sending storm alerts:', error);
     }
   }
 
@@ -259,7 +438,7 @@ class SmartNotificationService {
         WHERE ef.valid_time >= NOW()
           AND ef.valid_time <= NOW() + INTERVAL '7 days'
           AND ef.elevation_band = 'summit'
-          AND (ef.snowfall_cm >= 5 OR ef.wind_speed_kmh >= 50)
+          AND (ef.snowfall_cm >= 5 OR ef.wind_speed_kmh >= 40)
         ORDER BY ef.valid_time
       `);
 
@@ -278,10 +457,22 @@ class SmartNotificationService {
         await this.sendSnowAlerts(snowForecasts);
       }
 
+      // Send accumulation-based snow alerts (5 days and 36 hours) using the same user threshold
+      if (forecasts.length > 0) {
+        await this.sendAccumulationAlertsByWindow(forecasts, 120, 'snow5d');
+        await this.sendAccumulationAlertsByWindow(forecasts, 36, 'snow36h');
+      }
+
       // Send wind alerts
       const windForecasts = forecasts.filter(f => f.windSpeedKmh >= 50);
       if (windForecasts.length > 0) {
         await this.sendWindAlerts(windForecasts);
+      }
+
+      // Send storm crossing alerts (significant snow + wind combined)
+      const stormForecasts = forecasts.filter(f => f.snowfallCm >= 15 && f.windSpeedKmh >= 40);
+      if (stormForecasts.length > 0) {
+        await this.sendStormAlerts(stormForecasts);
       }
 
       console.log('[SMART NOTIFICATIONS] Scan complete');
