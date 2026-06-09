@@ -46,7 +46,6 @@ class SmartNotificationService {
     if (start > end) {
       return currentTime >= start || currentTime <= end;
     }
-    
     return currentTime >= start && currentTime <= end;
   }
 
@@ -162,6 +161,33 @@ class SmartNotificationService {
       quietHoursStart: row.quiet_hours_start,
       quietHoursEnd: row.quiet_hours_end,
     }));
+  }
+
+  /**
+   * Ensure notification_log table exists (production safety net if migrations didn't run)
+   */
+  private async ensureNotificationLogExists(): Promise<void> {
+    try {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS notification_log (
+          id SERIAL PRIMARY KEY,
+          user_id TEXT NOT NULL,
+          resort_id TEXT NOT NULL,
+          alert_type TEXT NOT NULL CHECK (alert_type IN ('snow','wind','storm')),
+          sent_at TIMESTAMP NOT NULL DEFAULT NOW()
+        );
+      `);
+      await pool.query(`
+        CREATE INDEX IF NOT EXISTS idx_notification_log_lookup
+          ON notification_log (user_id, resort_id, alert_type, sent_at);
+      `);
+      await pool.query(`
+        CREATE INDEX IF NOT EXISTS idx_notification_log_sent_at
+          ON notification_log (sent_at);
+      `);
+    } catch (e) {
+      console.warn('[SMART NOTIFICATIONS] Could not ensure notification_log table exists:', e);
+    }
   }
 
   /**
@@ -432,6 +458,9 @@ class SmartNotificationService {
   async scanAndNotify(): Promise<void> {
     try {
       console.log('[SMART NOTIFICATIONS] Scanning forecasts for alerts...');
+
+      // Safety: ensure dedup table exists
+      await this.ensureNotificationLogExists();
 
       // Get forecasts from next 7 days (all points; filters are applied per alert type downstream)
       // Prefer corrected snowfall column when available; fallback to legacy column.
