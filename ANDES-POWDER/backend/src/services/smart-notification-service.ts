@@ -331,11 +331,11 @@ class SmartNotificationService {
 
           const rounded = Math.max(0, Math.round(Number(info.sumCm) || 0));
           const title = alertType === 'snow5d'
-            ? `❄️ Aviso: ${rounded} cm en ${info.name}`
-            : `❄️ Alerta: ${rounded} cm en 36 h — ${info.name}`;
+            ? `❄️ Aviso: ${rounded} cm (5 días) — ${info.name}`
+            : `❄️ Alerta: ${rounded} cm (36 h) — ${info.name}`;
           const body = alertType === 'snow5d'
-            ? `Acumulado en 5 días ${timeText || ''}`
-            : `Acumulado próximas 36 h ${timeText || ''}`;
+            ? `Se esperan ${rounded} cm acumulados en los próximos 5 días. Pico: ${timeText || 'pronto'}`
+            : `Se esperan ${rounded} cm en las próximas 36 h. Pico: ${timeText || 'pronto'}`;
 
           tokensToSend.push({
             token: user.pushToken,
