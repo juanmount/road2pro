@@ -424,7 +424,7 @@ class SmartNotificationService {
     try {
       console.log('[SMART NOTIFICATIONS] Scanning forecasts for alerts...');
 
-      // Get significant forecasts from next 7 days
+      // Get forecasts from next 7 days (all points; filters are applied per alert type downstream)
       const forecastResult = await pool.query(`
         SELECT 
           r.id as resort_id,
@@ -438,7 +438,6 @@ class SmartNotificationService {
         WHERE ef.valid_time >= NOW()
           AND ef.valid_time <= NOW() + INTERVAL '7 days'
           AND ef.elevation_band = 'summit'
-          AND (ef.snowfall_cm >= 5 OR ef.wind_speed_kmh >= 40)
         ORDER BY ef.valid_time
       `);
 
