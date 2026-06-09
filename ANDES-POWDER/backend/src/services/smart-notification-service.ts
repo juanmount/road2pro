@@ -145,22 +145,45 @@ class SmartNotificationService {
       WHERE pt.updated_at > NOW() - INTERVAL '30 days'
     `);
 
-    return result.rows.map((row: any) => ({
-      userId: row.user_id,
-      pushToken: row.push_token,
-      snowAlerts: row.snow_alerts,
-      stormAlerts: row.storm_alerts,
-      windAlerts: row.wind_alerts,
-      minSnowfallCm: row.min_snowfall_cm,
-      requireHighConfidence: row.require_high_confidence,
-      minWindSpeedKmh: row.min_wind_speed_kmh,
-      favoriteResorts: row.favorite_resorts,
-      allResorts: row.all_resorts,
-      advanceNoticeDays: row.advance_notice_days,
-      quietHoursEnabled: row.quiet_hours_enabled,
-      quietHoursStart: row.quiet_hours_start,
-      quietHoursEnd: row.quiet_hours_end,
-    }));
+    return result.rows.map((row: any) => {
+      // Normalize favorite_resorts to string[]
+      let fav: any = row.favorite_resorts;
+      let favoriteResorts: string[] = [];
+      if (Array.isArray(fav)) {
+        favoriteResorts = fav.filter((v) => typeof v === 'string');
+      } else if (typeof fav === 'string') {
+        const s = fav.trim();
+        if (s.startsWith('{') && s.endsWith('}')) {
+          // Postgres text[] literal: {a,b,c}
+          const inner = s.slice(1, -1);
+          favoriteResorts = inner ? inner.split(',').map((x) => x.replace(/^"|"$/g, '').trim()).filter(Boolean) : [];
+        } else if ((s.startsWith('[') && s.endsWith(']')) || (s.startsWith('"') && s.endsWith('"'))) {
+          try {
+            const parsed = JSON.parse(s.startsWith('"') ? JSON.parse(s) : s);
+            if (Array.isArray(parsed)) favoriteResorts = parsed.filter((v) => typeof v === 'string');
+          } catch {
+            favoriteResorts = [];
+          }
+        }
+      }
+
+      return {
+        userId: row.user_id,
+        pushToken: row.push_token,
+        snowAlerts: row.snow_alerts,
+        stormAlerts: row.storm_alerts,
+        windAlerts: row.wind_alerts,
+        minSnowfallCm: row.min_snowfall_cm,
+        requireHighConfidence: row.require_high_confidence,
+        minWindSpeedKmh: row.min_wind_speed_kmh,
+        favoriteResorts,
+        allResorts: row.all_resorts,
+        advanceNoticeDays: row.advance_notice_days,
+        quietHoursEnabled: row.quiet_hours_enabled,
+        quietHoursStart: row.quiet_hours_start,
+        quietHoursEnd: row.quiet_hours_end,
+      } as UserPreferences;
+    });
   }
 
   /**
@@ -173,9 +196,23 @@ class SmartNotificationService {
           id SERIAL PRIMARY KEY,
           user_id TEXT NOT NULL,
           resort_id TEXT NOT NULL,
-          alert_type TEXT NOT NULL CHECK (alert_type IN ('snow','wind','storm')),
+          alert_type TEXT NOT NULL CHECK (alert_type IN ('snow','wind','storm','snow5d','snow36h')),
           sent_at TIMESTAMP NOT NULL DEFAULT NOW()
         );
+      `);
+      // Ensure CHECK constraint allows accumulation variants
+      await pool.query(`
+        DO $$
+        BEGIN
+          BEGIN
+            ALTER TABLE notification_log DROP CONSTRAINT IF EXISTS notification_log_alert_type_check;
+          EXCEPTION WHEN undefined_object THEN
+            NULL;
+          END;
+          ALTER TABLE notification_log
+            ADD CONSTRAINT notification_log_alert_type_check
+            CHECK (alert_type IN ('snow','wind','storm','snow5d','snow36h'));
+        END$$;
       `);
       await pool.query(`
         CREATE INDEX IF NOT EXISTS idx_notification_log_lookup
@@ -195,15 +232,12 @@ class SmartNotificationService {
    */
   private async wasRecentlySentWithin(userId: string, resortId: string, alertType: AlertType, hours: number): Promise<boolean> {
     const intervalHours = Math.max(1, Math.floor(hours));
-    // Map custom snow types to DB-allowed 'snow' to respect CHECK constraint
-    const dbType: 'snow' | 'wind' | 'storm' =
-      alertType === 'snow5d' || alertType === 'snow36h' ? 'snow' : alertType;
     const result = await pool.query(
       `SELECT 1 FROM notification_log
        WHERE user_id = $1 AND resort_id = $2 AND alert_type = $3
          AND sent_at > NOW() - INTERVAL '${intervalHours} hours'
        LIMIT 1`,
-      [userId, resortId, dbType]
+      [userId, resortId, alertType]
     );
     return result.rows.length > 0;
   }
@@ -215,14 +249,8 @@ class SmartNotificationService {
     entries: Array<{ userId: string; resortId: string; alertType: AlertType }>
   ): Promise<void> {
     if (entries.length === 0) return;
-    // Map custom snow types to DB-allowed 'snow'
-    const mapped = entries.map(e => ({
-      userId: e.userId,
-      resortId: e.resortId,
-      alertType: (e.alertType === 'snow5d' || e.alertType === 'snow36h') ? 'snow' : e.alertType as 'snow' | 'wind' | 'storm',
-    }));
-    const values = mapped.map((_, i) => `($${i * 3 + 1}, $${i * 3 + 2}, $${i * 3 + 3})`).join(', ');
-    const params = mapped.flatMap(e => [e.userId, e.resortId, e.alertType]);
+    const values = entries.map((_, i) => `($${i * 3 + 1}, $${i * 3 + 2}, $${i * 3 + 3})`).join(', ');
+    const params = entries.flatMap(e => [e.userId, e.resortId, e.alertType]);
     await pool.query(
       `INSERT INTO notification_log (user_id, resort_id, alert_type) VALUES ${values}`,
       params
