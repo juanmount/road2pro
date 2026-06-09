@@ -264,11 +264,11 @@ class SmartNotificationService {
       for (const [resortId, bucket] of byResort.entries()) {
         const windowPoints = bucket.points.filter(p => p.validTime.getTime() >= now && p.validTime.getTime() <= windowEnd);
         if (windowPoints.length === 0) continue;
-        const sumCm = windowPoints.reduce((acc, p) => acc + (p.snowfallCm || 0), 0);
+        const sumCm = windowPoints.reduce((acc, p) => acc + (Number(p.snowfallCm) || 0), 0);
         let peakTime: Date | undefined = undefined;
         let peakVal = -1;
         for (const p of windowPoints) {
-          const v = p.snowfallCm || 0;
+          const v = Number(p.snowfallCm) || 0;
           if (v > peakVal) {
             peakVal = v; peakTime = p.validTime;
           }
@@ -301,13 +301,13 @@ class SmartNotificationService {
             else timeText = `en ~${Math.ceil(diffH / 24)} días`;
           }
 
-          const rounded = Math.round(info.sumCm);
+          const rounded = Math.max(0, Math.round(Number(info.sumCm) || 0));
           const title = alertType === 'snow5d'
-            ? `❄️ Heads‑up: ${rounded}cm en ${info.name}`
-            : `❄️ ${rounded}cm en 36h — ${info.name}`;
+            ? `❄️ Aviso: ${rounded} cm en ${info.name}`
+            : `❄️ Alerta: ${rounded} cm en 36 h — ${info.name}`;
           const body = alertType === 'snow5d'
-            ? `Acumulado en 5 días ${timeText ? `(${timeText})` : ''}`
-            : `Acumulado próximas 36h ${timeText ? `(${timeText})` : ''}`;
+            ? `Acumulado en 5 días ${timeText || ''}`
+            : `Acumulado próximas 36 h ${timeText || ''}`;
 
           tokensToSend.push({
             token: user.pushToken,
@@ -352,7 +352,7 @@ class SmartNotificationService {
 
           notifications.push({
             token: user.pushToken,
-            title: `❄️ ${forecast.snowfallCm}cm en ${forecast.resortName}`,
+            title: `❄️ ${forecast.snowfallCm} cm en ${forecast.resortName}`,
             body: `Nevada importante pronosticada para ${timeText}`,
             data: { type: 'snow_alert', resortId: forecast.resortId, snowfall: forecast.snowfallCm, validTime: forecast.validTime.toISOString() },
           });
