@@ -450,6 +450,12 @@ class SmartNotificationService {
           WHERE ef.valid_time >= NOW()
             AND ef.valid_time <= NOW() + INTERVAL '7 days'
             AND ef.elevation_band = 'summit'
+            AND ef.forecast_run_id = (
+              SELECT id FROM forecast_runs fr
+              WHERE fr.resort_id = ef.resort_id
+              ORDER BY fr.created_at DESC
+              LIMIT 1
+            )
           ORDER BY ef.valid_time
         `);
       } catch (err: any) {
@@ -468,6 +474,12 @@ class SmartNotificationService {
             WHERE ef.valid_time >= NOW()
               AND ef.valid_time <= NOW() + INTERVAL '7 days'
               AND ef.elevation_band = 'summit'
+              AND ef.forecast_run_id = (
+                SELECT id FROM forecast_runs fr
+                WHERE fr.resort_id = ef.resort_id
+                ORDER BY fr.created_at DESC
+                LIMIT 1
+              )
             ORDER BY ef.valid_time
           `);
         } else {
