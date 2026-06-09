@@ -169,12 +169,15 @@ class SmartNotificationService {
    */
   private async wasRecentlySentWithin(userId: string, resortId: string, alertType: AlertType, hours: number): Promise<boolean> {
     const intervalHours = Math.max(1, Math.floor(hours));
+    // Map custom snow types to DB-allowed 'snow' to respect CHECK constraint
+    const dbType: 'snow' | 'wind' | 'storm' =
+      alertType === 'snow5d' || alertType === 'snow36h' ? 'snow' : alertType;
     const result = await pool.query(
       `SELECT 1 FROM notification_log
        WHERE user_id = $1 AND resort_id = $2 AND alert_type = $3
          AND sent_at > NOW() - INTERVAL '${intervalHours} hours'
        LIMIT 1`,
-      [userId, resortId, alertType]
+      [userId, resortId, dbType]
     );
     return result.rows.length > 0;
   }
@@ -186,8 +189,14 @@ class SmartNotificationService {
     entries: Array<{ userId: string; resortId: string; alertType: AlertType }>
   ): Promise<void> {
     if (entries.length === 0) return;
-    const values = entries.map((_, i) => `($${i * 3 + 1}, $${i * 3 + 2}, $${i * 3 + 3})`).join(', ');
-    const params = entries.flatMap(e => [e.userId, e.resortId, e.alertType]);
+    // Map custom snow types to DB-allowed 'snow'
+    const mapped = entries.map(e => ({
+      userId: e.userId,
+      resortId: e.resortId,
+      alertType: (e.alertType === 'snow5d' || e.alertType === 'snow36h') ? 'snow' : e.alertType as 'snow' | 'wind' | 'storm',
+    }));
+    const values = mapped.map((_, i) => `($${i * 3 + 1}, $${i * 3 + 2}, $${i * 3 + 3})`).join(', ');
+    const params = mapped.flatMap(e => [e.userId, e.resortId, e.alertType]);
     await pool.query(
       `INSERT INTO notification_log (user_id, resort_id, alert_type) VALUES ${values}`,
       params
@@ -425,21 +434,46 @@ class SmartNotificationService {
       console.log('[SMART NOTIFICATIONS] Scanning forecasts for alerts...');
 
       // Get forecasts from next 7 days (all points; filters are applied per alert type downstream)
-      const forecastResult = await pool.query(`
-        SELECT 
-          r.id as resort_id,
-          r.name as resort_name,
-          ef.snowfall_cm,
-          ef.wind_speed_kmh,
-          ef.valid_time,
-          ef.confidence_score
-        FROM elevation_forecasts ef
-        INNER JOIN resorts r ON ef.resort_id = r.id
-        WHERE ef.valid_time >= NOW()
-          AND ef.valid_time <= NOW() + INTERVAL '7 days'
-          AND ef.elevation_band = 'summit'
-        ORDER BY ef.valid_time
-      `);
+      // Prefer corrected snowfall column when available; fallback to legacy column.
+      let forecastResult;
+      try {
+        forecastResult = await pool.query(`
+          SELECT 
+            r.id as resort_id,
+            r.name as resort_name,
+            ef.snowfall_cm_corrected as snowfall_cm,
+            ef.wind_speed_kmh,
+            ef.valid_time,
+            ef.confidence_score
+          FROM elevation_forecasts ef
+          INNER JOIN resorts r ON ef.resort_id = r.id
+          WHERE ef.valid_time >= NOW()
+            AND ef.valid_time <= NOW() + INTERVAL '7 days'
+            AND ef.elevation_band = 'summit'
+          ORDER BY ef.valid_time
+        `);
+      } catch (err: any) {
+        // Fallback for environments without the corrected column
+        if (err?.code === '42703') {
+          forecastResult = await pool.query(`
+            SELECT 
+              r.id as resort_id,
+              r.name as resort_name,
+              ef.snowfall_cm,
+              ef.wind_speed_kmh,
+              ef.valid_time,
+              ef.confidence_score
+            FROM elevation_forecasts ef
+            INNER JOIN resorts r ON ef.resort_id = r.id
+            WHERE ef.valid_time >= NOW()
+              AND ef.valid_time <= NOW() + INTERVAL '7 days'
+              AND ef.elevation_band = 'summit'
+            ORDER BY ef.valid_time
+          `);
+        } else {
+          throw err;
+        }
+      }
 
       const forecasts: ForecastData[] = forecastResult.rows.map((row: any) => ({
         resortId: row.resort_id,
