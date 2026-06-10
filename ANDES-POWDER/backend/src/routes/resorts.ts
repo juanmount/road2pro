@@ -97,6 +97,7 @@ router.get('/:id/conditions/observed', async (req: Request, res: Response) => {
     }
 
     const resort = resortResult.rows[0];
+    const midElevationDb = parseFloat(resort.mid_elevation || resort.midElevation || 0);
 
     // Try to get current conditions from Open-Meteo (updated every 15 minutes)
     let currentData = null;
@@ -346,6 +347,7 @@ router.get('/:id/forecast/hourly', async (req: Request, res: Response) => {
 
     const resort = resortResult.rows[0];
     const elevationBand = elevation as string;
+    const midElevationDbHourly = parseFloat(resort.mid_elevation || resort.midElevation || 0);
     const hoursLimit = parseInt(hours as string);
 
     const result = await pool.query(
@@ -407,6 +409,44 @@ router.get('/:id/forecast/hourly', async (req: Request, res: Response) => {
         cloudBaseMeters: runtimeVisibility.cloudBaseMeters,
       };
     });
+
+    let needsProviderFallback = false;
+    if (hourlyForecasts.length >= 6) {
+      const first6 = hourlyForecasts.slice(0, 6);
+      const set = new Set(first6.map(h => h.freezingLevel));
+      const anyCold = first6.some(h => h.temperature < 0);
+      const frzVal = first6[0].freezingLevel;
+      const highVsMid = midElevationDbHourly && frzVal && (frzVal - midElevationDbHourly > 300);
+      needsProviderFallback = set.size === 1 && anyCold && !!highVsMid;
+    }
+
+    if (needsProviderFallback) {
+      try {
+        const om = new OpenMeteoService();
+        const omForecast = await om.getForecast(parseFloat(resort.latitude), parseFloat(resort.longitude), midElevationDbHourly || parseFloat(resort.midElevation));
+        const times: string[] = omForecast?.hourly?.time || [];
+        const frz: number[] = omForecast?.hourly?.freezinglevel_height || [];
+        const providerPoints: Array<{t:number; v:number}> = [];
+        for (let i = 0; i < times.length; i++) {
+          const t = new Date(times[i]).getTime();
+          const v = frz[i];
+          if (v != null) providerPoints.push({ t, v: Math.round(Number(v)) });
+        }
+        const TOL = 45 * 60 * 1000; // 45 minutes
+        for (const h of hourlyForecasts) {
+          const t = new Date(h.time).getTime();
+          let best: {t:number; v:number} | null = null;
+          let bestDt = Number.POSITIVE_INFINITY;
+          for (const p of providerPoints) {
+            const dt = Math.abs(p.t - t);
+            if (dt < bestDt) { bestDt = dt; best = p; }
+          }
+          if (best && bestDt <= TOL) {
+            h.freezingLevel = best.v;
+          }
+        }
+      } catch (e) {}
+    }
 
     if (hourlyForecasts.length > 1) {
       const MAX_DELTA_PER_HOUR = 800;
