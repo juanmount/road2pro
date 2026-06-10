@@ -200,6 +200,10 @@ class SmartNotificationService {
           sent_at TIMESTAMP NOT NULL DEFAULT NOW()
         );
       `);
+      await pool.query(`
+        ALTER TABLE notification_log
+        ADD COLUMN IF NOT EXISTS amount_cm NUMERIC;
+      `);
       // Ensure CHECK constraint allows accumulation variants
       await pool.query(`
         DO $$
@@ -246,17 +250,63 @@ class SmartNotificationService {
    * Log sent notifications for deduplication
    */
   private async logSentNotifications(
-    entries: Array<{ userId: string; resortId: string; alertType: AlertType }>
+    entries: Array<{ userId: string; resortId: string; alertType: AlertType; amountCm?: number }>
   ): Promise<void> {
     if (entries.length === 0) return;
-    const values = entries.map((_, i) => `($${i * 3 + 1}, $${i * 3 + 2}, $${i * 3 + 3})`).join(', ');
-    const params = entries.flatMap(e => [e.userId, e.resortId, e.alertType]);
-    await pool.query(
-      `INSERT INTO notification_log (user_id, resort_id, alert_type) VALUES ${values}`,
-      params
-    );
+    const values4 = entries.map((_, i) => `($${i * 4 + 1}, $${i * 4 + 2}, $${i * 4 + 3}, $${i * 4 + 4})`).join(', ');
+    const params4 = entries.flatMap(e => [e.userId, e.resortId, e.alertType, e.amountCm ?? null]);
+    try {
+      await pool.query(
+        `INSERT INTO notification_log (user_id, resort_id, alert_type, amount_cm) VALUES ${values4}`,
+        params4
+      );
+    } catch (err: any) {
+      if (err?.code === '42703') {
+        const values3 = entries.map((_, i) => `($${i * 3 + 1}, $${i * 3 + 2}, $${i * 3 + 3})`).join(', ');
+        const params3 = entries.flatMap(e => [e.userId, e.resortId, e.alertType]);
+        await pool.query(
+          `INSERT INTO notification_log (user_id, resort_id, alert_type) VALUES ${values3}`,
+          params3
+        );
+      } else {
+        throw err;
+      }
+    }
     // Clean entries older than 48h
     await pool.query(`DELETE FROM notification_log WHERE sent_at < NOW() - INTERVAL '48 hours'`);
+  }
+
+  private async getLastAmountWithin(userId: string, resortId: string, alertType: AlertType, hours: number): Promise<number | null> {
+    try {
+      const res = await pool.query(
+        `SELECT amount_cm FROM notification_log
+         WHERE user_id = $1 AND resort_id = $2 AND alert_type = $3
+           AND sent_at > NOW() - INTERVAL '${Math.max(1, Math.floor(hours))} hours'
+         ORDER BY sent_at DESC
+         LIMIT 1`,
+        [userId, resortId, alertType]
+      );
+      if (res.rows.length === 0) return null;
+      const v = res.rows[0]?.amount_cm;
+      const num = v !== null && v !== undefined ? Number(v) : NaN;
+      return Number.isFinite(num) ? num : null;
+    } catch (e: any) {
+      if (e?.code === '42703') return null;
+      throw e;
+    }
+  }
+
+  private async shouldRealertDueToIncrease(userId: string, resortId: string, alertType: AlertType, newAmount: number, hours: number): Promise<boolean> {
+    if (alertType !== 'snow5d' && alertType !== 'snow36h') return false;
+    const last = await this.getLastAmountWithin(userId, resortId, alertType, hours);
+    if (last === null) return false;
+    const absDelta = newAmount - last;
+    const pct = last > 0 ? absDelta / last : 0;
+    if (alertType === 'snow5d') {
+      return absDelta >= 7 || pct >= 0.30;
+    } else {
+      return absDelta >= 5 || pct >= 0.20;
+    }
   }
 
   /**
@@ -271,7 +321,7 @@ class SmartNotificationService {
     try {
       const users = await this.getUsersWithPreferences();
       const tokensToSend: Array<{ token: string; title: string; body: string; data: any }> = [];
-      const logEntries: Array<{ userId: string; resortId: string; alertType: AlertType }> = [];
+      const logEntries: Array<{ userId: string; resortId: string; alertType: AlertType; amountCm?: number }> = [];
 
       const now = Date.now();
       const windowEnd = now + hoursWindow * 60 * 60 * 1000;
@@ -315,9 +365,15 @@ class SmartNotificationService {
 
           if ((info.sumCm || 0) < user.minSnowfallCm) continue;
 
+          // Precompute rounded amount for dedup/re-alert checks
+          const rounded = Math.max(0, Math.round(Number(info.sumCm) || 0));
+
           // Dedup windows: 12h for 5d, 6h for 36h
           const dedupHours = alertType === 'snow5d' ? 12 : 6;
-          if (await this.wasRecentlySentWithin(user.userId, resortId, alertType, dedupHours)) continue;
+          if (await this.wasRecentlySentWithin(user.userId, resortId, alertType, dedupHours)) {
+            const allow = await this.shouldRealertDueToIncrease(user.userId, resortId, alertType, rounded, dedupHours);
+            if (!allow) continue;
+          }
 
           // Compose time text from peak time if available
           let timeText = '';
@@ -329,7 +385,7 @@ class SmartNotificationService {
             else timeText = `en ~${Math.ceil(diffH / 24)} días`;
           }
 
-          const rounded = Math.max(0, Math.round(Number(info.sumCm) || 0));
+          // rounded ya calculado arriba
           const title = alertType === 'snow5d'
             ? `❄️ Aviso: ${rounded} cm (5 días) — ${info.name}`
             : `❄️ Alerta: ${rounded} cm (36 h) — ${info.name}`;
@@ -343,7 +399,7 @@ class SmartNotificationService {
             body,
             data: { type: alertType, resortId, sumCm: rounded, windowHours: hoursWindow, peakTime: info.peakTime?.toISOString() }
           });
-          logEntries.push({ userId: user.userId, resortId, alertType });
+          logEntries.push({ userId: user.userId, resortId, alertType, amountCm: rounded });
         }
       }
 

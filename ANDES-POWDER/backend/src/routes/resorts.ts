@@ -201,10 +201,18 @@ router.get('/:id/forecast/current', async (req: Request, res: Response) => {
         wind_speed_kmh as wind_speed,
         wind_direction,
         cloud_cover,
-        powder_score
+        powder_score,
+        freezing_level_m,
+        snow_line_m
        FROM elevation_forecasts 
        WHERE resort_id = $1::uuid 
-       AND valid_time >= NOW() 
+       AND valid_time >= NOW()
+       AND forecast_run_id = (
+         SELECT id FROM forecast_runs 
+         WHERE resort_id = $1::uuid 
+         ORDER BY created_at DESC 
+         LIMIT 1
+       )
        ORDER BY elevation_band, valid_time 
        LIMIT 3`,
       [resort.id]
