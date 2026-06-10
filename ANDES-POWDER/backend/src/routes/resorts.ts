@@ -213,7 +213,7 @@ router.get('/:id/forecast/current', async (req: Request, res: Response) => {
          ORDER BY created_at DESC 
          LIMIT 1
        )
-       ORDER BY elevation_band, valid_time 
+       ORDER BY elevation_band, (freezing_level_m IS NULL), valid_time 
        LIMIT 3`,
       [resort.id]
     );
@@ -258,6 +258,7 @@ router.get('/:id/forecast/current', async (req: Request, res: Response) => {
       confidence = { confidence_score: 6, confidence_reason: 'Good confidence, good model agreement, long forecast horizon' };
     }
 
+    // Build current conditions, preferring non-null FRZ; if null, backfill from next hours (<=3h)
     const currentConditions = {
       resort: {
         id: resort.id,
@@ -282,6 +283,31 @@ router.get('/:id/forecast/current', async (req: Request, res: Response) => {
         summit: mapElevationForecast(summitConditions, resort.summitElevation, summitObs?.temperature),
       },
     };
+
+    // If current.freezingLevel is null, get nearest upcoming non-null within next 3 hours
+    if (!currentConditions.current.freezingLevel) {
+      const frzResult = await pool.query(
+        `SELECT freezing_level_m
+         FROM elevation_forecasts
+         WHERE resort_id = $1::uuid
+           AND elevation_band = 'mid'
+           AND valid_time >= NOW()
+           AND valid_time <= NOW() + INTERVAL '3 hours'
+           AND forecast_run_id = (
+             SELECT id FROM forecast_runs
+             WHERE resort_id = $1::uuid
+             ORDER BY created_at DESC
+             LIMIT 1
+           )
+           AND freezing_level_m IS NOT NULL
+         ORDER BY valid_time
+         LIMIT 1`,
+        [resort.id]
+      );
+      if (frzResult.rows.length > 0) {
+        currentConditions.current.freezingLevel = Math.round(parseFloat(frzResult.rows[0].freezing_level_m));
+      }
+    }
 
     res.json(currentConditions);
   } catch (error) {
