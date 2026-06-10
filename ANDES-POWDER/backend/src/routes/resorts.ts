@@ -259,7 +259,6 @@ router.get('/:id/forecast/current', async (req: Request, res: Response) => {
       confidence = { confidence_score: 6, confidence_reason: 'Good confidence, good model agreement, long forecast horizon' };
     }
 
-    // Build current conditions, preferring non-null FRZ; if null, backfill from next hours (<=3h)
     const currentConditions = {
       resort: {
         id: resort.id,
@@ -285,7 +284,6 @@ router.get('/:id/forecast/current', async (req: Request, res: Response) => {
       },
     };
 
-    // If current.freezingLevel is null, get nearest upcoming non-null within next 3 hours
     if (!currentConditions.current.freezingLevel) {
       const frzResult = await pool.query(
         `SELECT freezing_level_m
@@ -319,9 +317,7 @@ router.get('/:id/forecast/current', async (req: Request, res: Response) => {
         if (val != null) {
           currentConditions.current.freezingLevel = Math.round(Number(val));
         }
-      } catch (e) {
-        // ignore
-      }
+      } catch (e) {}
     }
 
     res.json(currentConditions);
