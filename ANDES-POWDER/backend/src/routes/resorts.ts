@@ -3,6 +3,7 @@ import pool from '../config/database';
 import { Resort, CurrentConditions, ElevationConditions } from '../types';
 import { SnowEngine } from '../engine/snow-engine';
 import { MultiModelFetcher } from '../providers/open-meteo/multi-model-fetcher';
+import { OpenMeteoService } from '../services/open-meteo';
 
 const router = Router();
 
@@ -309,6 +310,20 @@ router.get('/:id/forecast/current', async (req: Request, res: Response) => {
       }
     }
 
+    if (!currentConditions.current.freezingLevel) {
+      try {
+        const om = new OpenMeteoService();
+        const omForecast = await om.getForecast(resort.latitude, resort.longitude, resort.midElevation);
+        const arr: number[] = omForecast?.hourly?.freezinglevel_height || [];
+        const val = arr.find((v: any) => v != null);
+        if (val != null) {
+          currentConditions.current.freezingLevel = Math.round(Number(val));
+        }
+      } catch (e) {
+        // ignore
+      }
+    }
+
     res.json(currentConditions);
   } catch (error) {
     console.error('Error fetching current conditions:', error);
@@ -396,6 +411,24 @@ router.get('/:id/forecast/hourly', async (req: Request, res: Response) => {
         cloudBaseMeters: runtimeVisibility.cloudBaseMeters,
       };
     });
+
+    if (hourlyForecasts.length > 1) {
+      const MAX_DELTA_PER_HOUR = 800;
+      const MIN_FRZ = 300;
+      const MAX_FRZ = 4800;
+      for (let i = 1; i < hourlyForecasts.length; i++) {
+        const prev = hourlyForecasts[i - 1].freezingLevel;
+        let cur = hourlyForecasts[i].freezingLevel;
+        if (prev != null && cur != null) {
+          const delta = cur - prev;
+          if (Math.abs(delta) > MAX_DELTA_PER_HOUR) {
+            cur = prev + Math.sign(delta) * MAX_DELTA_PER_HOUR;
+            hourlyForecasts[i].freezingLevel = cur;
+          }
+        }
+        hourlyForecasts[i].freezingLevel = Math.max(MIN_FRZ, Math.min(MAX_FRZ, hourlyForecasts[i].freezingLevel));
+      }
+    }
 
     console.log('[HOURLY] Returning', hourlyForecasts.length, 'forecasts');
 
