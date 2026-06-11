@@ -124,7 +124,9 @@ export function Forecast48Hours({ hourlyData, elevation }: Forecast48HoursProps)
                 </Text>
                 
                 {period.totalSnow > 0 && (
-                  <Text style={styles.periodSnow}>❄️ {period.totalSnow.toFixed(1)}cm</Text>
+                  <Text style={styles.periodSnow}>❄️ {(
+                    (period.totalSnow > 0 && period.totalSnow < 0.1) ? 0.1 : period.totalSnow
+                  ).toFixed(1)}cm</Text>
                 )}
                 {period.totalRain > 0 && (
                   <Text style={styles.periodRain}>🌧️ {period.totalRain.toFixed(1)}mm</Text>
@@ -185,8 +187,10 @@ export function Forecast48Hours({ hourlyData, elevation }: Forecast48HoursProps)
                         </Text>
                         <Text style={styles.hourHumidity}>{Math.round(hour.humidity)}%</Text>
                         <Text style={styles.hourWind}>{Math.round(hour.windSpeed)}km/h</Text>
-                        {hour.snowfall > 0 && (
-                          <Text style={styles.hourSnowBadge}>❄️ {hour.snowfall.toFixed(1)}cm</Text>
+                        {(hour.phase === 'snow' && (hour.snowfall > 0 || hour.precipitation >= 0.1)) && (
+                          <Text style={styles.hourSnowBadge}>❄️ {(
+                            hour.snowfall >= 0.1 ? hour.snowfall : 0.1
+                          ).toFixed(1)}cm</Text>
                         )}
                         {hour.precipitation > 0 && hour.phase === 'rain' && (
                           <Text style={styles.hourRainBadge}>🌧️ {hour.precipitation.toFixed(1)}mm</Text>

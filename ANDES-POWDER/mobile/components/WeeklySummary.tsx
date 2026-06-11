@@ -52,7 +52,10 @@ export const WeeklySummary: React.FC<WeeklySummaryProps> = ({ days, elevation })
           <View>
             <Text style={styles.totalLabel}>Acumulado</Text>
             <View style={styles.totalValueRow}>
-              <Text style={styles.totalValue}>{Math.round(totalSnowfall)}</Text>
+              <Text style={styles.totalValue}>{(() => {
+                const v = totalSnowfall > 0 && totalSnowfall < 0.1 ? 0.1 : totalSnowfall;
+                return v < 1 ? v.toFixed(1) : Math.round(v);
+              })()}</Text>
               <Text style={styles.totalUnit}>cm</Text>
             </View>
           </View>
@@ -72,7 +75,10 @@ export const WeeklySummary: React.FC<WeeklySummaryProps> = ({ days, elevation })
                 <View style={styles.barWrapper}>
                   {day.snowfall > 0 && (
                     <Text style={[styles.barValue, isBestDay && styles.barValueBest]}>
-                      {Math.round(day.snowfall)}
+                      {(() => {
+                        const v = day.snowfall > 0 && day.snowfall < 0.1 ? 0.1 : day.snowfall;
+                        return v < 1 ? v.toFixed(1) : Math.round(v);
+                      })()}
                     </Text>
                   )}
                   <View 

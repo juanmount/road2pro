@@ -79,6 +79,7 @@ interface DailyForecastCardProps {
   confidenceReason?: string;
   trending?: TrendingData;
   onExpandChange?: (expanded: boolean) => void;
+  elevationLabel?: string;
 }
 
 export function DailyForecastCard({
@@ -98,7 +99,8 @@ export function DailyForecastCard({
   confidenceScore,
   confidenceReason,
   trending,
-  onExpandChange
+  onExpandChange,
+  elevationLabel
 }: DailyForecastCardProps) {
   const [showDayModal, setShowDayModal] = useState(false);
   const [selectedHour, setSelectedHour] = useState<HourlyDetail | null>(null);
@@ -197,10 +199,13 @@ export function DailyForecastCard({
       {/* Snow Metric */}
       <View style={styles.snowMetricContainer}>
         <Text style={styles.snowMetricLabel}>
-          {snowReality ? 'REAL SNOW' : 'SNOWFALL'}
+          {snowReality ? 'REAL SNOW' : 'NEVADA'}
         </Text>
         <Text style={styles.snowMetricValue}>
-          {snowfall < 1 ? snowfall.toFixed(1) : Math.round(snowfall)}
+          {(() => {
+            const v = snowfall > 0 && snowfall < 0.1 ? 0.1 : snowfall;
+            return v < 1 ? v.toFixed(1) : Math.round(v);
+          })()}
         </Text>
         <Text style={styles.snowMetricUnit}>cm</Text>
         
@@ -399,27 +404,27 @@ export function DailyForecastCard({
                     
                     <View style={styles.modalMetrics}>
                       <View style={styles.modalMetric}>
-                        <Text style={styles.modalMetricLabel}>SNOWFALL</Text>
+                        <Text style={styles.modalMetricLabel}>NEVADA</Text>
                         <Text style={styles.modalMetricValue}>{selectedHour.snowfall.toFixed(1)} cm</Text>
                       </View>
                       <View style={styles.modalMetric}>
-                        <Text style={styles.modalMetricLabel}>FREEZING LEVEL</Text>
+                        <Text style={styles.modalMetricLabel}>NIV. CONGELAMIENTO</Text>
                         <Text style={styles.modalMetricValue}>{selectedHour.freezingLevel} m</Text>
                       </View>
                       <View style={styles.modalMetric}>
-                        <Text style={styles.modalMetricLabel}>WIND</Text>
+                        <Text style={styles.modalMetricLabel}>VIENTO</Text>
                         <Text style={styles.modalMetricValue}>{Math.round(selectedHour.windSpeed)} km/h</Text>
                       </View>
                       <View style={styles.modalMetric}>
-                        <Text style={styles.modalMetricLabel}>HUMIDITY</Text>
+                        <Text style={styles.modalMetricLabel}>HUMEDAD</Text>
                         <Text style={styles.modalMetricValue}>{Math.round(selectedHour.humidity)}%</Text>
                       </View>
                       <View style={styles.modalMetric}>
-                        <Text style={styles.modalMetricLabel}>PRECIPITATION</Text>
+                        <Text style={styles.modalMetricLabel}>PRECIPITACIÓN</Text>
                         <Text style={styles.modalMetricValue}>{selectedHour.precipitation.toFixed(1)} mm</Text>
                       </View>
                       <View style={styles.modalMetric}>
-                        <Text style={styles.modalMetricLabel}>SNOW QUALITY</Text>
+                        <Text style={styles.modalMetricLabel}>TIPO DE NIEVE</Text>
                         <Text style={styles.modalMetricValue}>{selectedHour.phase === 'snow' ? 'Powder' : selectedHour.phase === 'rain' ? 'Wet' : 'Mixed'}</Text>
                       </View>
                     </View>
@@ -572,7 +577,7 @@ export function DailyForecastCard({
           icon: h.icon || '☁️'
         }));
         })()}
-        elevation={`MID`}
+        elevation={elevationLabel || `MID`}
       />
     </>
   );

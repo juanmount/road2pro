@@ -1349,12 +1349,18 @@ export default function ResortDetailScreen() {
                     <>
                       <View style={styles.glassBox}>
                         <Text style={styles.metricLabel}>GENÉRICO</Text>
-                        <Text style={styles.glassNumber}>{Math.round(rawTodaySnowfall * 10) / 10}</Text>
+                        <Text style={styles.glassNumber}>{(() => {
+                          const v = rawTodaySnowfall > 0 && rawTodaySnowfall < 0.1 ? 0.1 : rawTodaySnowfall;
+                          return v < 1 ? v.toFixed(1) : Math.round(v);
+                        })()}</Text>
                         <Text style={styles.glassUnit}>cm</Text>
                       </View>
                       <View style={styles.glassBox}>
                         <Text style={styles.metricLabel}>ANDES</Text>
-                        <Text style={styles.glassNumber}>{Math.round(adjustedTodaySnowfall * 10) / 10}</Text>
+                        <Text style={styles.glassNumber}>{(() => {
+                          const v = adjustedTodaySnowfall > 0 && adjustedTodaySnowfall < 0.1 ? 0.1 : adjustedTodaySnowfall;
+                          return v < 1 ? v.toFixed(1) : Math.round(v);
+                        })()}</Text>
                         <Text style={styles.glassUnit}>cm</Text>
                       </View>
                       <TouchableOpacity 
@@ -1369,7 +1375,10 @@ export default function ResortDetailScreen() {
                       </TouchableOpacity>
                       <View style={styles.glassBox}>
                         <Text style={styles.metricLabel}>PRÓX 7D</Text>
-                        <Text style={styles.glassNumber}>{Math.round(total7Days * 10) / 10}</Text>
+                        <Text style={styles.glassNumber}>{(() => {
+                          const v = total7Days > 0 && total7Days < 0.1 ? 0.1 : total7Days;
+                          return v < 1 ? v.toFixed(1) : Math.round(v);
+                        })()}</Text>
                         <Text style={styles.glassUnit}>cm</Text>
                       </View>
                     </>
