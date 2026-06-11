@@ -483,6 +483,35 @@ router.get('/:id/forecast/hourly', async (req: Request, res: Response) => {
       }
     }
 
+    // Safety net: Correct phase using elevation-specific FRZ margin and temperature
+    // Ensures we don't show 'rain' at subzero temps well below FRZ for the selected band
+    const elevationMeters = (() => {
+      try {
+        if (elevationBand === 'base') return parseFloat(resort.base_elevation || resort.baseElevation || 0);
+        if (elevationBand === 'mid') return parseFloat(resort.mid_elevation || resort.midElevation || 0);
+        return parseFloat(resort.summit_elevation || resort.summitElevation || 0);
+      } catch {
+        return 0;
+      }
+    })();
+
+    for (const h of hourlyForecasts) {
+      const frz = h.freezingLevel ?? 2000;
+      const margin = frz - elevationMeters; // negative = colder than FRZ (snow-favor)
+      const temp = Number(h.temperature);
+      const precip = Number(h.precipitation || 0);
+      // Strong snow signal
+      if (margin < -200 && precip >= 0.1) {
+        h.phase = 'snow';
+      } else if (temp <= -2 && precip >= 0.1 && margin < -50) {
+        // At least mixed if subzero and near/below FRZ
+        if (h.phase === 'rain' || !h.phase || h.phase === 'none') h.phase = margin < -120 ? 'snow' : 'mixed';
+      } else if (temp <= -1 && precip >= 0.1 && margin < -100 && h.phase === 'rain') {
+        // Prevent 'rain' label in clearly subfreezing margin
+        h.phase = 'mixed';
+      }
+    }
+
     console.log('[HOURLY] Returning', hourlyForecasts.length, 'forecasts');
 
     res.json({
