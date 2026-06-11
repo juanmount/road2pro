@@ -110,7 +110,13 @@ export default function HourlyForecastModal({ visible, onClose, date, hours, ele
                     <View style={styles.precipSection}>
                       <Text style={styles.precipAmount}>
                         {hour.phase === 'snow' 
-                          ? `❄️ ${hour.snowfall.toFixed(1)} cm`
+                          ? (() => {
+                              const displaySnow =
+                                hour.snowfall >= 0.1
+                                  ? hour.snowfall
+                                  : (hour.precipitation >= 0.1 ? 0.1 : hour.snowfall);
+                              return `❄️ ${displaySnow.toFixed(1)} cm`;
+                            })()
                           : `🌧️ ${hour.precipitation.toFixed(1)} mm`
                         }
                       </Text>
