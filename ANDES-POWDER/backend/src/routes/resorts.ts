@@ -417,7 +417,12 @@ router.get('/:id/forecast/hourly', async (req: Request, res: Response) => {
       const anyCold = first6.some(h => h.temperature < 0);
       const frzVal = first6[0].freezingLevel;
       const highVsMid = midElevationDbHourly && frzVal && (frzVal - midElevationDbHourly > 300);
-      needsProviderFallback = set.size === 1 && anyCold && !!highVsMid;
+      const flat = set.size === 1;
+      // If base is selected, relax the cold temperature requirement to unstick flat/high FRZ series
+      // Additionally, if the first hour FRZ is very high vs mid (>500m), trigger fallback for base even if not flat
+      const veryHighVsMid = midElevationDbHourly && frzVal && (frzVal - midElevationDbHourly > 500);
+      needsProviderFallback = (flat && !!highVsMid && (anyCold || elevationBand === 'base'))
+        || (elevationBand === 'base' && !!veryHighVsMid);
     }
 
     if (needsProviderFallback) {
