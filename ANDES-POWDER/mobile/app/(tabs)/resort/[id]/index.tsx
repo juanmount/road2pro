@@ -429,14 +429,37 @@ export default function ResortDetailScreen() {
       console.log('[DAILY FORECAST] Built from hourly data:', dailyFromHourly.length, 'days');
       console.log('[DAILY FORECAST] Sample day:', dailyFromHourly[0]);
       
-      // FILTER OUT PAST DAYS - only show from today onwards
-      const todayDate = new Date();
-      todayDate.setHours(0, 0, 0, 0);
-      const filteredForecast = dailyFromHourly.filter(day => {
-        const [fy, fm, fd] = day.date.split('-').map(Number);
-        const dayDate = new Date(fy, fm - 1, fd);
-        return dayDate >= todayDate;
-      }).slice(0, 7); // Limit to 7 days AFTER filtering
+      // FILTER OUT PAST DAYS - always keep today's card until midnight local time
+      const nowLocal = new Date();
+      const todayMidnight = new Date(nowLocal);
+      todayMidnight.setHours(0, 0, 0, 0);
+      const tomorrowMidnight = new Date(todayMidnight);
+      tomorrowMidnight.setDate(todayMidnight.getDate() + 1);
+
+      // Helper to parse YYYY-MM-DD in local timezone
+      const toLocalDateMidnight = (s: string) => {
+        const [fy, fm, fd] = s.split('-').map(Number);
+        const d = new Date(fy, fm - 1, fd);
+        d.setHours(0, 0, 0, 0);
+        return d;
+      };
+
+      let filteredForecast = dailyFromHourly.filter(day => {
+        const dayStart = toLocalDateMidnight(day.date);
+        // Keep today and all future days; drop strictly before today
+        return dayStart >= todayMidnight;
+      });
+
+      // Ensure we keep exactly 7 consecutive days starting today
+      const desired: any[] = [];
+      for (let i = 0; i < 7; i++) {
+        const target = new Date(todayMidnight);
+        target.setDate(todayMidnight.getDate() + i);
+        const key = `${target.getFullYear()}-${String(target.getMonth() + 1).padStart(2, '0')}-${String(target.getDate()).padStart(2, '0')}`;
+        const existing = filteredForecast.find(d => d.date === key);
+        if (existing) desired.push(existing);
+      }
+      filteredForecast = desired.length > 0 ? desired : filteredForecast.slice(0, 7);
       
       console.log('[DAILY FORECAST] After filtering past days:', filteredForecast.length, 'days');
       console.log('[DAILY FORECAST] First day after filter:', filteredForecast[0]?.date);
@@ -984,9 +1007,23 @@ export default function ResortDetailScreen() {
 
   const currentWindImpact = getAdjustedWind();
 
+  // Resort background images — TODO: add real images for bayo, hoya, caviahue
+  const getBackgroundImage = (slug?: string) => {
+    switch (slug) {
+      case 'cerro-catedral': return require('../../../../assets/cerro-catedral-bg.jpg');
+      case 'cerro-castor': return require('../../../../assets/cerro-castor-bg.jpg');
+      case 'cerro-chapelco': return require('../../../../assets/cerro-chapelco-bg.jpg');
+      case 'las-lenas': return require('../../../../assets/cerro-lenas-bg.jpg');
+      case 'cerro-bayo': return require('../../../../assets/cerro-bayo-bg.jpeg');
+      case 'la-hoya': return require('../../../../assets/cerro-lahoya-bg.jpeg');
+      case 'caviahue': return require('../../../../assets/cerro-caviahue-bg.jpg');
+      default: return require('../../../../assets/cerro-catedral-bg.jpg');
+    }
+  };
+
   return (
     <ImageBackground
-      source={require('../../../../assets/cerro-catedral-bg.jpg')}
+      source={getBackgroundImage(resort?.slug)}
       style={styles.backgroundImage}
       imageStyle={styles.backgroundImageStyle}
     >
@@ -1047,7 +1084,9 @@ export default function ResortDetailScreen() {
                       if (name.includes('chapelco')) return '140km esquiables • 35 pistas';
                       if (name.includes('bayo')) return '30km esquiables • 24 pistas';
                       if (name.includes('castor')) return '35km esquiables • 28 pistas';
-                      return '35km esquiables • 28 pistas';
+                      if (name.includes('hoya')) return '22km esquiables • 25 pistas';
+                      if (name.includes('caviahue')) return '38km esquiables • 28 pistas';
+                      return '-';
                     })()}
                   </Text>
                 </View>
@@ -1098,13 +1137,13 @@ export default function ResortDetailScreen() {
             {/* Content */}
             <View style={styles.elevationButtonContent}>
               <Text style={[styles.elevationButtonLabel, selectedElevation === elevation && styles.elevationButtonLabelActive]}>
-                {elevation === 'base' ? 'BASE' : elevation === 'mid' ? 'MID' : 'SUMMIT'}
+                {elevation === 'base' ? 'BASE' : elevation === 'mid' ? 'MED' : 'CUMBRE'}
               </Text>
               <Text style={[styles.elevationButtonMeters, selectedElevation === elevation && styles.elevationButtonMetersActive]}>
                 {resort ? (elevation === 'base' ? resort.baseElevation : elevation === 'mid' ? resort.midElevation : resort.summitElevation) : '---'}
               </Text>
               <Text style={[styles.elevationButtonUnit, selectedElevation === elevation && styles.elevationButtonUnitActive]}>
-                METERS
+                METROS
               </Text>
             </View>
           </TouchableOpacity>
@@ -1141,7 +1180,7 @@ export default function ResortDetailScreen() {
             </TouchableOpacity>
             <View style={styles.elevationInfo}>
               <Text style={styles.elevationText}>
-                {selectedElevation === 'base' ? 'BASE' : selectedElevation === 'mid' ? 'MID' : 'SUMMIT'} • {resort ? (selectedElevation === 'base' ? resort.baseElevation : selectedElevation === 'mid' ? resort.midElevation : resort.summitElevation) : '---'}m
+                {selectedElevation === 'base' ? 'BASE' : selectedElevation === 'mid' ? 'MED' : 'CUMBRE'} • {resort ? (selectedElevation === 'base' ? resort.baseElevation : selectedElevation === 'mid' ? resort.midElevation : resort.summitElevation) : '---'}m
               </Text>
               <View style={styles.freezingLevelBadge}>
                 <Ionicons name="snow-outline" size={12} color="#fff" style={{ marginRight: 4 }} />
@@ -1216,7 +1255,7 @@ export default function ResortDetailScreen() {
             </View>
             <View style={styles.quickMetrics}>
               <View style={styles.quickMetricItem}>
-                <Text style={styles.quickLabel}>WIND</Text>
+                <Text style={styles.quickLabel}>VIENTO</Text>
                 <View style={styles.quickValueRow}>
                   <Text style={[
                     styles.quickValue,
@@ -1228,7 +1267,7 @@ export default function ResortDetailScreen() {
                 </View>
               </View>
               <View style={styles.quickMetricItem}>
-                <Text style={styles.quickLabel}>HUMIDITY</Text>
+                <Text style={styles.quickLabel}>HUMEDAD</Text>
                 <View style={styles.quickValueRow}>
                   <Text style={styles.quickValue}>{Math.round(currentHour.humidity || 50)}</Text>
                   <Text style={styles.quickUnit}>%</Text>
@@ -1324,7 +1363,9 @@ export default function ResortDetailScreen() {
                       >
                         <Text style={styles.metricLabel}>AJUSTE</Text>
                         <Text style={styles.glassNumber}>{adjustmentPercent > 0 ? `-${adjustmentPercent}` : adjustmentPercent}%</Text>
-                        <Ionicons name="information-circle-outline" size={16} color="rgba(255,255,255,0.7)" style={{ marginTop: 4 }} />
+                        <View style={{ height: 14, justifyContent: 'center', alignItems: 'center' }}>
+                          <Ionicons name="information-circle-outline" size={12} color="#0c4a6e" style={{ opacity: 0.7 }} />
+                        </View>
                       </TouchableOpacity>
                       <View style={styles.glassBox}>
                         <Text style={styles.metricLabel}>PRÓX 7D</Text>
@@ -1377,6 +1418,7 @@ export default function ResortDetailScreen() {
                   maxWindGust={day.maxWindGust}
                   confidenceScore={day.confidenceScore}
                   confidenceReason={day.confidenceReason}
+                  elevationLabel={selectedElevation === 'base' ? 'BASE' : selectedElevation === 'mid' ? 'MID' : 'CUMBRE'}
                 />
               );
             })}
@@ -1406,6 +1448,7 @@ export default function ResortDetailScreen() {
         visible={webcamsVisible}
         onClose={() => setWebcamsVisible(false)}
         resortName={resort?.name || 'Cerro Catedral'}
+        resortSlug={id}
       />
 
       {/* Adjustment Explanation Modal */}
@@ -2074,6 +2117,8 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#0c4a6e',
     opacity: 0.7,
+    height: 14,
+    lineHeight: 14,
   },
   glassQuality: {
   },
@@ -2095,13 +2140,13 @@ const styles = StyleSheet.create({
   },
   dailyForecastSection: {
     marginBottom: 16,
-    paddingHorizontal: 16,
   },
   dailyCardWrapper: {
     marginBottom: 12,
   },
   dailyCardsContainer: {
-    paddingHorizontal: 16,
+    paddingLeft: 16,
+    paddingRight: 16,
     gap: 12,
   },
   chartsSection: {
