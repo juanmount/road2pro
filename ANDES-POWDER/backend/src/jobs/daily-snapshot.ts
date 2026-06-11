@@ -5,6 +5,7 @@
 
 import * as schedule from 'node-schedule';
 import { snapshotService } from '../services/snapshot-service';
+import pool from '../config/database';
 
 export function startSnapshotCron() {
   // Run every day at 6:00 AM
@@ -21,6 +22,19 @@ export function startSnapshotCron() {
   });
   
   console.log('[SNAPSHOT CRON] Scheduled to run daily at 6:00 AM');
+  // Also schedule a daily cleanup at 04:30 AM to remove old forecast rows
+  schedule.scheduleJob('30 4 * * *', async () => {
+    console.log('[CLEANUP CRON] Starting daily cleanup for elevation_forecasts...');
+    try {
+      const result = await pool.query(`
+        DELETE FROM elevation_forecasts 
+        WHERE valid_time < NOW() - INTERVAL '7 days'
+      `);
+      console.log(`[CLEANUP CRON] Deleted ${result.rowCount} old rows`);
+    } catch (error) {
+      console.error('[CLEANUP CRON] Error cleaning old forecasts:', error);
+    }
+  });
   return job;
 }
 

@@ -432,7 +432,8 @@ router.get('/:id/forecast/hourly', async (req: Request, res: Response) => {
           const v = frz[i];
           if (v != null) providerPoints.push({ t, v: Math.round(Number(v)) });
         }
-        const TOL = 45 * 60 * 1000; // 45 minutes
+        const TOL = 4 * 60 * 60 * 1000; // 4 hours to absorb TZ offsets
+        let replaced = 0;
         for (const h of hourlyForecasts) {
           const t = new Date(h.time).getTime();
           let best: {t:number; v:number} | null = null;
@@ -443,6 +444,17 @@ router.get('/:id/forecast/hourly', async (req: Request, res: Response) => {
           }
           if (best && bestDt <= TOL) {
             h.freezingLevel = best.v;
+            replaced++;
+          }
+        }
+
+        if (replaced === 0) {
+          const lapse = 0.0065; // °C/m
+          for (const h of hourlyForecasts.slice(0, 6)) {
+            if (h.temperature < 0 && h.freezingLevel - midElevationDbHourly > 300) {
+              const est = Math.round(midElevationDbHourly + (h.temperature / lapse));
+              h.freezingLevel = Math.max(300, Math.min(4800, est));
+            }
           }
         }
       } catch (e) {}

@@ -8,8 +8,8 @@ export class ForecastCronService {
   private cronSchedule: string;
 
   constructor() {
-    // Run every hour at :05 minutes to get fresh data
-    this.cronSchedule = process.env.FORECAST_CRON_SCHEDULE || '5 * * * *';
+    // Run every hour at :07 by default (avoid clashing with SMN :05). Override via FORECAST_CRON_SCHEDULE.
+    this.cronSchedule = process.env.FORECAST_CRON_SCHEDULE || '7 * * * *';
   }
 
   start(): void {

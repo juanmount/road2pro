@@ -23,8 +23,8 @@ export class WeatherSyncScheduler {
   start(): void {
     console.log('Starting weather sync scheduler...');
     
-    // Sync SMN data every hour at :05 (e.g., 10:05, 11:05, etc.)
-    const smnJob = schedule.scheduleJob('5 * * * *', async () => {
+    // Sync SMN data every hour at :02 (e.g., 10:02, 11:02, etc.)
+    const smnJob = schedule.scheduleJob('2 * * * *', async () => {
       console.log('\n=== SMN Weather Sync ===');
       console.log(`Time: ${new Date().toISOString()}`);
       

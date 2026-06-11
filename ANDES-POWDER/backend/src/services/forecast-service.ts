@@ -53,33 +53,27 @@ class ForecastService {
    * Process all resorts
    */
   async processAllResorts(): Promise<void> {
-    // STEP 1: Clean old data BEFORE syncing to prevent duplicates
-    console.log('Cleaning old forecast data (older than 1 day)...');
-    try {
-      const cleanResult = await pool.query(`
-        DELETE FROM elevation_forecasts 
-        WHERE valid_time < NOW() - INTERVAL '1 day'
-      `);
-      console.log(`✓ Cleaned ${cleanResult.rowCount} old forecast rows`);
-    } catch (error) {
-      console.error('Warning: Failed to clean old data:', error);
-      // Continue anyway
-    }
-    
-    // STEP 2: Get resorts and process forecasts
+    // Get resorts and process forecasts
     const result = await pool.query('SELECT * FROM resorts ORDER BY name');
     const resorts = result.rows.map(this.mapResortFromDb);
     
     console.log(`Processing forecasts for ${resorts.length} resorts...`);
     
-    for (const resort of resorts) {
-      try {
-        await this.processResortForecast(resort);
-      } catch (error) {
-        console.error(`Failed to process ${resort.name}:`, error);
-        // Continue with other resorts
+    const concurrency = Math.max(1, parseInt(process.env.FORECAST_CONCURRENCY || '4', 10));
+    let index = 0;
+    const worker = async () => {
+      while (true) {
+        const i = index++;
+        if (i >= resorts.length) break;
+        const resort = resorts[i];
+        try {
+          await this.processResortForecast(resort);
+        } catch (error) {
+          console.error(`Failed to process ${resort.name}:`, error);
+        }
       }
-    }
+    };
+    await Promise.all(Array.from({ length: concurrency }, () => worker()));
     
     console.log('All resort forecasts processed');
     
