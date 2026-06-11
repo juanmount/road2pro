@@ -8,21 +8,28 @@ import { useUserEngagement } from '../../hooks/useUserEngagement';
 import * as IAP from '../../services/iap';
 
 // Pricing configuration
-const FOUNDER_PRICE = 29900; // ARS (will be overridden by IAP product price)
-const REGULAR_PRICE = 49900; // ARS
-const DISCOUNT_PERCENTAGE = 40;
+const FOUNDER_PRICE_USD = 9.99;
+const REGULAR_PRICE_USD = 24.99;
+const DISCOUNT_PERCENTAGE = 60;
 
 export default function CheckoutScreen() {
   const router = useRouter();
   const { engagement, getEngagementLevel } = useUserEngagement();
   const [loading, setLoading] = useState(false);
+  const [restoring, setRestoring] = useState(false);
+  const [isFounder, setIsFounder] = useState(false);
+  const [checkingStatus, setCheckingStatus] = useState(true);
 
   useEffect(() => {
+    IAP.checkFounderAccess().then(status => {
+      setIsFounder(status);
+      setCheckingStatus(false);
+    });
     trackScreenView('Checkout_Screen', 'CheckoutScreen');
     trackEarlyAccessEvent(AnalyticsEvents.CHECKOUT_SCREEN_VIEW, {
       source: 'pro_screen',
-      price: FOUNDER_PRICE,
-      currency: 'ARS',
+      price: FOUNDER_PRICE_USD,
+      currency: 'USD',
     });
   }, []);
 
@@ -32,8 +39,8 @@ export default function CheckoutScreen() {
     try {
       // Track purchase initiation
       await trackEarlyAccessEvent(AnalyticsEvents.PURCHASE_INITIATED, {
-        price: FOUNDER_PRICE,
-        currency: 'ARS',
+        price: FOUNDER_PRICE_USD,
+        currency: 'USD',
       });
 
       // Initialize IAP connection
@@ -49,28 +56,29 @@ export default function CheckoutScreen() {
         // Track successful purchase
         await trackPurchase({
           transactionId: purchase.transactionId,
-          value: FOUNDER_PRICE,
-          currency: 'ARS',
+          value: FOUNDER_PRICE_USD,
+          currency: 'USD',
           items: [{
             item_id: IAP.PRODUCT_IDS.FOUNDER_ACCESS,
-            item_name: 'Andes Powder - Acceso Fundador Season 1',
-            price: FOUNDER_PRICE,
+            item_name: 'Andes Powder - Pase Fundador Temporada 2027',
+            price: FOUNDER_PRICE_USD,
           }],
         });
 
         await trackEarlyAccessEvent(AnalyticsEvents.PURCHASE_COMPLETED, {
-          price: FOUNDER_PRICE,
-          currency: 'ARS',
+          price: FOUNDER_PRICE_USD,
+          currency: 'USD',
         });
 
         // Finish transaction
         await IAP.finishPurchase(purchase);
 
+        setIsFounder(true);
         setLoading(false);
 
         Alert.alert(
           '¡Bienvenido, Fundador! 🎉',
-          'Tu acceso a Season 1 está asegurado. Recibirás un email de confirmación.',
+          'Tu pase para la temporada 2027 está confirmado. ¡Nos vemos en junio!',
           [
             {
               text: 'Continuar',
@@ -81,21 +89,52 @@ export default function CheckoutScreen() {
       } else {
         throw new Error('Purchase verification failed');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Purchase error:', error);
       
-      await trackEarlyAccessEvent(AnalyticsEvents.PURCHASE_FAILED, {
-        price: FOUNDER_PRICE,
-        currency: 'ARS',
-      });
+      if (!error?.userCancelled) {
+        await trackEarlyAccessEvent(AnalyticsEvents.PURCHASE_FAILED, {
+          price: FOUNDER_PRICE_USD,
+          currency: 'USD',
+        });
+      }
 
       setLoading(false);
 
+      if (error?.userCancelled) {
+        return;
+      }
+
+      const isNotConfigured =
+        error?.message?.includes('No products or offerings') ||
+        error?.code === 'PRODUCT_NOT_AVAILABLE_FOR_PURCHASE' ||
+        error?.errorCode === 7;
+
       Alert.alert(
         'Error en la compra',
-        'No se pudo completar la compra. Por favor intentá de nuevo.',
+        isNotConfigured
+          ? 'El producto no está disponible en la tienda todavía. Estamos terminando la configuración — pronto podrás comprar el Pase Fundador.'
+          : 'No se pudo completar la compra. Por favor intentá de nuevo.',
         [{ text: 'OK' }]
       );
+    }
+  };
+
+  const handleRestore = async () => {
+    setRestoring(true);
+    try {
+      await IAP.initIAP();
+      const restored = await IAP.restorePurchases();
+      if (restored) {
+        setIsFounder(true);
+        Alert.alert('Compras restauradas', 'Tu compra fue restaurada correctamente.');
+      } else {
+        Alert.alert('No hay compras para restaurar', 'No encontramos compras activas asociadas a tu cuenta. Asegurate de usar el mismo Apple ID.');
+      }
+    } catch (e) {
+      Alert.alert('Error al restaurar', 'No se pudo restaurar la compra. Por favor, intentá nuevamente.');
+    } finally {
+      setRestoring(false);
     }
   };
 
@@ -116,11 +155,11 @@ export default function CheckoutScreen() {
         <View style={styles.header}>
           <View style={styles.founderBadge}>
             <Ionicons name="star" size={20} color="#f59e0b" />
-            <Text style={styles.founderBadgeText}>PRECIO FUNDADOR</Text>
+            <Text style={styles.founderBadgeText}>PASE FUNDADOR 2027</Text>
           </View>
-          <Text style={styles.title}>Acceso Anticipado</Text>
+          <Text style={styles.title}>Pase Fundador 2027</Text>
           <Text style={styles.subtitle}>
-            Asegurá tu lugar en Season 1 y convertite en fundador de Andes Powder
+            Apoyá el desarrollo de la única tecnología de nieve diseñada exclusivamente para la Cordillera de los Andes. Asegurá tu acceso permanente para el invierno 2027 al precio más bajo posible.
           </Text>
         </View>
 
@@ -128,10 +167,9 @@ export default function CheckoutScreen() {
         <View style={styles.pricingCard}>
           <View style={styles.priceHeader}>
             <View>
-              <Text style={styles.priceLabel}>Precio Fundador</Text>
+              <Text style={styles.priceLabel}>Precio Fundador (Único Pago)</Text>
               <View style={styles.priceRow}>
-                <Text style={styles.price}>${(FOUNDER_PRICE / 100).toLocaleString('es-AR')}</Text>
-                <Text style={styles.currency}>ARS</Text>
+                <Text style={styles.price}>USD {FOUNDER_PRICE_USD}</Text>
               </View>
             </View>
             <View style={styles.savingsBadge}>
@@ -140,84 +178,42 @@ export default function CheckoutScreen() {
           </View>
           
           <View style={styles.regularPrice}>
-            <Text style={styles.regularPriceLabel}>Precio regular: </Text>
-            <Text style={styles.regularPriceValue}>
-              ${(REGULAR_PRICE / 100).toLocaleString('es-AR')}
-            </Text>
+            <Text style={styles.regularPriceLabel}>Precio regular temporada 2027: </Text>
+            <Text style={styles.regularPriceValue}>USD {REGULAR_PRICE_USD}</Text>
           </View>
 
           <View style={styles.divider} />
 
-          <Text style={styles.includesTitle}>Incluye:</Text>
+          <Text style={styles.includesTitle}>¿Por qué un Pase Fundador?</Text>
           
           <View style={styles.benefitsList}>
             <View style={styles.benefitItem}>
-              <Ionicons name="checkmark-circle" size={24} color="#10b981" />
+              <Ionicons name="shield-checkmark" size={24} color="#10b981" />
               <Text style={styles.benefitText}>
-                Acceso completo a Season 1 (2026)
+                <Text style={{fontWeight: 'bold', color: '#fff'}}>Temporada 0 Gratis:</Text> Todo el invierno actual es 100% libre. Queremos que calibres nuestros modelos con tus propias bajadas y ganes confianza.
+              </Text>
+            </View>
+            <View style={styles.benefitItem}>
+              <Ionicons name="hardware-chip" size={24} color="#10b981" />
+              <Text style={styles.benefitText}>
+                <Text style={{fontWeight: 'bold', color: '#fff'}}>Sensores en la Montaña:</Text> Tu aporte financia la instalación de estaciones meteorológicas propias en sectores clave fuera de pista.
+              </Text>
+            </View>
+            <View style={styles.benefitItem}>
+              <Ionicons name="analytics" size={24} color="#10b981" />
+              <Text style={styles.benefitText}>
+                <Text style={{fontWeight: 'bold', color: '#fff'}}>Física, No Milagros:</Text> No garantizamos precisión mágica porque el clima patagónico es salvaje. Pero te aseguramos los algoritmos físicos más honestos del mercado.
               </Text>
             </View>
             <View style={styles.benefitItem}>
               <Ionicons name="checkmark-circle" size={24} color="#10b981" />
               <Text style={styles.benefitText}>
-                Precio congelado para siempre
-              </Text>
-            </View>
-            <View style={styles.benefitItem}>
-              <Ionicons name="checkmark-circle" size={24} color="#10b981" />
-              <Text style={styles.benefitText}>
-                Badge exclusivo de Fundador
-              </Text>
-            </View>
-            <View style={styles.benefitItem}>
-              <Ionicons name="checkmark-circle" size={24} color="#10b981" />
-              <Text style={styles.benefitText}>
-                Todas las mejoras futuras incluidas
-              </Text>
-            </View>
-            <View style={styles.benefitItem}>
-              <Ionicons name="checkmark-circle" size={24} color="#10b981" />
-              <Text style={styles.benefitText}>
-                Soporte prioritario
+                <Text style={{fontWeight: 'bold', color: '#fff'}}>Pase Completo 2027:</Text> Acceso total e ilimitado de Junio a Octubre de 2027 con todas las mejoras de radar y alertas en tiempo real.
               </Text>
             </View>
           </View>
         </View>
 
-        {/* What You Get */}
-        <View style={styles.featuresSection}>
-          <Text style={styles.featuresTitle}>Qué incluye Andes Powder PRO</Text>
-          
-          <View style={styles.featureCard}>
-            <Ionicons name="snow" size={28} color="#63b3ed" />
-            <View style={styles.featureContent}>
-              <Text style={styles.featureTitle}>Pronósticos Avanzados</Text>
-              <Text style={styles.featureDescription}>
-                Storm Crossing Probability, Snow Reality Engine, Powder Windows
-              </Text>
-            </View>
-          </View>
-
-          <View style={styles.featureCard}>
-            <Ionicons name="map" size={28} color="#63b3ed" />
-            <View style={styles.featureContent}>
-              <Text style={styles.featureTitle}>Mapas Interactivos</Text>
-              <Text style={styles.featureDescription}>
-                Cobertura de nieve en tiempo real, capas meteorológicas
-              </Text>
-            </View>
-          </View>
-
-          <View style={styles.featureCard}>
-            <Ionicons name="videocam" size={28} color="#63b3ed" />
-            <View style={styles.featureContent}>
-              <Text style={styles.featureTitle}>Webcams Integradas</Text>
-              <Text style={styles.featureDescription}>
-                Acceso directo a todas las webcams de los cerros
-              </Text>
-            </View>
-          </View>
-        </View>
 
         {/* Engagement Stats (if available) */}
         {engagement && (
@@ -244,32 +240,51 @@ export default function CheckoutScreen() {
         )}
 
         {/* CTA Button */}
-        <TouchableOpacity 
-          style={styles.ctaButton}
-          onPress={handlePurchase}
-          disabled={loading}
-        >
-          <LinearGradient
-            colors={loading ? ['#64748b', '#475569'] : ['#10b981', '#059669']}
-            style={styles.ctaGradient}
-          >
-            {loading ? (
-              <>
-                <Ionicons name="hourglass" size={24} color="#fff" />
-                <Text style={styles.ctaText}>Procesando...</Text>
-              </>
-            ) : (
-              <>
-                <Ionicons name="lock-open" size={24} color="#fff" />
-                <Text style={styles.ctaText}>Asegurar Acceso Fundador</Text>
-              </>
-            )}
-          </LinearGradient>
-        </TouchableOpacity>
-
-        <Text style={styles.disclaimer}>
-          Pago único. Sin suscripciones. Precio fundador válido solo durante Season 0.
-        </Text>
+        {isFounder ? (
+          <View style={styles.founderConfirmed}>
+            <Ionicons name="checkmark-circle" size={32} color="#10b981" />
+            <Text style={styles.founderConfirmedTitle}>¡Ya sos Fundador!</Text>
+            <Text style={styles.founderConfirmedDesc}>Tu pase para Temporada 2027 está confirmado. Acceso garantizado de junio a octubre de 2027.</Text>
+          </View>
+        ) : (
+          <>
+            <TouchableOpacity
+              style={styles.ctaButton}
+              onPress={handlePurchase}
+              disabled={loading || restoring || checkingStatus}
+            >
+              <LinearGradient
+                colors={loading ? ['#64748b', '#475569'] : ['#10b981', '#059669']}
+                style={styles.ctaGradient}
+              >
+                {loading ? (
+                  <>
+                    <Ionicons name="hourglass" size={24} color="#fff" />
+                    <Text style={styles.ctaText}>Procesando...</Text>
+                  </>
+                ) : (
+                  <>
+                    <Ionicons name="lock-open" size={24} color="#fff" />
+                    <Text style={styles.ctaText}>Comprar Pase Fundador · USD 9.99</Text>
+                  </>
+                )}
+              </LinearGradient>
+            </TouchableOpacity>
+            <Text style={styles.disclaimer}>
+              Pago único por temporada. El pase da acceso de junio a octubre de 2027. Precio fundador válido hasta fin de Season 0.
+            </Text>
+            <TouchableOpacity
+              style={styles.restoreButton}
+              onPress={handleRestore}
+              disabled={loading || restoring || checkingStatus}
+            >
+              <Ionicons name="refresh" size={18} color={loading || restoring || checkingStatus ? '#94a3b8' : '#63b3ed'} />
+              <Text style={[styles.restoreText, (loading || restoring || checkingStatus) && { color: '#94a3b8' }]}>
+                Restaurar compras
+              </Text>
+            </TouchableOpacity>
+          </>
+        )}
       </ScrollView>
     </LinearGradient>
   );
@@ -508,5 +523,41 @@ const styles = StyleSheet.create({
     color: '#64748b',
     textAlign: 'center',
     fontStyle: 'italic',
+  },
+  restoreButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'center',
+    gap: 6,
+    marginTop: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+  },
+  restoreText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#63b3ed',
+  },
+  founderConfirmed: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(16,185,129,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(16,185,129,0.35)',
+    borderRadius: 16,
+    padding: 28,
+    marginTop: 8,
+    gap: 10,
+  },
+  founderConfirmedTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#10b981',
+    textAlign: 'center',
+  },
+  founderConfirmedDesc: {
+    fontSize: 14,
+    color: '#94a3b8',
+    textAlign: 'center',
+    lineHeight: 20,
   },
 });
