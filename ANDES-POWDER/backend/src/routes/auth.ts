@@ -7,36 +7,34 @@ const router = Router();
 
 router.post('/signup', async (req: Request, res: Response) => {
   try {
-    const { firebaseUid, email, displayName, rideType } = req.body;
+    const { firebaseUid, email, displayName, rideType, provider } = req.body;
 
     if (!firebaseUid || !email) {
       return res.status(400).json({ error: 'Firebase UID and email are required' });
     }
 
-    const existingUser = await pool.query(
-      'SELECT id FROM users WHERE firebase_uid = $1 OR email = $2',
-      [firebaseUid, email]
-    );
-
-    if (existingUser.rows.length > 0) {
-      return res.status(409).json({ error: 'User already exists' });
-    }
-
+    // Upsert: insert or update on conflict so Google (and other OAuth) logins are idempotent
     const result = await pool.query(
       `INSERT INTO users (firebase_uid, email, display_name, ride_type, last_login_at)
        VALUES ($1, $2, $3, $4, NOW())
+       ON CONFLICT (firebase_uid)
+       DO UPDATE SET
+         email = EXCLUDED.email,
+         display_name = COALESCE(EXCLUDED.display_name, users.display_name),
+         last_login_at = NOW()
        RETURNING id, firebase_uid, email, display_name, ride_type, created_at`,
       [firebaseUid, email, displayName || null, rideType || null]
     );
 
     const user = result.rows[0];
 
+    // Ensure user_preferences row exists (idempotent)
     await pool.query(
-      'INSERT INTO user_preferences (user_id) VALUES ($1)',
+      `INSERT INTO user_preferences (user_id) VALUES ($1) ON CONFLICT (user_id) DO NOTHING`,
       [user.id]
     );
 
-    res.status(201).json({
+    res.status(200).json({
       user: {
         id: user.id,
         firebaseUid: user.firebase_uid,
