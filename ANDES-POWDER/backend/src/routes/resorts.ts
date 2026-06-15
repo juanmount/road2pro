@@ -981,7 +981,9 @@ router.get('/:id/accumulation', async (req: Request, res: Response) => {
 
       const r = await pool.query(sql, [offset, resort.id, elevationBand]);
       const row = r.rows[0] || {};
-      const predicted = Number.parseFloat(row.predicted_cm || 0);
+      const rawPred = Number.parseFloat(row.predicted_cm || 0);
+      const cap = elevationBand === 'base' ? 30 : (elevationBand === 'mid' ? 40 : 50);
+      const predicted = Math.min(cap, Math.max(0, Number.isFinite(rawPred) ? rawPred : 0));
       const isPast = offset < 0;
       if (isPast) totalPast += predicted; else totalNext += predicted;
       daysArr.push({
@@ -1018,7 +1020,9 @@ router.get('/:id/accumulation', async (req: Request, res: Response) => {
           if (d.is_past) {
             const ov = obsMap.get(d.date);
             if (ov != null) {
-              d.predicted_cm = Math.round(ov * 10) / 10;
+              const cap = elevationBand === 'base' ? 30 : (elevationBand === 'mid' ? 40 : 50);
+              const clamped = Math.min(cap, Math.max(0, ov));
+              d.predicted_cm = Math.round(clamped * 10) / 10;
               d.is_observed = true;
             }
             totalPast += d.predicted_cm || 0;
@@ -1202,8 +1206,10 @@ router.get('/:id/snow-depth', async (req: Request, res: Response) => {
             }
           });
           
-          const snowDepthMeters = response.data.current?.snow_depth || 0;
-          const snowDepthCm = Math.round(snowDepthMeters * 100);
+          const unit = response.data?.current_units?.snow_depth;
+          const toCm = unit === 'cm' ? 1 : unit === 'm' ? 100 : 100;
+          const snowDepthVal = response.data.current?.snow_depth || 0;
+          const snowDepthCm = Math.round((Number(snowDepthVal) || 0) * toCm);
           
           return {
             elevation: band,
@@ -1294,6 +1300,8 @@ router.get('/:id/snow-depth-series', async (req: Request, res: Response) => {
 
     const times: string[] = response.data?.hourly?.time || [];
     const depths: number[] = response.data?.hourly?.snow_depth || [];
+    const unit = response.data?.hourly_units?.snow_depth;
+    const toCm = unit === 'cm' ? 1 : unit === 'm' ? 100 : 100;
     if (!Array.isArray(times) || !Array.isArray(depths) || times.length !== depths.length) {
       return res.status(502).json({ error: 'Invalid snow depth data from provider' });
     }
@@ -1302,9 +1310,10 @@ router.get('/:id/snow-depth-series', async (req: Request, res: Response) => {
     const daily: Record<string, number> = {};
     for (let i = 0; i < times.length; i++) {
       const t = times[i];
-      const vMeters = Number(depths[i] || 0);
-      const vCm = Math.max(0, Math.round(vMeters * 100));
-      const dateKey = (new Date(t)).toISOString().slice(0, 10);
+      const vRaw = Number(depths[i] || 0);
+      const vCm = Math.max(0, Math.round(vRaw * toCm));
+      // Open-Meteo returns time array in requested timezone ('auto'), safe to slice date
+      const dateKey = typeof t === 'string' ? t.slice(0, 10) : (new Date(t)).toISOString().slice(0, 10);
       daily[dateKey] = Math.max(daily[dateKey] ?? 0, vCm);
     }
 
