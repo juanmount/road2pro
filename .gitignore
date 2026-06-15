@@ -1,0 +1,41 @@
+node_modules/
+.DS_Store
+*.log
+.env
+dist/
+build/
+coverage/
+.vscode/
+.idea/
+*.swp
+*.swo
+.expo/
+Library/
+.eas.json
+# Node/React Native build artifacts
+node_modules/
+**/.DS_Store
+**/.env.local
+**/.expo/
+
+# Android
+mobile/android/.gradle/
+mobile/android/app/build/
+mobile/android/build/
+mobile/android/app/debug.keystore
+mobile/android/app/@juanmount__andes-powder.jks
+
+# iOS
+mobile/ios/Pods/
+mobile/ios/AndesPowder.xcworkspace/
+mobile/ios/AndesPowder.xcodeproj/project.xcworkspace/
+mobile/ios/.xcode.env.local
+
+# Bundles / caches
+**/.next/
+internal-weather-intel/.next/
+
+# Large artifacts
+*.aab
+application-*.aab
+
