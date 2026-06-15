@@ -104,21 +104,28 @@ class ForecastService {
       const yesterdayEnd = new Date(yesterday);
       yesterdayEnd.setHours(23, 59, 59, 999);
       
-      // Get yesterday's snowfall for each elevation from elevation_forecasts
+      // Get yesterday's snowfall for each elevation from a single authoritative forecast run
       const elevations = ['base', 'mid', 'summit'];
       
       for (const elevation of elevations) {
         const result = await client.query(
-          `SELECT 
-            SUM(snowfall_cm_corrected) as total_snowfall,
-            AVG(temperature_c) as avg_temp
-          FROM elevation_forecasts
-          WHERE resort_id = $1
-            AND elevation_band = $2
-            AND valid_time >= $3
-            AND valid_time <= $4
-            AND created_at >= NOW() - INTERVAL '2 days'
-          GROUP BY resort_id, elevation_band`,
+          `WITH run AS (
+             SELECT id
+             FROM forecast_runs
+             WHERE resort_id = $1
+               AND created_at <= $4
+             ORDER BY created_at DESC
+             LIMIT 1
+           )
+           SELECT 
+             SUM(snowfall_cm_corrected) as total_snowfall,
+             AVG(temperature_c) as avg_temp
+           FROM elevation_forecasts
+           WHERE resort_id = $1
+             AND elevation_band = $2
+             AND forecast_run_id = (SELECT id FROM run)
+             AND valid_time >= $3
+             AND valid_time <= $4`,
           [resort.id, elevation, yesterday.toISOString(), yesterdayEnd.toISOString()]
         );
         

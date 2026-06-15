@@ -192,12 +192,21 @@ router.post('/backfill-snowfall-history', async (req, res) => {
           const dayKey = d.toISOString().split('T')[0];
           // Aggregate using resort-local day boundaries
           const agg = await client.query(
-            `SELECT 
+            `WITH run AS (
+               SELECT id
+               FROM forecast_runs
+               WHERE resort_id = $1
+                 AND created_at <= (($4::date + INTERVAL '1 day') AT TIME ZONE $3)
+               ORDER BY created_at DESC
+               LIMIT 1
+             )
+             SELECT 
                SUM(snowfall_cm_corrected) AS total_snowfall,
                AVG(temperature_c) AS avg_temp
              FROM elevation_forecasts
              WHERE resort_id = $1
                AND elevation_band = $2
+               AND forecast_run_id = (SELECT id FROM run)
                AND (valid_time AT TIME ZONE $3) >= $4::date
                AND (valid_time AT TIME ZONE $3) < ($4::date + INTERVAL '1 day')`,
             [resort.id, elevation, tz, dayKey]
