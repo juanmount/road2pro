@@ -949,7 +949,7 @@ router.get('/:id/accumulation', async (req: Request, res: Response) => {
     const next = totalDays - last;
     const todayIndex = last;
 
-    const daysArr: Array<{ date: string; predicted_cm: number; run_timestamp: string | null; is_past: boolean }>= [];
+    const daysArr: Array<{ date: string; predicted_cm: number; run_timestamp: string | null; is_past: boolean; is_observed?: boolean }>= [];
     let totalPast = 0;
     let totalNext = 0;
 
@@ -990,6 +990,44 @@ router.get('/:id/accumulation', async (req: Request, res: Response) => {
         run_timestamp: row.run_timestamp || null,
         is_past: isPast,
       });
+    }
+
+    // Override past days with observed snowfall history when available
+    try {
+      const pastDates = daysArr.filter(d => d.is_past).map(d => d.date).sort();
+      if (pastDates.length > 0) {
+        const startDate = pastDates[0];
+        const endDate = pastDates[pastDates.length - 1];
+        const obsRes = await pool.query(
+          `SELECT to_char(date, 'YYYY-MM-DD') AS date_key, snowfall_cm
+           FROM snowfall_history
+           WHERE resort_id = $1
+             AND elevation_band = $2
+             AND date >= $3::date
+             AND date <= $4::date`,
+          [resort.id, elevationBand, startDate, endDate]
+        );
+        const obsMap = new Map<string, number>();
+        for (const row of obsRes.rows) {
+          const v = Number.parseFloat(row.snowfall_cm || 0);
+          if (Number.isFinite(v)) obsMap.set(row.date_key, v);
+        }
+        // Recompute past total using observed values when present
+        totalPast = 0;
+        for (const d of daysArr) {
+          if (d.is_past) {
+            const ov = obsMap.get(d.date);
+            if (ov != null) {
+              d.predicted_cm = Math.round(ov * 10) / 10;
+              d.is_observed = true;
+            }
+            totalPast += d.predicted_cm || 0;
+          }
+        }
+      }
+    } catch (e) {
+      // If snowfall_history table is missing or query fails, keep forecast-based values
+      console.warn('[ACCUMULATION] snowfall_history unavailable, using forecast-only for past days');
     }
 
     res.json({

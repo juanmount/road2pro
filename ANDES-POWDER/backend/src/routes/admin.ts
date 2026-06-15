@@ -118,4 +118,125 @@ router.get('/forecast-status', async (req, res) => {
   }
 });
 
+router.get('/snowfall-history', async (req, res) => {
+  try {
+    const { resort: resortParam, elevation, start, end } = req.query as any;
+    if (!resortParam) return res.status(400).json({ error: 'Missing resort param' });
+
+    const resortResult = await pool.query(
+      'SELECT id, slug, name FROM resorts WHERE slug = $1 OR id::text = $1',
+      [String(resortParam)]
+    );
+    if (resortResult.rows.length === 0) return res.status(404).json({ error: 'Resort not found' });
+
+    const resort = resortResult.rows[0];
+    const endDate = end ? String(end) : new Date(Date.now() - 24*60*60*1000).toISOString().split('T')[0];
+    const startDate = start ? String(start) : new Date(Date.now() - 8*24*60*60*1000).toISOString().split('T')[0];
+
+    const params: any[] = [resort.id, startDate, endDate];
+    let sql = `SELECT to_char(date, 'YYYY-MM-DD') AS date, elevation_band, snowfall_cm, temperature_avg_c
+               FROM snowfall_history
+               WHERE resort_id = $1 AND date >= $2::date AND date <= $3::date`;
+    if (elevation) {
+      sql += ' AND elevation_band = $4';
+      params.push(String(elevation));
+    }
+    sql += ' ORDER BY date ASC, elevation_band';
+
+    const r = await pool.query(sql, params);
+    res.json({ resort, startDate, endDate, count: r.rowCount, rows: r.rows });
+  } catch (error) {
+    console.error('Error reading snowfall_history:', error);
+    res.status(500).json({ error: 'Failed to read snowfall_history' });
+  }
+});
+
+router.post('/backfill-snowfall-history', async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const daysParam = (req.query.days || (req.body && req.body.days)) as any;
+    const singleResort = (req.query.resort || (req.body && req.body.resort)) as any;
+    const days = Math.max(1, Math.min(30, parseInt(String(daysParam || '10')) || 10));
+
+    const resortsSql = singleResort
+      ? 'SELECT id, name, slug, COALESCE(NULLIF(timezone, \'\'), \'America/Argentina/Buenos_Aires\') AS timezone FROM resorts WHERE slug = $1 OR id::text = $1'
+      : 'SELECT id, name, slug, COALESCE(NULLIF(timezone, \'\'), \'America/Argentina/Buenos_Aires\') AS timezone FROM resorts ORDER BY name';
+    const resortsParams = singleResort ? [String(singleResort)] : [];
+    const resorts = (await client.query(resortsSql, resortsParams)).rows;
+    if (resorts.length === 0) return res.status(404).json({ error: 'Resort(s) not found' });
+
+    const elevations = ['base', 'mid', 'summit'];
+
+    // We backfill up to yesterday to avoid partial current-day values
+    const end = new Date();
+    end.setDate(end.getDate() - 1);
+    end.setHours(0, 0, 0, 0);
+    const start = new Date(end);
+    start.setDate(end.getDate() - (days - 1));
+
+    let totalUpserts = 0;
+
+    for (const resort of resorts) {
+      // Sanitize timezone like in accumulation endpoint
+      const tzCandidate = resort.timezone || 'America/Argentina/Buenos_Aires';
+      const tz = typeof tzCandidate === 'string' && /^[A-Za-z_\\/+-]+$/.test(tzCandidate)
+        ? tzCandidate
+        : 'America/Argentina/Buenos_Aires';
+
+      for (const elevation of elevations) {
+        for (
+          let d = new Date(start);
+          d.getTime() <= end.getTime();
+          d.setDate(d.getDate() + 1)
+        ) {
+          const dayKey = d.toISOString().split('T')[0];
+          // Aggregate using resort-local day boundaries
+          const agg = await client.query(
+            `SELECT 
+               SUM(snowfall_cm_corrected) AS total_snowfall,
+               AVG(temperature_c) AS avg_temp
+             FROM elevation_forecasts
+             WHERE resort_id = $1
+               AND elevation_band = $2
+               AND (valid_time AT TIME ZONE $3) >= $4::date
+               AND (valid_time AT TIME ZONE $3) < ($4::date + INTERVAL '1 day')`,
+            [resort.id, elevation, tz, dayKey]
+          );
+
+          if (agg.rows.length > 0 && agg.rows[0].total_snowfall !== null) {
+            const snowfall = parseFloat(agg.rows[0].total_snowfall) || 0;
+            const avgTemp = agg.rows[0].avg_temp != null ? parseFloat(agg.rows[0].avg_temp) : null;
+
+            await client.query(
+              `INSERT INTO snowfall_history (
+                 resort_id, elevation_band, date, snowfall_cm, temperature_avg_c
+               ) VALUES ($1, $2, $3, $4, $5)
+               ON CONFLICT (resort_id, elevation_band, date)
+               DO UPDATE SET 
+                 snowfall_cm = EXCLUDED.snowfall_cm,
+                 temperature_avg_c = EXCLUDED.temperature_avg_c,
+                 created_at = NOW()`,
+              [resort.id, elevation, dayKey, snowfall, avgTemp]
+            );
+            totalUpserts += 1;
+          }
+        }
+      }
+    }
+
+    res.json({
+      success: true,
+      resortsProcessed: resorts.length,
+      daysBackfilled: days,
+      rowsUpserted: totalUpserts,
+      message: 'snowfall_history backfilled successfully'
+    });
+  } catch (error) {
+    console.error('Error backfilling snowfall_history:', error);
+    res.status(500).json({ error: 'Failed to backfill snowfall_history' });
+  } finally {
+    client.release();
+  }
+});
+
 export default router;
