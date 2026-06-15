@@ -29,6 +29,7 @@ export default function FourteenDayAccumulationCard({ resortSlug, elevation }: P
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<AccumResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [onGround7d, setOnGround7d] = useState<number>(0);
 
   useEffect(() => {
     setLoading(true);
@@ -40,6 +41,15 @@ export default function FourteenDayAccumulationCard({ resortSlug, elevation }: P
           params: { elevation, days: 14 },
         });
         setData(resp.data);
+
+        // Fetch snow depth series to compute on-ground accumulation for last 7 days
+        try {
+          const depth = await api.get<any>(`/resorts/${encodeURIComponent(resortSlug)}/snow-depth-series`, {
+            params: { elevation, days: 7 },
+          });
+          const val = Number(depth.data?.accumulationOnGround7d || 0);
+          setOnGround7d(Number.isFinite(val) ? val : 0);
+        } catch {}
       } catch (e) {
         try {
           const d = await api.get<any[]>(`/resorts/${encodeURIComponent(resortSlug)}/forecast/daily`, {
@@ -66,6 +76,15 @@ export default function FourteenDayAccumulationCard({ resortSlug, elevation }: P
             days: [...padPast, ...next],
           };
           setData(fallback);
+
+          // Attempt to fetch on-ground accumulation even in fallback
+          try {
+            const depth = await api.get<any>(`/resorts/${encodeURIComponent(resortSlug)}/snow-depth-series`, {
+              params: { elevation, days: 7 },
+            });
+            const val = Number(depth.data?.accumulationOnGround7d || 0);
+            setOnGround7d(Number.isFinite(val) ? val : 0);
+          } catch {}
         } catch (e2) {
           setError('No se pudo cargar el acumulado.');
         }
@@ -81,9 +100,9 @@ export default function FourteenDayAccumulationCard({ resortSlug, elevation }: P
   }, [data]);
 
   const totals = useMemo(() => {
-    if (!data) return { last: 0, next: 0 };
-    return { last: data.totals.last7Days, next: data.totals.next7Days };
-  }, [data]);
+    if (!data) return { last: onGround7d || 0, next: 0 };
+    return { last: onGround7d || 0, next: data.totals.next7Days };
+  }, [data, onGround7d]);
 
   return (
     <View style={styles.container}>
@@ -93,7 +112,7 @@ export default function FourteenDayAccumulationCard({ resortSlug, elevation }: P
       </View>
 
       <View style={styles.totalsRow}>
-        <View style={styles.totalBox}><Text style={styles.totalLabel}>Últimos 7</Text><Text style={styles.totalValue}>{totals.last.toFixed(totals.last < 1 && totals.last > 0 ? 1 : 0)}</Text><Text style={styles.totalUnit}>cm</Text></View>
+        <View style={styles.totalBox}><Text style={styles.totalLabel}>Suelo últimos 7</Text><Text style={styles.totalValue}>{totals.last.toFixed(totals.last < 1 && totals.last > 0 ? 1 : 0)}</Text><Text style={styles.totalUnit}>cm</Text></View>
         <View style={styles.totalBox}><Text style={styles.totalLabel}>Próximos 7</Text><Text style={styles.totalValue}>{totals.next.toFixed(totals.next < 1 && totals.next > 0 ? 1 : 0)}</Text><Text style={styles.totalUnit}>cm</Text></View>
       </View>
 

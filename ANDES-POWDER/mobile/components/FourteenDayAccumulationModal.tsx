@@ -29,6 +29,7 @@ export default function FourteenDayAccumulationModal({ visible, onClose, resortS
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<AccumResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [snowDepthCm, setSnowDepthCm] = useState<number>(0);
 
   useEffect(() => {
     if (!visible) return;
@@ -41,6 +42,13 @@ export default function FourteenDayAccumulationModal({ visible, onClose, resortS
           params: { elevation, days: 14 },
         });
         setData(resp.data);
+
+        try {
+          const depth = await api.get<any>(`/resorts/${encodeURIComponent(resortSlug)}/snow-depth`);
+          const list = Array.isArray(depth.data?.snowDepth) ? depth.data.snowDepth : [];
+          const byBand = list.find((d: any) => d.elevation === elevation);
+          setSnowDepthCm(Number(byBand?.snowDepthCm || 0));
+        } catch {}
       } catch (e) {
         try {
           const d = await api.get<any[]>(`/resorts/${encodeURIComponent(resortSlug)}/forecast/daily`, {
@@ -67,6 +75,13 @@ export default function FourteenDayAccumulationModal({ visible, onClose, resortS
             days: [...padPast, ...next],
           };
           setData(fallback);
+
+          try {
+            const depth = await api.get<any>(`/resorts/${encodeURIComponent(resortSlug)}/snow-depth`);
+            const list = Array.isArray(depth.data?.snowDepth) ? depth.data.snowDepth : [];
+            const byBand = list.find((dd: any) => dd.elevation === elevation);
+            setSnowDepthCm(Number(byBand?.snowDepthCm || 0));
+          } catch {}
         } catch (e2) {
           setError('No se pudo cargar el acumulado.');
         }
@@ -77,9 +92,9 @@ export default function FourteenDayAccumulationModal({ visible, onClose, resortS
   }, [visible, resortSlug, elevation]);
 
   const totals = useMemo(() => {
-    if (!data) return { last: 0, next: 0 };
-    return { last: data.totals.last7Days, next: data.totals.next7Days };
-  }, [data]);
+    if (!data) return { last: snowDepthCm || 0, next: 0 };
+    return { last: snowDepthCm || 0, next: data.totals.next7Days };
+  }, [data, snowDepthCm]);
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
@@ -97,7 +112,7 @@ export default function FourteenDayAccumulationModal({ visible, onClose, resortS
 
           <View style={styles.totalsRow}>
             <View style={styles.totalBox}>
-              <Text style={styles.totalLabel}>Últimos 7</Text>
+              <Text style={styles.totalLabel}>Nieve en el suelo</Text>
               <Text style={styles.totalValue}>{totals.last.toFixed(totals.last < 1 && totals.last > 0 ? 1 : 0)}</Text>
               <Text style={styles.totalUnit}>cm</Text>
             </View>
@@ -127,15 +142,17 @@ export default function FourteenDayAccumulationModal({ visible, onClose, resortS
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.listContent}
               renderItem={({ item, index }) => {
-                const max = Math.max(1, ...data.days.map((d) => d.predicted_cm || 0));
-                const h = Math.max(3, (item.predicted_cm / max) * 90);
+                const futureVals = data.days.filter((d) => !d.is_past).map((d) => d.predicted_cm || 0);
+                const max = Math.max(1, ...futureVals);
+                const value = item.is_past ? 0 : (item.predicted_cm || 0);
+                const h = Math.max(3, (value / max) * 90);
                 const isTodaySep = index === data.todayIndex;
                 return (
                   <View style={styles.dayCol}>
                     <View style={[styles.barWrap, isTodaySep && styles.todaySep]}> 
-                      {item.predicted_cm > 0 && (
+                      {value > 0 && (
                         <Text style={[styles.barVal, item.is_past ? styles.barValPast : styles.barValFuture]}>
-                          {item.predicted_cm < 1 && item.predicted_cm > 0 ? item.predicted_cm.toFixed(1) : Math.round(item.predicted_cm)}
+                          {value < 1 && value > 0 ? value.toFixed(1) : Math.round(value)}
                         </Text>
                       )}
                       <View
@@ -143,7 +160,7 @@ export default function FourteenDayAccumulationModal({ visible, onClose, resortS
                           styles.bar,
                           { height: h },
                           item.is_past ? styles.barPast : styles.barFuture,
-                          item.predicted_cm === 0 && styles.barEmpty,
+                          value === 0 && styles.barEmpty,
                         ]}
                       />
                     </View>
