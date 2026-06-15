@@ -213,7 +213,12 @@ router.post('/backfill-snowfall-history', async (req, res) => {
           );
 
           if (agg.rows.length > 0 && agg.rows[0].total_snowfall !== null) {
-            const snowfall = parseFloat(agg.rows[0].total_snowfall) || 0;
+            let snowfall = parseFloat(agg.rows[0].total_snowfall) || 0;
+            const maxByBand: Record<string, number> = { base: 60, mid: 80, summit: 100 };
+            if (Number.isFinite(snowfall)) {
+              const cap = maxByBand[elevation] ?? 80;
+              if (snowfall > cap) snowfall = cap;
+            }
             const avgTemp = agg.rows[0].avg_temp != null ? parseFloat(agg.rows[0].avg_temp) : null;
 
             await client.query(
@@ -243,6 +248,34 @@ router.post('/backfill-snowfall-history', async (req, res) => {
   } catch (error) {
     console.error('Error backfilling snowfall_history:', error);
     res.status(500).json({ error: 'Failed to backfill snowfall_history' });
+  } finally {
+    client.release();
+  }
+});
+
+router.post('/sanitize-snowfall-history', async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const { resort: resortParam, elevation, start, end, max } = req.query as any;
+    if (!resortParam || !elevation || !start || !end || !max) return res.status(400).json({ error: 'Missing resort, elevation, start, end, or max' });
+
+    const r = await client.query('SELECT id, slug, name FROM resorts WHERE slug = $1 OR id::text = $1', [String(resortParam)]);
+    if (r.rows.length === 0) return res.status(404).json({ error: 'Resort not found' });
+    const resort = r.rows[0];
+
+    const cap = Math.max(0, Number(max));
+    const result = await client.query(
+      `UPDATE snowfall_history
+       SET snowfall_cm = LEAST(snowfall_cm, $5), created_at = NOW()
+       WHERE resort_id = $1 AND elevation_band = $2
+         AND date >= $3::date AND date <= $4::date`,
+      [resort.id, String(elevation), String(start), String(end), cap]
+    );
+
+    res.json({ success: true, resort: { id: resort.id, slug: resort.slug, name: resort.name }, elevation: String(elevation), start: String(start), end: String(end), max: cap, rowsUpdated: result.rowCount });
+  } catch (error) {
+    console.error('Error sanitizing snowfall_history:', error);
+    res.status(500).json({ error: 'Failed to sanitize snowfall_history' });
   } finally {
     client.release();
   }

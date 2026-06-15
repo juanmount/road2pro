@@ -104,7 +104,7 @@ class ForecastService {
       const yesterdayEnd = new Date(yesterday);
       yesterdayEnd.setHours(23, 59, 59, 999);
       
-      // Get yesterday's snowfall for each elevation from a single authoritative forecast run
+      // Get yesterday's snowfall for each elevation from elevation_forecasts
       const elevations = ['base', 'mid', 'summit'];
       
       for (const elevation of elevations) {
@@ -130,7 +130,12 @@ class ForecastService {
         );
         
         if (result.rows.length > 0 && result.rows[0].total_snowfall !== null) {
-          const snowfall = parseFloat(result.rows[0].total_snowfall) || 0;
+          let snowfall = parseFloat(result.rows[0].total_snowfall) || 0;
+          const maxByBand: Record<string, number> = { base: 60, mid: 80, summit: 100 };
+          if (Number.isFinite(snowfall)) {
+            const cap = maxByBand[elevation] ?? 80;
+            if (snowfall > cap) snowfall = cap;
+          }
           const avgTemp = parseFloat(result.rows[0].avg_temp);
           
           // Insert or update history (upsert)
