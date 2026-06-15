@@ -131,7 +131,7 @@ class ForecastService {
         
         if (result.rows.length > 0 && result.rows[0].total_snowfall !== null) {
           let snowfall = parseFloat(result.rows[0].total_snowfall) || 0;
-          const maxByBand: Record<string, number> = { base: 60, mid: 80, summit: 100 };
+          const maxByBand: Record<string, number> = { base: 30, mid: 40, summit: 50 };
           if (Number.isFinite(snowfall)) {
             const cap = maxByBand[elevation] ?? 80;
             if (snowfall > cap) snowfall = cap;
