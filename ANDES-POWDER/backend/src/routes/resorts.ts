@@ -962,7 +962,7 @@ router.get('/:id/accumulation', async (req: Request, res: Response) => {
           SELECT id, created_at
           FROM forecast_runs
           WHERE resort_id = $2
-            AND created_at <= ((SELECT day_start_local FROM bounds) AT TIME ZONE '${tz}')
+            AND created_at <= (((SELECT day_start_local FROM bounds) + interval '1 day') AT TIME ZONE '${tz}')
           ORDER BY created_at DESC
           LIMIT 1
         )
@@ -1250,6 +1250,85 @@ router.get('/:id/snow-depth', async (req: Request, res: Response) => {
       source: 'Error - returning default values',
       note: 'Failed to fetch snow depth: ' + errorMessage
     });
+  }
+});
+
+// Get snow depth daily series and on-ground accumulation for last N days
+router.get('/:id/snow-depth-series', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const elevationBand = (req.query.elevation as string) || 'mid';
+    const daysParam = parseInt((req.query.days as string) || '7', 10);
+    const days = Math.max(1, Math.min(30, Number.isFinite(daysParam) ? daysParam : 7));
+
+    const resortResult = await pool.query(
+      `SELECT * FROM resorts WHERE slug = $1 
+       OR (id::text = $1 AND $1 ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$')`,
+      [id]
+    );
+    if (resortResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Resort not found' });
+    }
+    const resort = resortResult.rows[0];
+
+    const meters = elevationBand === 'base' ? resort.base_elevation
+      : elevationBand === 'summit' ? resort.summit_elevation
+      : resort.mid_elevation;
+
+    if (!meters || meters <= 0) {
+      return res.status(400).json({ error: 'Invalid or missing elevation meters for resort' });
+    }
+
+    const axios = (await import('axios')).default;
+    const response = await axios.get('https://api.open-meteo.com/v1/forecast', {
+      params: {
+        latitude: resort.latitude,
+        longitude: resort.longitude,
+        elevation: meters,
+        hourly: 'snow_depth',
+        past_days: days,
+        forecast_days: 1,
+        timezone: 'auto'
+      }
+    });
+
+    const times: string[] = response.data?.hourly?.time || [];
+    const depths: number[] = response.data?.hourly?.snow_depth || [];
+    if (!Array.isArray(times) || !Array.isArray(depths) || times.length !== depths.length) {
+      return res.status(502).json({ error: 'Invalid snow depth data from provider' });
+    }
+
+    // Group by local date and take daily max snow depth (meters -> cm)
+    const daily: Record<string, number> = {};
+    for (let i = 0; i < times.length; i++) {
+      const t = times[i];
+      const vMeters = Number(depths[i] || 0);
+      const vCm = Math.max(0, Math.round(vMeters * 100));
+      const dateKey = (new Date(t)).toISOString().slice(0, 10);
+      daily[dateKey] = Math.max(daily[dateKey] ?? 0, vCm);
+    }
+
+    const series = Object.keys(daily).sort().map(k => ({ date: k, snowDepthCmMax: daily[k] }));
+
+    // Sum only positive day-to-day increases as on-ground accumulation last N days
+    let accumulationOnGround = 0;
+    for (let i = 1; i < series.length; i++) {
+      const inc = series[i].snowDepthCmMax - series[i - 1].snowDepthCmMax;
+      if (inc > 0) accumulationOnGround += inc;
+    }
+
+    const currentDepthCm = series.length > 0 ? series[series.length - 1].snowDepthCmMax : 0;
+
+    res.json({
+      resort: { id: resort.id, name: resort.name, slug: resort.slug },
+      elevation: elevationBand,
+      days: series,
+      currentDepthCm,
+      accumulationOnGround7d: accumulationOnGround
+    });
+  } catch (error) {
+    console.error('Error fetching snow depth series:', error);
+    res.status(500).json({ error: 'Failed to fetch snow depth series' });
   }
 });
 
