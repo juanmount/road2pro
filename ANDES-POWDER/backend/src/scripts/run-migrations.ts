@@ -35,9 +35,13 @@ async function runMigrations() {
         await pool.query(sql);
         console.log(`✅ Migration ${file} completed successfully`);
       } catch (error: any) {
-        // Check if error is "already exists" - that's OK
-        if (error.code === '42P07' || error.message.includes('already exists')) {
-          console.log(`⚠️  Migration ${file} - objects already exist (skipping)`);
+        if (
+          error?.code === '42P07' ||
+          String(error?.message || '').includes('already exists') ||
+          error?.code === '23505' ||
+          String(error?.message || '').includes('duplicate key value')
+        ) {
+          console.log(`⚠️  Migration ${file} - idempotent skip (${error?.code || 'N/A'})`);
         } else {
           throw error;
         }
