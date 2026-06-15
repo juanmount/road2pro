@@ -923,6 +923,92 @@ function generateConditionsText(hourly: any): string {
   return parts.length > 0 ? parts.join(', ') : 'Standard conditions';
 }
 
+router.get('/:id/accumulation', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { elevation = 'mid', days = '14' } = req.query as any;
+
+    const resortResult = await pool.query(
+      'SELECT * FROM resorts WHERE slug = $1 OR id::text = $1',
+      [id]
+    );
+
+    if (resortResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Resort not found' });
+    }
+
+    const resort = resortResult.rows[0];
+    const tzCandidate = resort.timezone || 'America/Argentina/Buenos_Aires';
+    const tz = typeof tzCandidate === 'string' && /^[A-Za-z_\\/+-]+$/.test(tzCandidate)
+      ? tzCandidate
+      : 'America/Argentina/Buenos_Aires';
+
+    const elevationBand = String(elevation);
+    const totalDays = Math.max(2, Math.min(30, parseInt(String(days)) || 14));
+    const last = Math.floor(totalDays / 2);
+    const next = totalDays - last;
+    const todayIndex = last;
+
+    const daysArr: Array<{ date: string; predicted_cm: number; run_timestamp: string | null; is_past: boolean }>= [];
+    let totalPast = 0;
+    let totalNext = 0;
+
+    for (let offset = -last; offset < next; offset++) {
+      const sql = `
+        WITH bounds AS (
+          SELECT date_trunc('day', (NOW() AT TIME ZONE '${tz}')) + ($1 || ' day')::interval AS day_start_local
+        ),
+        run AS (
+          SELECT id, created_at
+          FROM forecast_runs
+          WHERE resort_id = $2
+            AND created_at <= ((SELECT day_start_local FROM bounds) AT TIME ZONE '${tz}')
+          ORDER BY created_at DESC
+          LIMIT 1
+        )
+        SELECT
+          to_char((SELECT day_start_local FROM bounds),'YYYY-MM-DD') AS day_key,
+          (SELECT created_at FROM run) AS run_timestamp,
+          COALESCE((
+            SELECT SUM(snowfall_cm_corrected)
+            FROM elevation_forecasts ef
+            WHERE ef.resort_id = $2
+              AND ef.elevation_band = $3
+              AND ef.forecast_run_id = (SELECT id FROM run)
+              AND (ef.valid_time AT TIME ZONE '${tz}') >= (SELECT day_start_local FROM bounds)
+              AND (ef.valid_time AT TIME ZONE '${tz}') < (SELECT day_start_local FROM bounds) + interval '1 day'
+          ), 0) AS predicted_cm`;
+
+      const r = await pool.query(sql, [offset, resort.id, elevationBand]);
+      const row = r.rows[0] || {};
+      const predicted = Number.parseFloat(row.predicted_cm || 0);
+      const isPast = offset < 0;
+      if (isPast) totalPast += predicted; else totalNext += predicted;
+      daysArr.push({
+        date: row.day_key || '',
+        predicted_cm: Math.round((Number.isFinite(predicted) ? predicted : 0) * 10) / 10,
+        run_timestamp: row.run_timestamp || null,
+        is_past: isPast,
+      });
+    }
+
+    res.json({
+      resort: { id: resort.id, name: resort.name, slug: resort.slug },
+      elevation: elevationBand,
+      timezone: tz,
+      todayIndex,
+      totals: {
+        last7Days: Math.round(totalPast * 10) / 10,
+        next7Days: Math.round(totalNext * 10) / 10,
+      },
+      days: daysArr,
+    });
+  } catch (error) {
+    console.error('[ACCUMULATION] Error:', error);
+    res.status(500).json({ error: 'Failed to compute accumulation' });
+  }
+});
+
 router.get('/:id/forecast/daily', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;

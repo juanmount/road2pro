@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 
 interface DayData {
   date: string;
@@ -13,9 +13,10 @@ interface DayData {
 interface WeeklySummaryProps {
   days: DayData[];
   elevation: string;
+  onOpenAccumulation?: () => void;
 }
 
-export const WeeklySummary: React.FC<WeeklySummaryProps> = ({ days, elevation }) => {
+export const WeeklySummary: React.FC<WeeklySummaryProps> = ({ days, elevation, onOpenAccumulation }) => {
   // Calculate total snowfall
   const totalSnowfall = days.reduce((sum, day) => sum + (day.snowfall || 0), 0);
   
@@ -44,6 +45,9 @@ export const WeeklySummary: React.FC<WeeklySummaryProps> = ({ days, elevation })
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>PRÓXIMOS 7 DÍAS</Text>
+        <TouchableOpacity onPress={onOpenAccumulation} activeOpacity={0.8} style={styles.headerAction}>
+          <Text style={styles.headerActionText}>Ver 14 días</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Total and Chart Combined */}
@@ -131,12 +135,26 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#e2e8f0',
     paddingBottom: 12,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   title: {
     fontSize: 15,
     fontWeight: '700',
     color: '#0f172a',
     letterSpacing: 0.3,
+  },
+  headerAction: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    backgroundColor: '#f1f5f9',
+    borderRadius: 8,
+  },
+  headerActionText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#0ea5e9',
   },
   mainSection: {
     gap: 20,

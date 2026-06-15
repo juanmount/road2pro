@@ -3,11 +3,37 @@ import { Stack, useRouter, useSegments } from 'expo-router';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider, useAuth } from '../contexts/AuthContext';
 import notificationService from '../services/notifications';
+import { initMeta } from '../services/meta';
+import { Platform } from 'react-native';
+import { getTrackingPermissionsAsync, requestTrackingPermissionsAsync } from 'expo-tracking-transparency';
+import Constants from 'expo-constants';
 
 function RootLayoutNav() {
   const { user, loading } = useAuth();
   const segments = useSegments();
   const router = useRouter();
+
+  useEffect(() => {
+    (async () => {
+      try {
+        await initMeta();
+      } catch {}
+      
+      if (Platform.OS === 'ios') {
+        let { status } = await getTrackingPermissionsAsync();
+        if (status !== 'granted') {
+          const res = await requestTrackingPermissionsAsync();
+          status = res.status;
+        }
+        if (Constants?.appOwnership !== 'expo') {
+          try {
+            const { Settings } = await import('react-native-fbsdk-next');
+            Settings.setAdvertiserTrackingEnabled(status === 'granted');
+          } catch {}
+        }
+      }
+    })();
+  }, []);
 
   useEffect(() => {
     if (loading) return;
