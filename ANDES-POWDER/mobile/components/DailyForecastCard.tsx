@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, LayoutAnimation, Platform, UIManager, ImageBackground, Modal } from 'react-native';
 import { StormCrossingBadge } from './StormCrossingBadge';
-import { ConfidenceBadge } from './ConfidenceBadge';
 import { getWindDirectionLabel } from '../utils/wind-narrative';
 import HourlyForecastModal from './HourlyForecastModal';
 
@@ -1229,11 +1228,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: '#0f172a',
-  },
-  confidenceBadgeContainer: {
-    alignItems: 'center',
-    marginTop: 8,
-    marginBottom: 4,
   },
   confidenceSection: {
     marginVertical: 16,

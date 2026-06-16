@@ -9,7 +9,6 @@ import { DailyForecastCard } from '../../../../components/DailyForecastCard';
 import { SnowfallChart } from '../../../../components/SnowfallChart';
 import { TemperatureCurve } from '../../../../components/TemperatureCurve';
 import { WebcamsModal } from '../../../../components/WebcamsModal';
-import { WeeklySummary } from '../../../../components/WeeklySummary';
 import FourteenDayAccumulationCard from '../../../../components/FourteenDayAccumulationCard';
 import FourteenDayAccumulationModal from '../../../../components/FourteenDayAccumulationModal';
 import BestTimeCard from '../../../../components/BestTimeCard';
@@ -1506,7 +1505,11 @@ export default function ResortDetailScreen() {
       )}
 
       {/* Unified 14-Day Accumulation Card (past + future in one) */}
-      <FourteenDayAccumulationCard resortSlug={String(id)} elevation={selectedElevation} />
+      <FourteenDayAccumulationCard
+        resortSlug={String(id)}
+        elevation={selectedElevation}
+        onOpenDetails={() => setAccumModalVisible(true)}
+      />
 
       </ScrollView>
 
