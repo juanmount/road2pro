@@ -88,10 +88,32 @@ function calcSnowEventProbability(
   snowfall: number
 ): number | null {
   if (snowfall < 0.5) return null;
-  if (confidenceScore == null || stormScore == null) return null;
-  // Storm crossing is the gate: P(snow) = P(storm) × modifier(confidence)
-  // modifier ranges 0.5 → 1.0 as confidence goes 0 → 100
-  const modifier = 0.5 + 0.5 * (confidenceScore / 100);
+  if (confidenceScore == null && stormScore == null) return null;
+
+  // confidenceScore comes in as leadTimeFactor * 10 → range 5–10
+  // Normalize to 0–100: (val - 5) / 5 * 100
+  const normConf = confidenceScore != null
+    ? Math.max(0, Math.min(100, ((confidenceScore - 5) / 5) * 100))
+    : null;
+
+  // Storm crossing not available → use confidence alone (cap 70%)
+  if (stormScore == null) {
+    if (normConf == null) return null;
+    const raw = (normConf / 100) * 70;
+    const result = Math.round(Math.min(70, raw) / 5) * 5;
+    return result > 0 ? result : null;
+  }
+
+  // Confidence not available → use storm score at 75% face value
+  if (normConf == null) {
+    const result = Math.round(Math.min(75, (stormScore / 100) * 75) / 5) * 5;
+    return result > 0 ? result : null;
+  }
+
+  // Both available: multiplicative gate formula
+  // P(snow) = P(storm crosses) × modifier(confidence)
+  // modifier: 0.5 → 1.0 as confidence goes 0 → 100
+  const modifier = 0.5 + 0.5 * (normConf / 100);
   const raw = (stormScore / 100) * modifier * 100;
   const capped = Math.min(85, raw);
   return Math.round(capped / 5) * 5;
