@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Modal, View, Text, TouchableOpacity, FlatList, StyleSheet, ActivityIndicator } from 'react-native';
 import api from '../config/api';
 
@@ -30,6 +30,7 @@ export default function FourteenDayAccumulationModal({ visible, onClose, resortS
   const [data, setData] = useState<AccumResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [snowDepthCm, setSnowDepthCm] = useState<number>(0);
+  const listRef = useRef<FlatList<AccumDay>>(null);
 
   useEffect(() => {
     if (!visible) return;
@@ -141,15 +142,36 @@ export default function FourteenDayAccumulationModal({ visible, onClose, resortS
               keyExtractor={(item) => item.date}
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.listContent}
+              initialScrollIndex={data.todayIndex}
+              getItemLayout={(_, index) => {
+                // Item width and spacing must match styles.dayCol width and listContent padding/gap
+                const ITEM_WIDTH = 40; // styles.dayCol.width
+                const ITEM_SPACING = 10; // styles.listContent.gap
+                const CONTAINER_PADDING = 16; // styles.listContent.padding
+                const length = ITEM_WIDTH + ITEM_SPACING;
+                const offset = CONTAINER_PADDING + length * index;
+                return { length, offset, index };
+              }}
+              ref={listRef}
+              onScrollToIndexFailed={(info) => {
+                // Fallback: wait for layout then retry
+                setTimeout(() => {
+                  listRef.current?.scrollToIndex({ index: info.index, animated: false, viewPosition: 0 });
+                }, 50);
+              }}
               renderItem={({ item, index }) => {
-                const futureVals = data.days.filter((d) => !d.is_past).map((d) => d.predicted_cm || 0);
-                const max = Math.max(1, ...futureVals);
-                const value = item.is_past ? 0 : (item.predicted_cm || 0);
+                const allVals = data.days.map((d) => d.predicted_cm || 0);
+                const max = Math.max(1, ...allVals);
+                const value = item.predicted_cm || 0;
                 const h = Math.max(3, (value / max) * 90);
-                const isTodaySep = index === data.todayIndex;
+                const isToday = index === data.todayIndex;
+                const label = isToday
+                  ? 'HOY'
+                  : new Date(item.date + 'T00:00:00').toLocaleDateString('es-AR', { weekday: 'short' }).toUpperCase();
                 return (
                   <View style={styles.dayCol}>
-                    <View style={[styles.barWrap, isTodaySep && styles.todaySep]}> 
+                    {isToday && <Text style={styles.todayLabel}>↓</Text>}
+                    <View style={[styles.barWrap, isToday && styles.todaySep]}>
                       {value > 0 && (
                         <Text style={[styles.barVal, item.is_past ? styles.barValPast : styles.barValFuture]}>
                           {value < 1 && value > 0 ? value.toFixed(1) : Math.round(value)}
@@ -164,7 +186,7 @@ export default function FourteenDayAccumulationModal({ visible, onClose, resortS
                         ]}
                       />
                     </View>
-                    <Text style={styles.dayLabel}>{new Date(item.date + 'T00:00:00').toLocaleDateString('es-AR', { weekday: 'short' }).toUpperCase()}</Text>
+                    <Text style={[styles.dayLabel, isToday && styles.todayDayLabel]}>{label}</Text>
                   </View>
                 );
               }}
@@ -203,4 +225,6 @@ const styles = StyleSheet.create({
   barEmpty: { backgroundColor: '#e2e8f0' },
   dayLabel: { fontSize: 10, fontWeight: '600', color: '#64748b' },
   todaySep: { borderRightWidth: 1, borderRightColor: '#e5e7eb' },
+  todayLabel: { fontSize: 10, fontWeight: '800', color: '#0ea5e9', textAlign: 'center', marginBottom: 2 },
+  todayDayLabel: { color: '#0ea5e9', fontWeight: '800' },
 });
