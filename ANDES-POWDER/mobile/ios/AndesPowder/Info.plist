@@ -19,7 +19,7 @@
     <key>CFBundlePackageType</key>
     <string>$(PRODUCT_BUNDLE_PACKAGE_TYPE)</string>
     <key>CFBundleShortVersionString</key>
-    <string>1.0.28</string>
+    <string>1.0.29</string>
     <key>CFBundleSignature</key>
     <string>????</string>
     <key>CFBundleURLTypes</key>
@@ -29,11 +29,37 @@
         <array>
           <string>andespowder</string>
           <string>com.andespowder.app</string>
+          <string>com.googleusercontent.apps.947154519695-0orokrek5qi0vs0975rvmrtndmeis4nq</string>
         </array>
       </dict>
     </array>
     <key>CFBundleVersion</key>
-    <string>12</string>
+    <string>17</string>
+    <key>FacebookAppID</key>
+    <string>1486021289325289</string>
+    <key>FacebookClientToken</key>
+    <string>5d2dc36e41cfeda17905633ea9c9ba1d</string>
+    <key>FacebookDisplayName</key>
+    <string>Andes Powder</string>
+    <key>FacebookAutoInitEnabled</key>
+    <true/>
+    <key>FacebookAutoLogAppEventsEnabled</key>
+    <true/>
+    <key>FacebookAdvertiserIDCollectionEnabled</key>
+    <true/>
+    <key>NSUserTrackingUsageDescription</key>
+    <string>Usamos tu ID de publicidad para medir instalaciones y mejorar nuestras campañas. No vendemos tus datos.</string>
+    <key>SKAdNetworkItems</key>
+    <array>
+      <dict>
+        <key>SKAdNetworkIdentifier</key>
+        <string>v9wttpbfk9.skadnetwork</string>
+      </dict>
+      <dict>
+        <key>SKAdNetworkIdentifier</key>
+        <string>n38lu8286q.skadnetwork</string>
+      </dict>
+    </array>
     <key>LSMinimumSystemVersion</key>
     <string>12.0</string>
     <key>LSRequiresIPhoneOS</key>
