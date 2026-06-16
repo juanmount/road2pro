@@ -82,6 +82,21 @@ interface DailyForecastCardProps {
   elevationLabel?: string;
 }
 
+function calcSnowEventProbability(
+  confidenceScore: number | undefined,
+  stormScore: number | undefined,
+  snowfall: number
+): number | null {
+  if (snowfall < 0.5) return null;
+  if (confidenceScore == null || stormScore == null) return null;
+  // Storm crossing is the gate: P(snow) = P(storm) × modifier(confidence)
+  // modifier ranges 0.5 → 1.0 as confidence goes 0 → 100
+  const modifier = 0.5 + 0.5 * (confidenceScore / 100);
+  const raw = (stormScore / 100) * modifier * 100;
+  const capped = Math.min(85, raw);
+  return Math.round(capped / 5) * 5;
+}
+
 export function DailyForecastCard({
   day,
   date,
@@ -225,53 +240,22 @@ export function DailyForecastCard({
         )}
       </View>
       
-      {/* Confidence Badge */}
-      {confidenceScore !== undefined && totalPrecip > 0 && (
-        <View style={styles.confidenceBadgeContainer}>
-          <ConfidenceBadge score={confidenceScore} compact={true} />
-        </View>
-      )}
-      
-      {/* Info Row */}
-      {(snowReality || stormCrossing) && totalPrecip > 0 && (
-        <View style={styles.infoRow}>
-          {snowReality && (
-            <TouchableOpacity 
-              onPress={() => setShowSnowRealityModal(true)}
-              style={styles.infoItem}
-            >
-              <Text style={styles.infoLabel}>Tipo</Text>
-              <Text style={[
-                styles.infoValue,
-                snowReality.snowQuality === 'POWDER' && styles.qualityColorPowder,
-                snowReality.snowQuality === 'PACKED' && styles.qualityColorPacked,
-                snowReality.snowQuality === 'DENSE' && styles.qualityColorDense,
-                snowReality.snowQuality === 'WET' && styles.qualityColorWet,
-              ]}>{snowReality.snowQuality}</Text>
-            </TouchableOpacity>
-          )}
-          
-          {snowReality && stormCrossing && (
-            <View style={styles.infoSeparator} />
-          )}
-          
-          {stormCrossing && (
-            <View style={styles.infoItem}>
-              <Text style={styles.infoLabel}>Prob. Tormenta</Text>
-              <Text style={[
-                styles.infoValue,
-                stormCrossing.category === 'HIGH' && styles.stormColorHigh,
-                stormCrossing.category === 'MEDIUM' && styles.stormColorMedium,
-                stormCrossing.category === 'LOW' && styles.stormColorLow,
-              ]}>
-                {stormCrossing.category === 'HIGH' ? 'ALTA' : 
-                 stormCrossing.category === 'MEDIUM' ? 'MODERADA' : 
-                 'BAJA'}
-              </Text>
-            </View>
-          )}
-        </View>
-      )}
+      {/* Snow Event Probability — single unified indicator */}
+      {(() => {
+        const prob = calcSnowEventProbability(
+          confidenceScore,
+          stormCrossing?.score,
+          snowfall
+        );
+        if (prob === null) return null;
+        const color = prob >= 70 ? '#10b981' : prob >= 45 ? '#f59e0b' : '#94a3b8';
+        return (
+          <View style={styles.snowProbContainer}>
+            <Text style={styles.snowProbLabel}>PROB. NEVADA</Text>
+            <Text style={[styles.snowProbValue, { color }]}>{prob}%</Text>
+          </View>
+        );
+      })()}
     </TouchableOpacity>
 
       <Modal
@@ -572,7 +556,7 @@ export function DailyForecastCard({
           windDirection: h.windDirection || 0,
           humidity: h.humidity || 70,
           cloudCover: 0,
-          freezingLevel: h.freezingLevel || 2000,
+          freezingLevel: (() => { const v = h.freezingLevel; return (v !== null && v !== undefined && v >= 0 && v <= 7000) ? v : 2000; })(),
           powderScore: 0,
           icon: h.icon || '☁️'
         }));
@@ -584,6 +568,25 @@ export function DailyForecastCard({
 }
 
 const styles = StyleSheet.create({
+  snowProbContainer: {
+    marginTop: 8,
+    alignItems: 'center',
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(186, 230, 253, 0.5)',
+  },
+  snowProbLabel: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: '#94a3b8',
+    letterSpacing: 0.5,
+    marginBottom: 2,
+  },
+  snowProbValue: {
+    fontSize: 18,
+    fontWeight: '800',
+    letterSpacing: -0.5,
+  },
   card: {
     width: 110,
     minHeight: 200,
