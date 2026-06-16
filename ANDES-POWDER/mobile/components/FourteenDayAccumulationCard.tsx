@@ -1,5 +1,6 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, ActivityIndicator } from 'react-native';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { View, Text, StyleSheet, FlatList, ActivityIndicator, TouchableOpacity } from 'react-native';
+import type { FlatList as FlatListType } from 'react-native';
 import api from '../config/api';
 
 export type ElevationBand = 'base' | 'mid' | 'summit';
@@ -23,13 +24,17 @@ type AccumResponse = {
 type Props = {
   resortSlug: string;
   elevation: ElevationBand | string;
+  onOpenDetails?: () => void;
 };
 
-export default function FourteenDayAccumulationCard({ resortSlug, elevation }: Props) {
+export default function FourteenDayAccumulationCard({ resortSlug, elevation, onOpenDetails }: Props) {
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<AccumResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [onGround7d, setOnGround7d] = useState<number>(0);
+  const [snowDepthCm, setSnowDepthCm] = useState<number>(0);
+  const [pastDailyIncrements, setPastDailyIncrements] = useState<Record<string, number>>({});
+  const listRef = useRef<FlatListType<AccumDay>>(null);
 
   useEffect(() => {
     setLoading(true);
@@ -49,6 +54,25 @@ export default function FourteenDayAccumulationCard({ resortSlug, elevation }: P
           });
           const val = Number(depth.data?.accumulationOnGround7d || 0);
           setOnGround7d(Number.isFinite(val) ? val : 0);
+
+          const series: Array<{ date: string; snowDepthCmMax: number }> = Array.isArray(depth.data?.days) ? depth.data.days : [];
+          const incMap: Record<string, number> = {};
+          const elevCap = String(elevation).toLowerCase() === 'base' ? 30 : String(elevation).toLowerCase() === 'mid' ? 40 : 50;
+          for (let i = 1; i < series.length; i++) {
+            const prev = series[i - 1].snowDepthCmMax || 0;
+            const curr = series[i].snowDepthCmMax || 0;
+            const inc = Math.max(0, curr - prev);
+            incMap[series[i].date] = Math.min(elevCap, inc); // key by date string 'YYYY-MM-DD'
+          }
+          setPastDailyIncrements(incMap);
+        } catch {}
+
+        // Fetch current snow depth for subtitle (Ahora)
+        try {
+          const depthNow = await api.get<any>(`/resorts/${encodeURIComponent(resortSlug)}/snow-depth`);
+          const list = Array.isArray(depthNow.data?.snowDepth) ? depthNow.data.snowDepth : [];
+          const byBand = list.find((d: any) => d.elevation === elevation);
+          setSnowDepthCm(Number(byBand?.snowDepthCm || 0));
         } catch {}
       } catch (e) {
         try {
@@ -84,6 +108,24 @@ export default function FourteenDayAccumulationCard({ resortSlug, elevation }: P
             });
             const val = Number(depth.data?.accumulationOnGround7d || 0);
             setOnGround7d(Number.isFinite(val) ? val : 0);
+            const series: Array<{ date: string; snowDepthCmMax: number }> = Array.isArray(depth.data?.days) ? depth.data.days : [];
+            const incMap: Record<string, number> = {};
+            const elevCap = String(elevation).toLowerCase() === 'base' ? 30 : String(elevation).toLowerCase() === 'mid' ? 40 : 50;
+            for (let i = 1; i < series.length; i++) {
+              const prev = series[i - 1].snowDepthCmMax || 0;
+              const curr = series[i].snowDepthCmMax || 0;
+              const inc = Math.max(0, curr - prev);
+              incMap[series[i].date] = Math.min(elevCap, inc);
+            }
+            setPastDailyIncrements(incMap);
+          } catch {}
+
+          // Also attempt to fetch current snow depth in fallback
+          try {
+            const depthNow = await api.get<any>(`/resorts/${encodeURIComponent(resortSlug)}/snow-depth`);
+            const list = Array.isArray(depthNow.data?.snowDepth) ? depthNow.data.snowDepth : [];
+            const byBand = list.find((dd: any) => dd.elevation === elevation);
+            setSnowDepthCm(Number(byBand?.snowDepthCm || 0));
           } catch {}
         } catch (e2) {
           setError('No se pudo cargar el acumulado.');
@@ -96,8 +138,11 @@ export default function FourteenDayAccumulationCard({ resortSlug, elevation }: P
 
   const maxVal = useMemo(() => {
     if (!data) return 1;
-    return Math.max(1, ...data.days.map(d => d.predicted_cm || 0));
-  }, [data]);
+    const elev = String(elevation).toLowerCase();
+    const cap = elev === 'base' ? 30 : elev === 'mid' ? 40 : 50;
+    const vals = data.days.map(d => (d.is_past ? (pastDailyIncrements[d.date] || 0) : Math.min(cap, d.predicted_cm || 0)));
+    return Math.max(1, ...vals);
+  }, [data, pastDailyIncrements, elevation]);
 
   const totals = useMemo(() => {
     if (!data) return { last: onGround7d || 0, next: 0 };
@@ -108,11 +153,25 @@ export default function FourteenDayAccumulationCard({ resortSlug, elevation }: P
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>ACUMULADO 14 DÍAS</Text>
-        <View style={styles.elevBadge}><Text style={styles.elevBadgeText}>{String(elevation).toUpperCase()}</Text></View>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          {!!onOpenDetails && (
+            <TouchableOpacity onPress={onOpenDetails}>
+              <Text style={styles.linkBtn}>Ver detalle</Text>
+            </TouchableOpacity>
+          )}
+          <View style={styles.elevBadge}><Text style={styles.elevBadgeText}>{String(elevation).toUpperCase()}</Text></View>
+        </View>
       </View>
 
       <View style={styles.totalsRow}>
-        <View style={styles.totalBox}><Text style={styles.totalLabel}>Suelo últimos 7</Text><Text style={styles.totalValue}>{totals.last.toFixed(totals.last < 1 && totals.last > 0 ? 1 : 0)}</Text><Text style={styles.totalUnit}>cm</Text></View>
+        <View style={styles.totalBox}>
+          <Text style={styles.totalLabel}>Suelo últimos 7</Text>
+          <Text style={styles.totalValue}>{totals.last.toFixed(totals.last < 1 && totals.last > 0 ? 1 : 0)}</Text>
+          <Text style={styles.totalUnit}>cm</Text>
+          {snowDepthCm > 0 && (
+            <Text style={styles.subtleNote}>Ahora: {snowDepthCm < 1 && snowDepthCm > 0 ? snowDepthCm.toFixed(1) : Math.round(snowDepthCm)} cm</Text>
+          )}
+        </View>
         <View style={styles.totalBox}><Text style={styles.totalLabel}>Próximos 7</Text><Text style={styles.totalValue}>{totals.next.toFixed(totals.next < 1 && totals.next > 0 ? 1 : 0)}</Text><Text style={styles.totalUnit}>cm</Text></View>
       </View>
 
@@ -127,32 +186,46 @@ export default function FourteenDayAccumulationCard({ resortSlug, elevation }: P
         <View style={styles.listWrap}>
           <FlatList
             horizontal
+            ref={listRef}
             data={data.days}
             keyExtractor={(item) => item.date}
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.listContent}
+            initialScrollIndex={Math.max(0, data.todayIndex - 2)}
+            getItemLayout={(_, index) => ({
+              length: 50,
+              offset: 16 + 50 * index,
+              index,
+            })}
+            onScrollToIndexFailed={(info) => {
+              setTimeout(() => {
+                listRef.current?.scrollToIndex({ index: Math.max(0, info.index - 2), animated: false, viewPosition: 0 });
+              }, 50);
+            }}
             renderItem={({ item, index }) => {
-              const h = Math.max(3, (item.predicted_cm / maxVal) * 90);
+              const elev = String(elevation).toLowerCase();
+              const cap = elev === 'base' ? 30 : elev === 'mid' ? 40 : 50;
+              const value = item.is_past ? (pastDailyIncrements[item.date] || 0) : Math.min(cap, (item.predicted_cm || 0));
+              const h = Math.max(3, (value / maxVal) * 90);
               const isTodaySep = index === data.todayIndex;
               return (
                 <View style={styles.dayCol}>
                   <View style={[styles.barWrap, isTodaySep && styles.todaySep]}>
-                    {item.predicted_cm > 0 && (
+                    {isTodaySep && (
+                      <Text style={styles.todayFlag}>HOY</Text>
+                    )}
+                    {value > 0 && (
                       <Text style={[styles.barVal, item.is_past ? styles.barValPast : styles.barValFuture]}>
-                        {item.predicted_cm < 1 && item.predicted_cm > 0 ? item.predicted_cm.toFixed(1) : Math.round(item.predicted_cm)}
+                        {value < 1 && value > 0 ? value.toFixed(1) : Math.round(value)}
                       </Text>
                     )}
-                    <View style={[styles.bar, { height: h }, item.is_past ? styles.barPast : styles.barFuture, item.predicted_cm === 0 && styles.barEmpty]} />
+                    <View style={[styles.bar, { height: h }, item.is_past ? styles.barPast : styles.barFuture, value === 0 && styles.barEmpty]} />
                   </View>
                   <Text style={styles.dayLabel}>{new Date(item.date + 'T00:00:00').toLocaleDateString('es-AR', { weekday: 'short' }).toUpperCase()}</Text>
                 </View>
               );
             }}
           />
-          <View pointerEvents="none" style={styles.todayMarkerWrap}>
-            <View style={styles.todayMarker}/>
-            <Text style={styles.todayMarkerText}>HOY</Text>
-          </View>
         </View>
       )}
     </View>
@@ -165,11 +238,13 @@ const styles = StyleSheet.create({
   title: { fontSize: 15, fontWeight: '700', color: '#0f172a', letterSpacing: 0.3 },
   elevBadge: { backgroundColor: '#f1f5f9', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
   elevBadgeText: { fontSize: 11, fontWeight: '700', color: '#475569' },
+  linkBtn: { fontSize: 12, fontWeight: '700', color: '#0ea5e9' },
   totalsRow: { flexDirection: 'row', justifyContent: 'space-around', paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
   totalBox: { alignItems: 'center' },
   totalLabel: { fontSize: 10, fontWeight: '700', color: '#94a3b8' },
   totalValue: { fontSize: 26, fontWeight: '800', color: '#0f172a' },
   totalUnit: { fontSize: 12, fontWeight: '600', color: '#94a3b8' },
+  subtleNote: { fontSize: 10, fontWeight: '600', color: '#64748b', marginTop: 2 },
   center: { padding: 20, alignItems: 'center', justifyContent: 'center' },
   errorTxt: { color: '#ef4444', fontSize: 12, fontWeight: '600' },
   listWrap: { position: 'relative' },
@@ -185,7 +260,5 @@ const styles = StyleSheet.create({
   barEmpty: { backgroundColor: '#e2e8f0' },
   dayLabel: { fontSize: 10, fontWeight: '600', color: '#94a3b8' },
   todaySep: { borderRightWidth: 1, borderRightColor: '#e5e7eb' },
-  todayMarkerWrap: { position: 'absolute', left: '50%', top: 8, bottom: 24, width: 0, alignItems: 'center' },
-  todayMarker: { position: 'absolute', left: -1, top: 0, bottom: 0, width: 2, backgroundColor: '#e5e7eb' },
-  todayMarkerText: { position: 'absolute', top: -6, left: -14, fontSize: 10, fontWeight: '700', color: '#94a3b8', backgroundColor: '#fff', paddingHorizontal: 2 },
+  todayFlag: { position: 'absolute', top: -10, fontSize: 10, fontWeight: '700', color: '#64748b', backgroundColor: '#fff', paddingHorizontal: 3, borderRadius: 3 },
 });
