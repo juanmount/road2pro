@@ -90,10 +90,10 @@ function calcSnowEventProbability(
   if (snowfall < 0.5) return null;
   if (confidenceScore == null && stormScore == null) return null;
 
-  // confidenceScore comes in as leadTimeFactor * 10 → range 5–10
-  // Normalize to 0–100: (val - 5) / 5 * 100
+  // confidenceScore = leadTimeFactor * 10, range 5–10
+  // Interpretation: 8 → 80%, 7 → 70%, 5 → 50%
   const normConf = confidenceScore != null
-    ? Math.max(0, Math.min(100, ((confidenceScore - 5) / 5) * 100))
+    ? Math.max(0, Math.min(100, confidenceScore * 10))
     : null;
 
   // Storm crossing not available → use confidence alone (cap 70%)
