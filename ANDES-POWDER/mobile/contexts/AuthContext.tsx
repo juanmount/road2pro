@@ -4,16 +4,20 @@ import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   signOut as firebaseSignOut,
-  onAuthStateChanged
+  onAuthStateChanged,
+  GoogleAuthProvider,
+  signInWithCredential,
 } from 'firebase/auth';
 import { auth } from '../config/firebase';
 import api from '../config/api';
+import * as IAP from '../services/iap';
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
   signUp: (email: string, password: string, displayName?: string, rideType?: 'ski' | 'snowboard') => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
+  signInWithGoogleCredential: (idToken: string) => Promise<void>;
   signOut: () => Promise<void>;
   getIdToken: () => Promise<string | null>;
 }
@@ -28,6 +32,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       setUser(firebaseUser);
       setLoading(false);
+
+      // Bind RevenueCat identity to Firebase UID (or anonymous if logged out)
+      try {
+        if (firebaseUser?.uid) {
+          await IAP.logInRevenueCat(firebaseUser.uid);
+        } else {
+          await IAP.logOutRevenueCat();
+        }
+      } catch (e) {
+        console.error('RevenueCat identity sync error:', e);
+      }
     });
 
     return unsubscribe;
@@ -58,9 +73,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const signInWithGoogleCredential = async (idToken: string) => {
+    try {
+      const credential = GoogleAuthProvider.credential(idToken);
+      const userCredential = await signInWithCredential(auth, credential);
+      const { user: fbUser } = userCredential;
+      // Sync user in backend (idempotent upsert)
+      try {
+        await api.post('/auth/signup', {
+          firebaseUid: fbUser.uid,
+          email: fbUser.email,
+          displayName: fbUser.displayName || null,
+          provider: 'google',
+        });
+      } catch (e) {
+        // Non-fatal: user is authenticated in Firebase even if backend sync fails
+        console.warn('[Google] backend sync error:', e);
+      }
+    } catch (error: any) {
+      console.error('Google sign-in error:', error);
+      throw error;
+    }
+  };
+
   const signOut = async () => {
     try {
       await firebaseSignOut(auth);
+      // Ensure RevenueCat returns to anonymous immediately
+      await IAP.logOutRevenueCat();
     } catch (error: any) {
       console.error('Sign out error:', error);
       throw error;
@@ -78,7 +118,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, signUp, signIn, signOut, getIdToken }}>
+    <AuthContext.Provider value={{ user, loading, signUp, signIn, signInWithGoogleCredential, signOut, getIdToken }}>
       {children}
     </AuthContext.Provider>
   );
