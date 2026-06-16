@@ -2,7 +2,7 @@
   "expo": {
     "name": "Andes Powder",
     "slug": "andes-powder",
-    "version": "1.0.28",
+    "version": "1.0.30",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -17,7 +17,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.andespowder.app",
-      "buildNumber": "12",
+      "buildNumber": "18",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
@@ -28,7 +28,7 @@
         "backgroundColor": "#1e293b"
       },
       "package": "com.andespowder.mobile",
-      "versionCode": 32,
+      "versionCode": 38,
       "permissions": [
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",
@@ -68,7 +68,8 @@
         }
       ],
       "expo-asset",
-      "expo-web-browser"
+      "expo-web-browser",
+      "expo-tracking-transparency"
     ],
     "extra": {
       "router": {
