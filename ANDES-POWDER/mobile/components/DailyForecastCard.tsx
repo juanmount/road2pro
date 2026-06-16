@@ -82,10 +82,19 @@ interface DailyForecastCardProps {
   elevationLabel?: string;
 }
 
+function calcWindPenalty(maxGust: number | undefined): number {
+  if (!maxGust || maxGust < 30) return 0;
+  if (maxGust < 50) return 0.05;
+  if (maxGust < 70) return 0.10;
+  if (maxGust < 90) return 0.15;
+  return 0.20;
+}
+
 function calcSnowEventProbability(
   confidenceScore: number | undefined,
   stormScore: number | undefined,
-  snowfall: number
+  snowfall: number,
+  maxGust: number | undefined
 ): number | null {
   if (snowfall < 0.5) return null;
   if (confidenceScore == null && stormScore == null) return null;
@@ -96,17 +105,19 @@ function calcSnowEventProbability(
     ? Math.max(0, Math.min(100, confidenceScore * 10))
     : null;
 
+  const wind = calcWindPenalty(maxGust);
+
   // Storm crossing not available → use confidence alone (cap 70%)
   if (stormScore == null) {
     if (normConf == null) return null;
-    const raw = (normConf / 100) * 70;
+    const raw = (normConf / 100) * 70 * (1 - wind);
     const result = Math.round(Math.min(70, raw) / 5) * 5;
     return result > 0 ? result : null;
   }
 
   // Confidence not available → use storm score at 75% face value
   if (normConf == null) {
-    const result = Math.round(Math.min(75, (stormScore / 100) * 75) / 5) * 5;
+    const result = Math.round(Math.min(75, (stormScore / 100) * 75 * (1 - wind)) / 5) * 5;
     return result > 0 ? result : null;
   }
 
@@ -116,7 +127,8 @@ function calcSnowEventProbability(
   const modifier = 0.5 + 0.5 * (normConf / 100);
   const raw = (stormScore / 100) * modifier * 100;
   const capped = Math.min(85, raw);
-  return Math.round(capped / 5) * 5;
+  const windAdj = capped * (1 - calcWindPenalty(maxGust));
+  return Math.round(windAdj / 5) * 5;
 }
 
 export function DailyForecastCard({
@@ -267,7 +279,8 @@ export function DailyForecastCard({
         const prob = calcSnowEventProbability(
           confidenceScore,
           stormCrossing?.score,
-          snowfall
+          snowfall,
+          maxWindGust
         );
         if (prob === null) return null;
         const color = prob >= 70 ? '#10b981' : prob >= 45 ? '#f59e0b' : '#94a3b8';
