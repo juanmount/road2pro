@@ -1328,12 +1328,41 @@ router.get('/:id/snow-depth-series', async (req: Request, res: Response) => {
 
     const currentDepthCm = series.length > 0 ? series[series.length - 1].snowDepthCmMax : 0;
 
+    // Fallback: if Open-Meteo returned no useful snow depth data, use snowfall_history
+    let finalSeries = series;
+    let finalAccum = accumulationOnGround;
+    if (accumulationOnGround === 0) {
+      try {
+        const tz = resort.timezone || 'America/Argentina/Buenos_Aires';
+        const histRes = await pool.query(
+          `SELECT to_char(date, 'YYYY-MM-DD') AS date_key, snowfall_cm
+           FROM snowfall_history
+           WHERE resort_id = $1
+             AND elevation_band = $2
+             AND date >= (date_trunc('day', NOW() AT TIME ZONE '${tz}') - ($3 || ' days')::interval)::date
+             AND date < (date_trunc('day', NOW() AT TIME ZONE '${tz}'))::date
+           ORDER BY date ASC`,
+          [resort.id, elevationBand, days]
+        );
+        if (histRes.rows.length > 0) {
+          const cap = elevationBand === 'base' ? 30 : elevationBand === 'mid' ? 40 : 50;
+          finalSeries = histRes.rows.map(r => ({
+            date: r.date_key,
+            snowDepthCmMax: Math.min(cap, Math.max(0, Number(r.snowfall_cm || 0)))
+          }));
+          finalAccum = finalSeries.reduce((s, r) => s + r.snowDepthCmMax, 0);
+        }
+      } catch (histErr) {
+        console.warn('[snow-depth-series] snowfall_history fallback failed:', histErr);
+      }
+    }
+
     res.json({
       resort: { id: resort.id, name: resort.name, slug: resort.slug },
       elevation: elevationBand,
-      days: series,
+      days: finalSeries,
       currentDepthCm,
-      accumulationOnGround7d: accumulationOnGround
+      accumulationOnGround7d: finalAccum
     });
   } catch (error) {
     console.error('Error fetching snow depth series:', error);
