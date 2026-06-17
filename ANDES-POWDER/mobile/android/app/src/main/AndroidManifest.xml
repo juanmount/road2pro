@@ -9,6 +9,7 @@
   <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" tools:node="remove"/>
   <uses-permission android:name="android.permission.VIBRATE"/>
   <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
+  <uses-permission android:name="com.google.android.gms.permission.AD_ID"/>
   <queries>
     <intent>
       <action android:name="android.intent.action.VIEW"/>
@@ -20,6 +21,10 @@
     <meta-data android:name="expo.modules.updates.ENABLED" android:value="false"/>
     <meta-data android:name="expo.modules.updates.EXPO_UPDATES_CHECK_ON_LAUNCH" android:value="ALWAYS"/>
     <meta-data android:name="expo.modules.updates.EXPO_UPDATES_LAUNCH_WAIT_MS" android:value="0"/>
+    <meta-data android:name="com.facebook.sdk.ApplicationId" android:value="fb1486021289325289"/>
+    <meta-data android:name="com.facebook.sdk.ClientToken" android:value="5d2dc36e41cfeda17905633ea9c9ba1d"/>
+    <meta-data android:name="com.facebook.sdk.AutoLogAppEventsEnabled" android:value="true"/>
+    <meta-data android:name="com.facebook.sdk.AdvertiserIDCollectionEnabled" android:value="true"/>
     <activity android:name=".MainActivity" android:configChanges="keyboard|keyboardHidden|orientation|screenSize|screenLayout|uiMode" android:launchMode="singleTask" android:windowSoftInputMode="adjustResize" android:theme="@style/Theme.App.SplashScreen" android:exported="true" android:screenOrientation="portrait">
       <intent-filter>
         <action android:name="android.intent.action.MAIN"/>
@@ -30,9 +35,13 @@
         <category android:name="android.intent.category.DEFAULT"/>
         <category android:name="android.intent.category.BROWSABLE"/>
         <data android:scheme="andespowder"/>
-        <data android:scheme="com.andespowder.mobile"/>
+      </intent-filter>
+      <intent-filter>
+        <action android:name="android.intent.action.VIEW"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+        <category android:name="android.intent.category.BROWSABLE"/>
+        <data android:scheme="com.googleusercontent.apps.947154519695-dmmfh1oidagtsle3qdfhos2ufm5cpqri"/>
       </intent-filter>
     </activity>
-    <uses-library android:name="org.apache.http.legacy" android:required="false"/>
   </application>
 </manifest>
