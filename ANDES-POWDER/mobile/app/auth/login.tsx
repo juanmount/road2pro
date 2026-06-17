@@ -24,7 +24,14 @@ export default function LoginScreen() {
     webClientId: GOOGLE_CONFIG.webClientId,
     iosClientId: GOOGLE_CONFIG.iosClientId,
     androidClientId: GOOGLE_CONFIG.androidClientId,
+    redirectUri: Platform.OS === 'android' ? 'andespowder://redirect' : undefined,
   });
+
+  useEffect(() => {
+    if (request) {
+      console.log('[Google OAuth] redirectUri:', request.redirectUri);
+    }
+  }, [request]);
 
   useEffect(() => {
     if (response?.type === 'success') {
