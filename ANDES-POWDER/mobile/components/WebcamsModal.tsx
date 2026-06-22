@@ -1,100 +1,302 @@
-import React from 'react';
-import { View, Text, StyleSheet, Modal, TouchableOpacity, ScrollView } from 'react-native';
-import * as WebBrowser from 'expo-web-browser';
+import React, { useState, useEffect } from 'react';
+import {
+  View, Text, StyleSheet, Modal, TouchableOpacity,
+  ScrollView, Image, ActivityIndicator, Dimensions,
+} from 'react-native';
+import { WebView } from 'react-native-webview';
 import { Ionicons } from '@expo/vector-icons';
+
+const { width: SCREEN_W } = Dimensions.get('window');
+
+interface Camera {
+  id: string;
+  name: string;
+  zone: string;
+  type: 'image' | 'webview';
+  imageUrl?: string;
+  webUrl?: string;
+  cleanPage?: boolean;
+}
+
+interface ResortConfig {
+  cameras: Camera[];
+}
+
+const RESORT_CAMERAS: Record<string, ResortConfig> = {
+  'cerro-catedral': {
+    cameras: [
+      { id: 'cam001', name: 'Punta Princesa',        zone: 'Alta Montaña', type: 'image',   imageUrl: 'https://varitech.ar/cameras/cam001/latest.jpg' },
+      { id: 'cam006', name: 'Centro Superior',        zone: 'Alta Montaña', type: 'image',   imageUrl: 'https://varitech.ar/cameras/cam006/latest.jpg' },
+      { id: 'cam008', name: 'Diente de Caballo Sur',  zone: 'Alta Montaña', type: 'image',   imageUrl: 'https://varitech.ar/cameras/cam008/latest.jpg' },
+      { id: 'cam005', name: 'Pista Eventos',          zone: 'Base',         type: 'image',   imageUrl: 'https://varitech.ar/cameras/cam005/latest.jpg' },
+      { id: 'cam002', name: 'Playpark',               zone: 'Base',         type: 'image',   imageUrl: 'https://varitech.ar/cameras/cam002/latest.jpg' },
+      { id: 'cam003', name: 'Plaza Catalina Reynal',  zone: 'Base',         type: 'image',   imageUrl: 'https://varitech.ar/cameras/cam003/latest.jpg' },
+      { id: 'cam004', name: 'Cable Carril Inferior',  zone: 'Base',         type: 'image',   imageUrl: 'https://varitech.ar/cameras/cam004/latest.jpg' },
+    ],
+  },
+  'cerro-castor': {
+    cameras: [
+      { id: 'youtube', name: 'Stream en Vivo', zone: 'Montaña', type: 'webview', webUrl: 'https://www.youtube.com/embed/live_stream?channel=UCdRznjZhMfIArULYvuXxzZg' },
+    ],
+  },
+  'cerro-chapelco': {
+    cameras: [
+      { id: 'chapelco-web', name: 'Cámaras en Vivo', zone: 'Montaña', type: 'webview', webUrl: 'https://www.cerrochapelco.com.ar/webcams-cerro-chapelco/', cleanPage: true },
+    ],
+  },
+  'las-lenas': {
+    cameras: [
+      { id: 'lenas', name: 'Cámaras en Vivo', zone: 'Montaña', type: 'webview', webUrl: 'https://laslenas.com/camara-en-vivo/', cleanPage: true },
+    ],
+  },
+  'cerro-bayo': {
+    cameras: [
+      { id: 'bayo-web', name: 'Cámaras en Vivo', zone: 'Montaña', type: 'webview', webUrl: 'https://www.cerrobayo.com.ar/montana/camara/', cleanPage: true },
+    ],
+  },
+  'la-hoya': {
+    cameras: [
+      { id: 'cam031', name: 'Sector Principiantes', zone: 'Base',         type: 'image', imageUrl: 'https://varitech.ar/cameras/cam031/latest.jpg' },
+      { id: 'cam032', name: 'Plateau',              zone: 'Alta Montaña', type: 'image', imageUrl: 'https://varitech.ar/cameras/cam032/latest.jpg' },
+    ],
+  },
+  'caviahue': {
+    cameras: [
+      { id: 'caviahue-web', name: 'Cámara en Vivo', zone: 'Montaña', type: 'webview', webUrl: 'https://www.caviahue.com/camara-web', cleanPage: true },
+    ],
+  },
+};
+
+const ZONE_COLORS: Record<string, string> = {
+  'Alta Montaña':  '#8b5cf6',
+  'Media Montaña': '#0ea5e9',
+  'Base':          '#10b981',
+  'Vistas':        '#f59e0b',
+  'Montaña':       '#38bdf8',
+};
+
+function zoneColor(zone: string) {
+  return ZONE_COLORS[zone] ?? '#38bdf8';
+}
 
 interface WebcamsModalProps {
   visible: boolean;
   onClose: () => void;
   resortName: string;
+  resortSlug?: string;
 }
 
-const WEBCAM_LOCATIONS = [
-  { name: 'Villa Catedral', location: 'Base', elevation: '1030m', icon: 'home' as const },
-  { name: 'Amancay', location: 'Mid Mountain', elevation: '1600m', icon: 'snow' as const },
-  { name: 'Nubes', location: 'Mid-High', elevation: '1800m', icon: 'cloud' as const },
-  { name: 'Lynch', location: 'Summit Area', elevation: '2000m', icon: 'triangle' as const },
-];
+const REFRESH_MS = 30_000;
 
-export function WebcamsModal({ visible, onClose, resortName }: WebcamsModalProps) {
-  const handleOpenWebcams = async () => {
-    try {
-      console.log('Opening webcams...');
-      await WebBrowser.openBrowserAsync('https://catedralaltapatagonia.com/webcams/');
-      console.log('WebBrowser opened successfully');
-    } catch (error) {
-      console.error('Error opening webcams:', error);
-      alert('Error al abrir las webcams. Por favor intenta nuevamente.');
-    }
+const CLEAN_PAGE_JS = `
+(function() {
+  const s = document.createElement('style');
+  s.textContent = [
+    'header, nav, footer, .header, .footer, .navbar, .nav, .menu,',
+    '#header, #footer, #nav, #menu, .site-header, .site-footer,',
+    '.navigation, .main-navigation, .top-bar, .cookie-notice,',
+    '[class*="cookie"], [class*="gdpr"], [class*="banner"],',
+    '[class*="popup"], [id*="cookie"], [id*="gdpr"]',
+    '{ display: none !important; }',
+    'html, body { margin: 0 !important; padding: 0 !important; }',
+    'main, .main, #main { margin-top: 0 !important; padding-top: 0 !important; }',
+  ].join(' ');
+  document.head.appendChild(s);
+})();
+true;
+`;
+
+export function WebcamsModal({ visible, onClose, resortName, resortSlug }: WebcamsModalProps) {
+  const [selected, setSelected] = useState<Camera | null>(null);
+  const [refreshKey, setRefreshKey] = useState(Date.now());
+  const [imgLoading, setImgLoading] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+
+  const slug = resortSlug ?? 'cerro-catedral';
+  const config: ResortConfig = RESORT_CAMERAS[slug] ?? RESORT_CAMERAS['cerro-catedral'];
+
+  useEffect(() => {
+    if (!visible) { setSelected(null); return; }
+  }, [visible]);
+
+  useEffect(() => {
+    if (!visible || !selected || selected.type !== 'image') return;
+    const id = setInterval(() => {
+      setRefreshKey(Date.now());
+      setLastUpdated(new Date());
+    }, REFRESH_MS);
+    return () => clearInterval(id);
+  }, [visible, selected]);
+
+  const selectCamera = (cam: Camera) => {
+    setSelected(cam);
+    setRefreshKey(Date.now());
+    setImgLoading(true);
+    setLastUpdated(new Date());
   };
+
+  const manualRefresh = () => {
+    setRefreshKey(Date.now());
+    setImgLoading(true);
+    setLastUpdated(new Date());
+  };
+
+  const formatTime = (d: Date) =>
+    d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
 
   return (
     <Modal
       visible={visible}
       animationType="slide"
       transparent={true}
-      onRequestClose={onClose}
+      onRequestClose={selected ? () => setSelected(null) : onClose}
     >
-      <View style={styles.modalOverlay}>
-        <View style={styles.modalContent}>
-          {/* Header */}
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>{resortName}</Text>
-            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-              <Ionicons name="close" size={28} color="#64748b" />
+      <View style={styles.overlay}>
+        <View style={styles.sheet}>
+
+          {/* ── Header ── */}
+          <View style={styles.header}>
+            <TouchableOpacity
+              style={styles.headerBtn}
+              onPress={selected ? () => setSelected(null) : onClose}
+            >
+              <Ionicons
+                name={selected ? 'arrow-back' : 'close'}
+                size={22}
+                color="#cbd5e1"
+              />
             </TouchableOpacity>
+
+            <View style={styles.headerCenter}>
+              <Text style={styles.headerTitle} numberOfLines={1}>
+                {selected ? selected.name : 'Webcams en Vivo'}
+              </Text>
+              <Text style={styles.headerSub}>{resortName}</Text>
+            </View>
+
+            {selected?.type === 'image' ? (
+              <TouchableOpacity style={styles.headerBtn} onPress={manualRefresh}>
+                <Ionicons name="refresh" size={22} color="#38bdf8" />
+              </TouchableOpacity>
+            ) : (
+              <View style={styles.headerBtn} />
+            )}
           </View>
 
-          {/* Content */}
-          <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-            {/* Hero Section */}
-            <View style={styles.heroSection}>
-              <Ionicons name="videocam" size={64} color="#0ea5e9" />
-              <Text style={styles.heroTitle}>Webcams en Vivo</Text>
-              <Text style={styles.heroSubtitle}>
-                Mirá las condiciones actuales de la montaña en tiempo real
+          {/* ── Camera View ── */}
+          {selected ? (
+            <View style={styles.cameraView}>
+              {selected.type === 'image' ? (
+                <>
+                  <View style={styles.imgWrapper}>
+                    <Image
+                      key={refreshKey}
+                      source={{ uri: `${selected.imageUrl}?t=${refreshKey}` }}
+                      style={styles.camImage}
+                      resizeMode="cover"
+                      onLoadStart={() => setImgLoading(true)}
+                      onLoadEnd={() => setImgLoading(false)}
+                      onError={() => setImgLoading(false)}
+                    />
+                    {imgLoading && (
+                      <View style={styles.imgOverlay}>
+                        <ActivityIndicator size="large" color="#38bdf8" />
+                        <Text style={styles.loadingTxt}>Cargando imagen...</Text>
+                      </View>
+                    )}
+                  </View>
+                  <View style={styles.imgFooter}>
+                    <View style={styles.livePill}>
+                      <View style={styles.liveDot} />
+                      <Text style={styles.liveTxt}>EN VIVO</Text>
+                    </View>
+                    {lastUpdated && (
+                      <Text style={styles.updatedTxt}>
+                        Actualizado {formatTime(lastUpdated)} · cada 5 min
+                      </Text>
+                    )}
+                  </View>
+                </>
+              ) : (
+                <WebView
+                  source={{ uri: selected.webUrl! }}
+                  style={styles.webview}
+                  startInLoadingState
+                  injectedJavaScript={selected.cleanPage ? CLEAN_PAGE_JS : undefined}
+                  renderLoading={() => (
+                    <View style={styles.imgOverlay}>
+                      <ActivityIndicator size="large" color="#38bdf8" />
+                      <Text style={styles.loadingTxt}>Conectando cámara...</Text>
+                    </View>
+                  )}
+                />
+              )}
+            </View>
+          ) : (
+
+          /* ── Camera List ── */
+          <ScrollView
+            style={styles.list}
+            contentContainerStyle={styles.listContent}
+            showsVerticalScrollIndicator={false}
+          >
+            <Text style={styles.sectionLabel}>
+              {config.cameras.length} CÁMARA{config.cameras.length !== 1 ? 'S' : ''} DISPONIBLE{config.cameras.length !== 1 ? 'S' : ''}
+            </Text>
+            <View style={styles.disclaimer}>
+              <Ionicons name="alert-circle-outline" size={13} color="#f59e0b" />
+              <Text style={styles.disclaimerTxt}>
+                Algunas cámaras pueden no estar disponibles fuera de temporada o por condiciones climáticas
               </Text>
             </View>
 
-            {/* Webcam Locations */}
-            <View style={styles.locationsSection}>
-              <Text style={styles.sectionTitle}>Cámaras Disponibles</Text>
-              {WEBCAM_LOCATIONS.map((location, index) => (
-                <View key={index} style={styles.locationCard}>
-                  <View style={styles.locationIcon}>
-                    <Ionicons name={location.icon} size={24} color="#0ea5e9" />
+            {config.cameras.map((cam) => {
+              const color = zoneColor(cam.zone);
+              return (
+                <TouchableOpacity
+                  key={cam.id}
+                  style={styles.camCard}
+                  onPress={() => selectCamera(cam)}
+                  activeOpacity={0.75}
+                >
+                  <View style={[styles.camIcon, { backgroundColor: `${color}22` }]}>
+                    <Ionicons
+                      name={cam.type === 'image' ? 'camera' : 'logo-youtube'}
+                      size={22}
+                      color={color}
+                    />
                   </View>
-                  <View style={styles.locationInfo}>
-                    <Text style={styles.locationName}>{location.name}</Text>
-                    <Text style={styles.locationDetails}>
-                      {location.location} • {location.elevation}
-                    </Text>
+                  <View style={styles.camInfo}>
+                    <Text style={styles.camName}>{cam.name}</Text>
+                    <View style={styles.camMeta}>
+                      <View style={[styles.zonePill, { backgroundColor: `${color}22` }]}>
+                        <Text style={[styles.zoneLabel, { color }]}>{cam.zone}</Text>
+                      </View>
+                      <Text style={styles.camType}>
+                        {cam.type === 'image' ? '· cada 5 min' : '· stream'}
+                      </Text>
+                    </View>
                   </View>
-                  <View style={styles.liveBadge}>
+                  <View style={styles.liveChip}>
                     <View style={styles.liveDot} />
-                    <Text style={styles.liveText}>LIVE</Text>
+                    <Text style={styles.liveTxt}>EN VIVO</Text>
                   </View>
-                </View>
-              ))}
-            </View>
+                  <Ionicons name="chevron-forward" size={16} color="#475569" style={{ marginLeft: 6 }} />
+                </TouchableOpacity>
+              );
+            })}
 
-            {/* Info */}
-            <View style={styles.infoBox}>
-              <Ionicons name="information-circle-outline" size={20} color="#64748b" />
-              <Text style={styles.infoText}>
-                Las cámaras se actualizan cada 10 minutos y están activas durante la temporada de ski (Junio-Octubre).
+            <View style={styles.sourceRow}>
+              <Ionicons name="information-circle-outline" size={14} color="#475569" />
+              <Text style={styles.sourceTxt}>
+                {slug === 'cerro-catedral'
+                  ? 'Imágenes via Varitech · Bariloche'
+                  : 'Cámaras oficiales del centro'}
               </Text>
             </View>
           </ScrollView>
+          )}
 
-          {/* CTA Button - Fixed at bottom */}
-          <View style={styles.buttonContainer}>
-            <TouchableOpacity style={styles.ctaButton} onPress={handleOpenWebcams}>
-              <Ionicons name="play-circle" size={24} color="#fff" />
-              <Text style={styles.ctaButtonText}>Ver Webcams en Vivo</Text>
-              <Ionicons name="videocam" size={20} color="#fff" />
-            </TouchableOpacity>
-          </View>
         </View>
       </View>
     </Modal>
@@ -102,163 +304,218 @@ export function WebcamsModal({ visible, onClose, resortName }: WebcamsModalProps
 }
 
 const styles = StyleSheet.create({
-  modalOverlay: {
+  overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0,0,0,0.65)',
     justifyContent: 'flex-end',
   },
-  modalContent: {
-    backgroundColor: '#f8fafc',
+  sheet: {
+    backgroundColor: '#0f172a',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    paddingTop: 20,
-    paddingBottom: 40,
-    maxHeight: '90%',
+    paddingTop: 4,
+    paddingBottom: 36,
+    height: '85%',
+    overflow: 'hidden',
   },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    marginBottom: 20,
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#0c4a6e',
-  },
-  closeButton: {
-    padding: 4,
-  },
-  content: {
-    paddingHorizontal: 20,
-    flex: 1,
-  },
-  buttonContainer: {
-    paddingHorizontal: 20,
-    paddingBottom: 20,
-    paddingTop: 12,
-    backgroundColor: '#f8fafc',
-    borderTopWidth: 1,
-    borderTopColor: '#e2e8f0',
-  },
-  heroSection: {
-    alignItems: 'center',
-    paddingVertical: 32,
-  },
-  heroTitle: {
-    fontSize: 26,
-    fontWeight: '800',
-    color: '#0c4a6e',
-    marginTop: 16,
-    marginBottom: 8,
-  },
-  heroSubtitle: {
-    fontSize: 15,
-    color: '#64748b',
-    textAlign: 'center',
-    paddingHorizontal: 20,
-  },
-  locationsSection: {
-    marginBottom: 24,
-  },
-  sectionTitle: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#0c4a6e',
-    letterSpacing: 1.5,
-    textTransform: 'uppercase',
-    marginBottom: 16,
-  },
-  locationCard: {
+
+  /* Header */
+  header: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    paddingHorizontal: 12,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(56,189,248,0.12)',
   },
-  locationIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#e0f2fe',
+  headerBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.07)',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
   },
-  locationInfo: {
+  headerCenter: {
     flex: 1,
+    alignItems: 'center',
+    paddingHorizontal: 8,
   },
-  locationName: {
+  headerTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#0c4a6e',
-    marginBottom: 2,
+    color: '#f1f5f9',
+    letterSpacing: 0.2,
   },
-  locationDetails: {
-    fontSize: 13,
+  headerSub: {
+    fontSize: 12,
     color: '#64748b',
+    marginTop: 1,
   },
-  liveBadge: {
+
+  /* Camera view */
+  cameraView: {
+    flex: 1,
+  },
+  imgWrapper: {
+    width: SCREEN_W,
+    aspectRatio: 16 / 9,
+    backgroundColor: '#1e293b',
+  },
+  camImage: {
+    width: '100%',
+    height: '100%',
+  },
+  imgOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(15,23,42,0.8)',
+    gap: 12,
+  },
+  loadingTxt: {
+    color: '#94a3b8',
+    fontSize: 13,
+  },
+  imgFooter: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#ef4444',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#1e293b',
+  },
+  livePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ef444430',
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 6,
-    gap: 4,
+    borderRadius: 8,
+    gap: 5,
+    borderWidth: 1,
+    borderColor: '#ef444460',
   },
   liveDot: {
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: '#fff',
+    backgroundColor: '#ef4444',
   },
-  liveText: {
+  liveTxt: {
     fontSize: 10,
     fontWeight: '800',
-    color: '#fff',
-    letterSpacing: 0.5,
+    color: '#ef4444',
+    letterSpacing: 0.8,
   },
-  ctaButton: {
+  updatedTxt: {
+    fontSize: 12,
+    color: '#64748b',
+  },
+  webview: {
+    flex: 1,
+    backgroundColor: '#0f172a',
+  },
+
+  /* List */
+  list: {
+    flex: 1,
+  },
+  listContent: {
+    paddingHorizontal: 16,
+    paddingTop: 20,
+    paddingBottom: 16,
+    gap: 10,
+  },
+  sectionLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#475569',
+    letterSpacing: 1.5,
+    marginBottom: 6,
+  },
+  camCard: {
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: '#1e293b',
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(56,189,248,0.08)',
+  },
+  camIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#0ea5e9',
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-    borderRadius: 12,
-    gap: 8,
-    marginBottom: 20,
-    shadowColor: '#0ea5e9',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
+    marginRight: 12,
   },
-  ctaButtonText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#fff',
-  },
-  infoBox: {
-    flexDirection: 'row',
-    gap: 10,
-    padding: 16,
-    backgroundColor: '#e0f2fe',
-    borderRadius: 12,
-    marginBottom: 20,
-  },
-  infoText: {
+  camInfo: {
     flex: 1,
-    fontSize: 12,
+    gap: 5,
+  },
+  camName: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#f1f5f9',
+  },
+  camMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  zonePill: {
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  zoneLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  camType: {
+    fontSize: 11,
     color: '#475569',
-    lineHeight: 18,
+  },
+  liveChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ef444420',
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 6,
+    gap: 4,
+    borderWidth: 1,
+    borderColor: '#ef444440',
+  },
+  disclaimer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 6,
+    backgroundColor: 'rgba(245,158,11,0.08)',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    marginBottom: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(245,158,11,0.2)',
+  },
+  disclaimerTxt: {
+    flex: 1,
+    fontSize: 11,
+    color: '#f59e0b',
+    lineHeight: 16,
+  },
+  sourceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingTop: 8,
+    paddingHorizontal: 4,
+  },
+  sourceTxt: {
+    fontSize: 11,
+    color: '#475569',
   },
 });
