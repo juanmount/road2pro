@@ -1,17 +1,14 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  Dimensions,
   TouchableOpacity,
-  FlatList,
   ImageBackground,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-
-const { width, height } = Dimensions.get('window');
 
 interface OnboardingSlide {
   id: string;
@@ -25,22 +22,22 @@ const slides: OnboardingSlide[] = [
   {
     id: '1',
     icon: 'thunderstorm-outline',
-    title: 'Pronósticos genéricos\nno funcionan en Patagonia',
-    description: 'Los modelos meteorológicos estándar no consideran el cruce de tormentas del Pacífico ni el efecto de sombra de lluvia de los Andes.',
-    color: '#64748b',
+    title: 'La Patagonia juega\ncon sus propias reglas',
+    description: 'Las tormentas vienen del Pacífico y los Andes distorsionan todo. Los modelos globales no tienen la resolución para los efectos locales de la montaña.',
+    color: '#f59e0b',
   },
   {
     id: '2',
     icon: 'analytics-outline',
-    title: 'Algoritmos específicos\npara los Andes',
-    description: 'Análisis de probabilidad de cruce de tormentas, ajustes por viento y elevación, e integración de ciclos ENSO (El Niño/La Niña).',
+    title: 'Varios modelos,\nuna lectura limpia',
+    description: 'Cruzamos los principales modelos meteorológicos globales, ajustados por elevación y viento. El número que ves ya está calibrado para la montaña.',
     color: '#0ea5e9',
   },
   {
     id: '3',
-    icon: 'checkmark-circle-outline',
-    title: 'Precisión sobre\noptimismo',
-    description: 'Metodología conservadora basada en datos reales y validación continua de pronósticos.',
+    icon: 'shield-checkmark-outline',
+    title: 'Todo en\nun lugar',
+    description: 'Pronóstico por elevación, condiciones en tiempo real, alertas de tormenta y cámaras en vivo para cada cerro.',
     color: '#10b981',
   },
 ];
@@ -51,20 +48,13 @@ interface OnboardingScreenProps {
 
 export default function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
-  const flatListRef = useRef<FlatList>(null);
 
   const handleNext = () => {
     if (currentIndex < slides.length - 1) {
-      const nextIndex = currentIndex + 1;
-      flatListRef.current?.scrollToIndex({ index: nextIndex, animated: true });
-      setCurrentIndex(nextIndex);
+      setCurrentIndex(currentIndex + 1);
     } else {
       handleComplete();
     }
-  };
-
-  const handleSkip = () => {
-    handleComplete();
   };
 
   const handleComplete = async () => {
@@ -77,80 +67,63 @@ export default function OnboardingScreen({ onComplete }: OnboardingScreenProps) 
     }
   };
 
-  const renderSlide = ({ item }: { item: OnboardingSlide }) => (
-    <View style={styles.slide}>
-      <View style={styles.slideContent}>
-        <View style={[styles.iconContainer, { backgroundColor: `${item.color}20` }]}>
-          <Ionicons name={item.icon} size={80} color={item.color} />
-        </View>
-        
-        <Text style={styles.title}>{item.title}</Text>
-        <Text style={styles.description}>{item.description}</Text>
-      </View>
-    </View>
-  );
+  const slide = slides[currentIndex];
 
   return (
     <ImageBackground
-      source={require('../assets/Background_home.jpeg')}
+      source={require('../assets/background_onboarding.jpeg')}
       style={styles.container}
       imageStyle={styles.backgroundImage}
     >
       <View style={styles.overlay}>
-        {/* Skip Button */}
-        {currentIndex < slides.length - 1 && (
-          <TouchableOpacity style={styles.skipButton} onPress={handleSkip}>
-            <Text style={styles.skipText}>Saltar</Text>
-          </TouchableOpacity>
-        )}
 
-        {/* Slides */}
-        <FlatList
-          ref={flatListRef}
-          data={slides}
-          renderItem={renderSlide}
-          horizontal
-          pagingEnabled
-          showsHorizontalScrollIndicator={false}
-          keyExtractor={(item) => item.id}
-          onMomentumScrollEnd={(event) => {
-            const index = Math.round(event.nativeEvent.contentOffset.x / width);
-            setCurrentIndex(index);
-          }}
-          scrollEnabled={false}
-        />
-
-        {/* Pagination Dots */}
-        <View style={styles.pagination}>
-          {slides.map((_, index) => (
-            <View
-              key={index}
-              style={[
-                styles.dot,
-                index === currentIndex ? styles.activeDot : styles.inactiveDot,
-              ]}
-            />
-          ))}
-        </View>
-
-        {/* Next/Done Button */}
-        <TouchableOpacity style={styles.nextButton} onPress={handleNext}>
-          <Text style={styles.nextButtonText}>
-            {currentIndex === slides.length - 1 ? 'Comenzar' : 'Siguiente'}
-          </Text>
-          <Ionicons
-            name={currentIndex === slides.length - 1 ? 'checkmark' : 'arrow-forward'}
-            size={20}
-            color="#fff"
-            style={styles.nextButtonIcon}
+        {/* Top bar: Logo + Skip */}
+        <View style={styles.topBar}>
+          <Image
+            source={require('../assets/Logo_horizontal.png')}
+            style={styles.logoImage}
+            resizeMode="contain"
           />
-        </TouchableOpacity>
-
-        {/* Logo */}
-        <View style={styles.logoContainer}>
-          <Text style={styles.logoText}>ANDES POWDER</Text>
-          <Text style={styles.logoSubtext}>Pronósticos científicos de nieve</Text>
+          {currentIndex < slides.length - 1 && (
+            <TouchableOpacity onPress={handleComplete}>
+              <Text style={styles.skipText}>Saltar</Text>
+            </TouchableOpacity>
+          )}
         </View>
+
+        {/* Slide content */}
+        <View style={styles.slideArea}>
+          <View style={[styles.iconContainer, { backgroundColor: `${slide.color}20` }]}>
+            <Ionicons name={slide.icon} size={52} color={slide.color} />
+          </View>
+          <Text style={styles.title}>{slide.title}</Text>
+          <Text style={styles.description}>{slide.description}</Text>
+        </View>
+
+        {/* Bottom: dots + button */}
+        <View style={styles.bottomArea}>
+          <View style={styles.pagination}>
+            {slides.map((_, index) => (
+              <View
+                key={index}
+                style={[styles.dot, index === currentIndex ? styles.activeDot : styles.inactiveDot]}
+              />
+            ))}
+          </View>
+
+          <TouchableOpacity style={styles.nextButton} onPress={handleNext}>
+            <Text style={styles.nextButtonText}>
+              {currentIndex === slides.length - 1 ? 'Comenzar' : 'Siguiente'}
+            </Text>
+            <Ionicons
+              name={currentIndex === slides.length - 1 ? 'checkmark' : 'arrow-forward'}
+              size={20}
+              color="#fff"
+              style={styles.nextButtonIcon}
+            />
+          </TouchableOpacity>
+        </View>
+
       </View>
     </ImageBackground>
   );
@@ -161,55 +134,55 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   backgroundImage: {
-    opacity: 0.3,
+    opacity: 1,
   },
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.85)',
+    backgroundColor: 'rgba(15, 23, 42, 0.10)',
   },
-  skipButton: {
-    position: 'absolute',
-    top: 60,
-    right: 20,
-    zIndex: 10,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+  topBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 24,
+    paddingTop: 56,
+    paddingBottom: 8,
   },
   skipText: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '600',
     color: '#94a3b8',
   },
-  slide: {
-    width,
-    height: height * 0.7,
+  slideArea: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 40,
+    paddingBottom: '55%',
   },
-  slideContent: {
-    alignItems: 'center',
+  bottomArea: {
+    paddingBottom: 80,
   },
   iconContainer: {
-    width: 160,
-    height: 160,
-    borderRadius: 80,
+    width: 100,
+    height: 100,
+    borderRadius: 50,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 40,
+    marginBottom: 24,
   },
   title: {
-    fontSize: 28,
+    fontSize: 26,
     fontWeight: '800',
     color: '#fff',
     textAlign: 'center',
-    marginBottom: 20,
+    marginBottom: 14,
     letterSpacing: -0.5,
-    lineHeight: 36,
+    lineHeight: 33,
   },
   description: {
-    fontSize: 16,
-    lineHeight: 24,
+    fontSize: 15,
+    lineHeight: 22,
     color: '#cbd5e1',
     textAlign: 'center',
     letterSpacing: 0.3,
@@ -218,7 +191,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 40,
+    marginBottom: 20,
   },
   dot: {
     width: 8,
@@ -239,12 +212,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: '#0ea5e9',
     marginHorizontal: 40,
-    paddingVertical: 16,
+    paddingVertical: 12,
     borderRadius: 12,
-    marginBottom: 40,
+    marginBottom: 20,
   },
   nextButtonText: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '700',
     color: '#fff',
     letterSpacing: 0.5,
@@ -252,20 +225,8 @@ const styles = StyleSheet.create({
   nextButtonIcon: {
     marginLeft: 8,
   },
-  logoContainer: {
-    alignItems: 'center',
-    marginBottom: 40,
-  },
-  logoText: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: '#fff',
-    letterSpacing: 2,
-  },
-  logoSubtext: {
-    fontSize: 12,
-    color: '#94a3b8',
-    marginTop: 4,
-    letterSpacing: 1,
+  logoImage: {
+    width: 130,
+    height: 32,
   },
 });
