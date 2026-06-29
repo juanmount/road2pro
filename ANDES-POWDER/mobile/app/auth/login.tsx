@@ -8,6 +8,7 @@ import * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
 import { GOOGLE_CONFIG } from '../../config/google';
 import { logEvent } from '../../services/meta';
+import { setDevBypass } from '../_layout';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -193,6 +194,15 @@ export default function LoginScreen() {
                 ¿No tenés cuenta? <Text style={styles.linkTextBold}>Registrate</Text>
               </Text>
             </TouchableOpacity>
+
+            {__DEV__ && (
+              <TouchableOpacity
+                style={styles.devBypass}
+                onPress={() => { setDevBypass(true); router.replace('/'); }}
+              >
+                <Text style={styles.devBypassText}>⚙️ DEV: Entrar sin login</Text>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
       </KeyboardAvoidingView>
@@ -331,5 +341,19 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: '#1e293b',
+  },
+  devBypass: {
+    marginTop: 24,
+    alignItems: 'center',
+    padding: 8,
+    borderWidth: 1,
+    borderColor: '#f59e0b',
+    borderRadius: 8,
+    borderStyle: 'dashed',
+  },
+  devBypassText: {
+    fontSize: 12,
+    color: '#f59e0b',
+    fontWeight: '600',
   },
 });

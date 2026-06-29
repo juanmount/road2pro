@@ -8,6 +8,9 @@ import { Platform } from 'react-native';
 import { getTrackingPermissionsAsync, requestTrackingPermissionsAsync } from 'expo-tracking-transparency';
 import Constants from 'expo-constants';
 
+export let devBypassActive = false;
+export function setDevBypass(v: boolean) { devBypassActive = v; }
+
 function RootLayoutNav() {
   const { user, loading } = useAuth();
   const segments = useSegments();
@@ -40,7 +43,7 @@ function RootLayoutNav() {
 
     const inAuthGroup = segments[0] === 'auth';
 
-    if (!user && !inAuthGroup) {
+    if (!user && !inAuthGroup && !devBypassActive) {
       router.replace('/auth/login');
     } else if (user && inAuthGroup) {
       router.replace('/');

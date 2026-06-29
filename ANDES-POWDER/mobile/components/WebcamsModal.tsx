@@ -35,13 +35,13 @@ const RESORT_CAMERAS: Record<string, ResortConfig> = {
     ],
   },
   'cerro-castor': {
-    cameras: [
-      { id: 'youtube', name: 'Stream en Vivo', zone: 'Montaña', type: 'webview', webUrl: 'https://www.youtube.com/embed/live_stream?channel=UCdRznjZhMfIArULYvuXxzZg' },
-    ],
+    cameras: [],
   },
   'cerro-chapelco': {
     cameras: [
-      { id: 'chapelco-web', name: 'Cámaras en Vivo', zone: 'Montaña', type: 'webview', webUrl: 'https://www.cerrochapelco.com.ar/webcams-cerro-chapelco/', cleanPage: true },
+      { id: 'cam016', name: 'Mocho Inferior',   zone: 'Base',         type: 'image', imageUrl: 'https://varitech.ar/cameras/cam016/latest.jpg' },
+      { id: 'cam017', name: 'Lift Inferior',     zone: 'Base',         type: 'image', imageUrl: 'https://varitech.ar/cameras/cam017/latest.jpg' },
+      { id: 'cam018', name: 'Rancho Superior',   zone: 'Alta Montaña', type: 'image', imageUrl: 'https://varitech.ar/cameras/cam018/latest.jpg' },
     ],
   },
   'las-lenas': {

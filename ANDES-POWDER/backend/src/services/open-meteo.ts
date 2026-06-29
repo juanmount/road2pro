@@ -1,7 +1,9 @@
 import axios from 'axios';
 import { OpenMeteoResponse } from '../types';
 
-const BASE_URL = process.env.OPEN_METEO_BASE_URL || 'https://api.open-meteo.com/v1';
+const OPEN_METEO_API_KEY = process.env.OPEN_METEO_API_KEY || '';
+const BASE_DOMAIN = OPEN_METEO_API_KEY ? 'customer-api.open-meteo.com' : 'api.open-meteo.com';
+const BASE_URL = process.env.OPEN_METEO_BASE_URL || `https://${BASE_DOMAIN}/v1`;
 
 export class OpenMeteoService {
   async getForecast(latitude: number, longitude: number, elevation: number): Promise<OpenMeteoResponse> {
@@ -11,6 +13,7 @@ export class OpenMeteoService {
           latitude,
           longitude,
           elevation,
+          ...(OPEN_METEO_API_KEY ? { apikey: OPEN_METEO_API_KEY } : {}),
           hourly: [
             'temperature_2m',
             'apparent_temperature',

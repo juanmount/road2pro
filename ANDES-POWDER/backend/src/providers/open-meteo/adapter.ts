@@ -7,6 +7,9 @@ import axios from 'axios';
 import { ForecastProvider, FetchOptions, RawForecastData, ModelMetadata } from '../interfaces';
 import { Resort, NormalizedForecast, ModelName, TimeSeriesPoint } from '../../domain/models';
 
+const OPEN_METEO_API_KEY = process.env.OPEN_METEO_API_KEY || '';
+const OM_DOMAIN = OPEN_METEO_API_KEY ? 'customer-api.open-meteo.com' : 'api.open-meteo.com';
+
 export class OpenMeteoProvider implements ForecastProvider {
   readonly name = 'open-meteo' as const;
   readonly models: ModelName[] = ['ecmwf-ifs', 'gfs', 'gefs'];
@@ -21,14 +24,15 @@ export class OpenMeteoProvider implements ForecastProvider {
     
     // Map our model names to Open-Meteo API endpoints
     const endpointMap: Record<string, string> = {
-      'ecmwf-ifs': 'https://api.open-meteo.com/v1/ecmwf',
-      'gfs': 'https://api.open-meteo.com/v1/gfs',
-      'gefs': 'https://api.open-meteo.com/v1/gem'  // GEM (Global Ensemble Model) replaces old ensemble endpoint
+      'ecmwf-ifs': `https://${OM_DOMAIN}/v1/ecmwf`,
+      'gfs': `https://${OM_DOMAIN}/v1/gfs`,
+      'gefs': `https://${OM_DOMAIN}/v1/gem`  // GEM (Global Ensemble Model) replaces old ensemble endpoint
     };
     
     const baseUrl = endpointMap[model];
     
     const params: any = {
+      ...(OPEN_METEO_API_KEY ? { apikey: OPEN_METEO_API_KEY } : {}),
       latitude: resort.latitude,
       longitude: resort.longitude,
       elevation: resort.summitElevation, // Use summit elevation as reference for most accurate wind gusts data
@@ -49,7 +53,7 @@ export class OpenMeteoProvider implements ForecastProvider {
         'cloudcover_high',
         'pressure_msl',
         'freezinglevel_height',
-        'temperature_850hPa'  // T850 for better phase classification (GFS only)
+        ...(model === 'gfs' ? ['temperature_850hPa'] : [])  // T850 only available in GFS
       ].join(','),
       daily: [
         'temperature_2m_max',
@@ -73,8 +77,9 @@ export class OpenMeteoProvider implements ForecastProvider {
 
         if (!hasValidGusts) {
           try {
-            const gustFallback = await axios.get('https://api.open-meteo.com/v1/forecast', {
+            const gustFallback = await axios.get(`https://${OM_DOMAIN}/v1/forecast`, {
               params: {
+                ...(OPEN_METEO_API_KEY ? { apikey: OPEN_METEO_API_KEY } : {}),
                 latitude: resort.latitude,
                 longitude: resort.longitude,
                 elevation: resort.summitElevation,
@@ -238,8 +243,9 @@ export class OpenMeteoProvider implements ForecastProvider {
     }
     
     try {
-      const response = await axios.get('https://api.open-meteo.com/v1/forecast', {
+      const response = await axios.get(`https://${OM_DOMAIN}/v1/forecast`, {
         params: {
+          ...(OPEN_METEO_API_KEY ? { apikey: OPEN_METEO_API_KEY } : {}),
           latitude,
           longitude,
           hourly: 'freezinglevel_height',
@@ -365,8 +371,9 @@ export class OpenMeteoProvider implements ForecastProvider {
   
   async checkAvailability(): Promise<boolean> {
     try {
-      const response = await axios.get('https://api.open-meteo.com/v1/ecmwf', {
+      const response = await axios.get(`https://${OM_DOMAIN}/v1/ecmwf`, {
         params: {
+          ...(OPEN_METEO_API_KEY ? { apikey: OPEN_METEO_API_KEY } : {}),
           latitude: -41.15,
           longitude: -71.31,
           hourly: 'temperature_2m',
