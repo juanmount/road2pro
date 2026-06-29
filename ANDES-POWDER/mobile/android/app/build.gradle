@@ -92,8 +92,8 @@ android {
         applicationId 'com.andespowder.mobile'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 42
-        versionName "1.0.34"
+        versionCode 44
+        versionName "1.0.36"
     }
     signingConfigs {
         debug {
