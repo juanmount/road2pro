@@ -88,11 +88,13 @@ export default function ResortDetailScreen() {
   const [windExplanationVisible, setWindExplanationVisible] = useState(false);
   const [adjustmentModalVisible, setAdjustmentModalVisible] = useState(false);
   const latestRequestRef = useRef<number>(0);
+  const isMountedRef = useRef(true);
 
   useEffect(() => {
-    loadResortData();
-    
-    // Track resort view for analytics
+    return () => { isMountedRef.current = false; };
+  }, []);
+
+  useEffect(() => {
     if (id) {
       trackScreenView(`Resort_${id}`, 'ResortDetailScreen');
       trackResortView(id);
@@ -100,7 +102,7 @@ export default function ResortDetailScreen() {
         source: 'resort_list',
       });
     }
-  }, [id, selectedElevation]);
+  }, [id]);
 
   useFocusEffect(
     useCallback(() => {
@@ -124,16 +126,18 @@ export default function ResortDetailScreen() {
       console.log('[LOAD] Fetching resort by ID...');
       const resortData = await resortsService.getById(id);
       console.log('[LOAD] Resort data loaded:', resortData?.name);
+      if (!isMountedRef.current || latestRequestRef.current !== reqId) return;
       setResort(resortData);
       
       // Fetch current conditions with elevation-specific data
       try {
         const conditionsData = await resortsService.getCurrentConditions(id);
         console.log('[LOAD] Current conditions loaded:', conditionsData);
+        if (!isMountedRef.current || latestRequestRef.current !== reqId) return;
         setConditions(conditionsData);
       } catch (error) {
         console.warn('[LOAD] Failed to load current conditions:', error);
-        setConditions(null);
+        if (isMountedRef.current && latestRequestRef.current === reqId) setConditions(null);
       }
       
       let hourlyForecast: any[] = [];
@@ -224,6 +228,7 @@ export default function ResortDetailScreen() {
         }
       });
       
+      if (!isMountedRef.current || latestRequestRef.current !== reqId) return;
       setTodayRealSnowfall(todayRealSnowfall);
       setTodayForecastSnowfall(todayForecastSnowfall);
       console.log(`[TODAY] Forecast: ${todayForecastSnowfall.toFixed(1)}cm, Real (adjusted): ${todayRealSnowfall.toFixed(1)}cm from ${next24Hours.length} hours`);
@@ -232,17 +237,18 @@ export default function ResortDetailScreen() {
       try {
         console.log('[LOAD] Fetching snowfall history...');
         const historyData = await resortsService.getSnowfallHistory(id, selectedElevation, 5);
+        if (!isMountedRef.current || latestRequestRef.current !== reqId) return;
         setLast5DaysSnowfall(historyData);
         console.log('[HISTORY] Loaded', historyData.length, 'days of snowfall history');
       } catch (error) {
         console.warn('[HISTORY] Failed to load snowfall history:', error);
-        setLast5DaysSnowfall([]);
+        if (isMountedRef.current && latestRequestRef.current === reqId) setLast5DaysSnowfall([]);
       }
       
       // For live cards and hourly screens, show from "now" onward only
       const nowForHourly = new Date();
       const futureHourly = hourlySanitized.filter((h: any) => new Date(h.time).getTime() >= nowForHourly.getTime());
-      if (latestRequestRef.current !== reqId) {
+      if (!isMountedRef.current || latestRequestRef.current !== reqId) {
         return;
       }
       setHourlyData(futureHourly);
@@ -544,7 +550,7 @@ export default function ResortDetailScreen() {
       console.log('[DAILY FORECAST] First day after filter:', filteredForecast[0]?.date);
       console.log('[DAILY FORECAST] Last day after filter:', filteredForecast[filteredForecast.length - 1]?.date);
       
-      if (latestRequestRef.current !== reqId) {
+      if (!isMountedRef.current || latestRequestRef.current !== reqId) {
         return;
       }
       setDailyForecast(filteredForecast);
@@ -668,7 +674,7 @@ export default function ResortDetailScreen() {
       alert('Error loading data: ' + (err as Error).message);
     } finally {
       console.log('[LOAD] Setting loading to false');
-      setLoading(false);
+      if (isMountedRef.current) setLoading(false);
     }
   };
 
