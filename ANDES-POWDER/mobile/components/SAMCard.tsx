@@ -83,7 +83,7 @@ export default function SAMCard({ data }: Props) {
                 <Text style={[styles.trendIcon, { color: trendColor(data.trend) }]}>
                   {trendIcon(data.trend)}
                 </Text>
-                <Text style={styles.bodyText}>
+                <Text style={[styles.bodyText, { flex: 1 }]}>
                   {data.trendLabel}.{' '}
                   {data.trend === 'improving'
                     ? 'El flujo del oeste se recupera — señal positiva para la llegada de frentes.'
