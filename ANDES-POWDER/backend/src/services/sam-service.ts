@@ -201,8 +201,12 @@ function buildTrendLabel(
   }
 
   const forecastMean = forecastVals.reduce((s, d) => s + d.uWind, 0) / (forecastVals.length || 1);
+  // Also check late-week recovery: last 2 forecast days both clearly favorable
+  const lastTwo = forecastVals.slice(-2);
+  const lastTwoMean = lastTwo.length > 0 ? lastTwo.reduce((s, d) => s + d.uWind, 0) / lastTwo.length : 0;
+  const hasLateRecovery = lastTwoMean >= FAVORABLE_U && todayU < FAVORABLE_U;
 
-  if (forecastMean >= FAVORABLE_U && todayU < FAVORABLE_U) {
+  if ((forecastMean >= FAVORABLE_U || hasLateRecovery) && todayU < FAVORABLE_U) {
     const d = improveDays ?? forecastVals.length + LAG_DAYS;
     return {
       trend: 'improving',
