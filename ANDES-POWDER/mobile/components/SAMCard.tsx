@@ -61,7 +61,7 @@ export default function SAMCard({ data }: Props) {
         <View style={styles.overlay}>
           <View style={styles.modal}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Circulación Atmosférica (AAO)</Text>
+              <Text style={styles.modalTitle}>Circulación del Oeste</Text>
               <TouchableOpacity onPress={() => setModalVisible(false)}>
                 <Ionicons name="close" size={26} color="#64748b" />
               </TouchableOpacity>
@@ -77,9 +77,8 @@ export default function SAMCard({ data }: Props) {
 
               <Text style={styles.sectionTitle}>¿Qué es esto?</Text>
               <Text style={styles.bodyText}>
-                La Oscilación Antártica (AAO) describe el movimiento norte-sur del cinturón de vientos del oeste que rodea la Antártida.{'\n\n'}
-                Es el principal factor que determina si las tormentas del Pacífico pueden cruzar los Andes y traer nieve a la Cordillera Patagónica.{'\n\n'}
-                Cuando está <Text style={{ color: '#ef4444', fontWeight: '700' }}>bloqueado</Text>, el cinturón de vientos se desplaza hacia el sur y las tormentas no logran cruzar. Cuando está <Text style={{ color: '#22c55e', fontWeight: '700' }}>activo</Text>, los frentes ingresan con facilidad y la nieve cae.
+                Mide la dirección del viento a media atmósfera (500hPa) sobre la Cordillera Patagónica. Es el indicador más directo de si los frentes del Pacífico pueden cruzar los Andes.{'\n\n'}
+                Cuando está <Text style={{ color: '#ef4444', fontWeight: '700' }}>bloqueado</Text>, el viento sopla del este y las tormentas no logran cruzar. Cuando está <Text style={{ color: '#22c55e', fontWeight: '700' }}>activo</Text>, el flujo del oeste trae los frentes y la nieve cae.
               </Text>
 
               <Text style={styles.sectionTitle}>Estado actual</Text>
