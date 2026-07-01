@@ -1397,8 +1397,8 @@ export default function ResortDetailScreen() {
             );
           })()}
           
-          {/* AAO Climate Index */}
-          {aaoData && <AAOCard data={aaoData} />}
+          {/* AAO Climate Index — disabled until daily data source is available */}
+          {/* {aaoData && <AAOCard data={aaoData} />} */}
 
           {/* Snow metrics - always show comparison data for consistency */}
           <View style={styles.glassMetrics}>
