@@ -1372,7 +1372,7 @@ export default function ResortDetailScreen() {
 
             return (
               <View style={styles.circulationCard}>
-                <Text style={styles.circulationCardTitle}>CIRCULACIÓN</Text>
+                <Text style={styles.circulationCardTitle}>FLUJO ANDINO</Text>
 
                 {/* Row 1: surface wind */}
                 <TouchableOpacity
