@@ -11,14 +11,17 @@ import axios from 'axios';
 
 const OPEN_METEO_URL = 'https://api.open-meteo.com/v1/forecast';
 
-// 4 longitudes evenly spread across the Southern Hemisphere
-const LONGITUDES = [-90, -30, 30, 90];
+// 2 longitudes: Pacific (relevant for Patagonia) + Indian Ocean sector
+// Fewer calls = stay under Open-Meteo free tier rate limit
+const LONGITUDES = [-70, 40];
 const LAT_MID = -40;   // mid-latitude ring
 const LAT_POLAR = -65; // polar ring
 
 const PAST_DAYS = 14;
 const FORECAST_DAYS = 7;
-const CACHE_TTL_MS = 3 * 60 * 60 * 1000; // 3 hours
+const CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 export interface SAMStatus {
   level: 'very_blocked' | 'blocked' | 'normal' | 'active' | 'very_active';
@@ -169,10 +172,16 @@ function buildTrendLabel(
 export async function getSAMData(): Promise<SAMData> {
   if (cache && Date.now() - cache.fetchedAt < CACHE_TTL_MS) return cache.data;
 
-  // Fetch 500hPa heights for all sample points concurrently
-  const midFetches = LONGITUDES.map((lon) => fetchHeights(LAT_MID, lon));
-  const polarFetches = LONGITUDES.map((lon) => fetchHeights(LAT_POLAR, lon));
-  const allFetches = await Promise.all([...midFetches, ...polarFetches]);
+  // Fetch sequentially to avoid Open-Meteo free tier rate limit (429)
+  const allFetches: Awaited<ReturnType<typeof fetchHeights>>[] = [];
+  const points = [
+    ...LONGITUDES.map((lon) => ({ lat: LAT_MID, lon })),
+    ...LONGITUDES.map((lon) => ({ lat: LAT_POLAR, lon })),
+  ];
+  for (const { lat, lon } of points) {
+    allFetches.push(await fetchHeights(lat, lon));
+    await sleep(300); // 300ms between calls
+  }
 
   const midData = allFetches.slice(0, LONGITUDES.length);
   const polarData = allFetches.slice(LONGITUDES.length);
