@@ -13,6 +13,8 @@ import FourteenDayAccumulationCard from '../../../../components/FourteenDayAccum
 import FourteenDayAccumulationModal from '../../../../components/FourteenDayAccumulationModal';
 import BestTimeCard from '../../../../components/BestTimeCard';
 import ENSOCard from '../../../../components/ENSOCard';
+import AAOCard from '../../../../components/AAOCard';
+import { climateService, AAOData } from '../../../../services/climate';
 import { VisibilityCard } from '../../../../components/VisibilityCard';
 import { getWeatherIcon } from '../../../../utils/weather-icons';
 import { getWindNarrative, getWindDirectionLabel, getWindExplanation, getWindTrend, getSkiSeason } from '../../../../utils/wind-narrative';
@@ -89,9 +91,16 @@ export default function ResortDetailScreen() {
   const [adjustmentModalVisible, setAdjustmentModalVisible] = useState(false);
   const latestRequestRef = useRef<number>(0);
   const isMountedRef = useRef(true);
+  const [aaoData, setAaoData] = useState<AAOData | null>(null);
 
   useEffect(() => {
     return () => { isMountedRef.current = false; };
+  }, []);
+
+  useEffect(() => {
+    climateService.getAAO()
+      .then(d => { if (isMountedRef.current) setAaoData(d); })
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -1388,6 +1397,9 @@ export default function ResortDetailScreen() {
             );
           })()}
           
+          {/* AAO Climate Index */}
+          {aaoData && <AAOCard data={aaoData} />}
+
           {/* Snow metrics - always show comparison data for consistency */}
           <View style={styles.glassMetrics}>
             {(() => {
