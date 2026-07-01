@@ -20,9 +20,9 @@ function trendIcon(trend: AAOData['trend']): string {
   return '→';
 }
 
-function trendLabel(trend: AAOData['trend'], delta: number): string {
-  if (trend === 'rising') return `Subiendo +${Math.abs(delta).toFixed(1)}`;
-  if (trend === 'falling') return `Bajando -${Math.abs(delta).toFixed(1)}`;
+function trendLabel(trend: AAOData['trend']): string {
+  if (trend === 'rising') return 'Subiendo';
+  if (trend === 'falling') return 'Bajando';
   return 'Estable';
 }
 
@@ -51,7 +51,7 @@ export default function AAOCard({ data }: Props) {
 
         <View style={styles.trendContainer}>
           <Text style={[styles.trendArrow, { color: tc }]}>{trendIcon(data.trend)}</Text>
-          <Text style={[styles.trendLabel, { color: tc }]}>{trendLabel(data.trend, data.trendDelta)}</Text>
+          <Text style={[styles.trendLabel, { color: tc }]}>{trendLabel(data.trend)}</Text>
         </View>
 
         <TouchableOpacity
@@ -110,11 +110,11 @@ export default function AAOCard({ data }: Props) {
 
               <Text style={styles.sectionTitle}>Escala de referencia</Text>
               {[
-                { range: '> +2.0', color: '#ef4444', label: 'Muy bloqueado', note: 'Frentes casi imposibles' },
-                { range: '+1.0 a +2.0', color: '#f97316', label: 'Bloqueado', note: 'Frentes débiles' },
-                { range: '0 a +1.0', color: '#eab308', label: 'Neutro +', note: 'Condiciones normales' },
-                { range: '-1.0 a 0', color: '#22c55e', label: 'Activo', note: 'Buenos frentes' },
-                { range: '< -1.0', color: '#3b82f6', label: 'Muy activo', note: 'Tormentas intensas' },
+                { range: '> +2.0', color: '#ef4444', label: 'Circ. bloqueada', note: 'Frentes casi imposibles' },
+                { range: '+1.0 a +2.0', color: '#f97316', label: 'Frentes limitados', note: 'Frentes débiles' },
+                { range: '0 a +1.0', color: '#eab308', label: 'Condición normal', note: 'Cruce moderado' },
+                { range: '-1.0 a 0', color: '#22c55e', label: 'Frentes favorables', note: 'Buenos frentes' },
+                { range: '< -1.0', color: '#3b82f6', label: 'Alta act. frontal', note: 'Tormentas intensas' },
               ].map((item) => (
                 <View key={item.range} style={styles.scaleRow}>
                   <View style={[styles.scaleDot, { backgroundColor: item.color }]} />

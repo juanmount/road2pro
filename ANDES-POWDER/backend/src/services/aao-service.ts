@@ -56,7 +56,7 @@ function classifyAAO(index: number): AAOStatus {
     return {
       level: 'very_blocked',
       color: '#ef4444',
-      label: 'Muy bloqueado',
+      label: 'Circulación bloqueada',
       description: 'La circulación atmosférica está fuertemente bloqueada. Los sistemas frontales del Pacífico tienen dificultad para cruzar los Andes.',
       impactOnSnow: 'Probabilidad de nevadas muy baja. Predominan cielos despejados y vientos del este.',
     };
@@ -65,7 +65,7 @@ function classifyAAO(index: number): AAOStatus {
     return {
       level: 'blocked',
       color: '#f97316',
-      label: 'Bloqueado',
+      label: 'Frentes limitados',
       description: 'Un anticiclón sobre el Pacífico Sur limita la llegada de frentes a la Cordillera Patagónica.',
       impactOnSnow: 'Frentes débiles o bloqueados. Nevadas posibles pero de menor intensidad.',
     };
@@ -74,7 +74,7 @@ function classifyAAO(index: number): AAOStatus {
     return {
       level: 'neutral_positive',
       color: '#eab308',
-      label: 'Neutro +',
+      label: 'Condición normal',
       description: 'Condiciones cercanas a lo normal con ligera tendencia bloqueante.',
       impactOnSnow: 'Condiciones normales de temporada. Frentes con posibilidad moderada de cruce.',
     };
@@ -83,7 +83,7 @@ function classifyAAO(index: number): AAOStatus {
     return {
       level: 'active',
       color: '#22c55e',
-      label: 'Activo',
+      label: 'Frentes favorables',
       description: 'El cinturón de vientos del oeste se desplaza hacia el norte, favoreciendo el cruce de frentes sobre los Andes patagónicos.',
       impactOnSnow: 'Buena probabilidad de frentes activos. Condiciones favorables para nevadas.',
     };
@@ -91,7 +91,7 @@ function classifyAAO(index: number): AAOStatus {
   return {
     level: 'very_active',
     color: '#3b82f6',
-    label: 'Muy activo',
+    label: 'Alta actividad frontal',
     description: 'Fase muy negativa de la AAO. Alta actividad frontal con sistemas intensos cruzando los Andes.',
     impactOnSnow: 'Alta probabilidad de tormentas y nevadas significativas. Condiciones óptimas para acumulación.',
   };
