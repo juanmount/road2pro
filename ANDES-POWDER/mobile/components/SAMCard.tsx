@@ -6,12 +6,14 @@ import {
   Modal,
   ScrollView,
   StyleSheet,
+  ViewStyle,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SAMData } from '../services/climate';
 
 interface Props {
   data: SAMData;
+  containerStyle?: ViewStyle;
 }
 
 function trendIcon(trend: SAMData['trend']): string {
@@ -26,13 +28,13 @@ function trendColor(trend: SAMData['trend']): string {
   return '#94a3b8';
 }
 
-export default function SAMCard({ data }: Props) {
+export default function SAMCard({ data, containerStyle }: Props) {
   const [modalVisible, setModalVisible] = useState(false);
   const tc = trendColor(data.trend);
 
   return (
     <>
-      <View style={styles.container}>
+      <View style={[styles.container, containerStyle]}>
         <View style={[styles.dot, { backgroundColor: data.status.color }]} />
 
         <Text style={[styles.statusText, { color: data.status.color }]}>
@@ -132,6 +134,15 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.4)',
+  },
+  containerEmbedded: {
+    marginTop: 0,
+    marginBottom: 0,
+    marginHorizontal: 0,
+    backgroundColor: 'transparent',
+    borderWidth: 0,
+    borderRadius: 0,
+    padding: 10,
   },
   dot: {
     width: 9,

@@ -1360,45 +1360,53 @@ export default function ResortDetailScreen() {
             </View>
           </View>
           
-          {/* Wind Narrative - Separate compact section */}
+          {/* Unified Circulation Card: surface wind + 500hPa pattern */}
           {(() => {
             const windDir = currentHour.windDirection || 270;
             const windSpeed = currentWindImpact?.adjustedWindKmh || currentHour.windSpeed || 0;
             const precip = currentHour.precipitation || 0;
             const narrative = getWindNarrative(windDir, windSpeed, precip);
             const dirLabel = getWindDirectionLabel(windDir);
-            
-            // Get wind trend (compare current with 6-8 hours ahead)
             const futureWindDir = hourlyData[6]?.windDirection || hourlyData[8]?.windDirection || windDir;
             const trend = getWindTrend(windDir, futureWindDir);
-            
+
             return (
-              <TouchableOpacity 
-                style={styles.windNarrativeSection}
-                onPress={() => setWindExplanationVisible(true)}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="compass-outline" size={16} color={narrative.color} />
-                <Text style={[styles.windDirectionBadge, { backgroundColor: narrative.color }]}>
-                  {dirLabel}
-                </Text>
-                <Text style={styles.windNarrativeText}>{narrative.context}</Text>
-                
-                {/* Wind Trend Arrow */}
-                {trend.rotating && (
-                  <View style={styles.windTrendContainer}>
-                    <Text style={styles.windTrendArrow}>{trend.arrow}</Text>
-                    <Text style={styles.windTrendLabel}>{trend.futureLabel}</Text>
-                  </View>
+              <View style={styles.circulationCard}>
+                <Text style={styles.circulationCardTitle}>CIRCULACIÓN</Text>
+
+                {/* Row 1: surface wind */}
+                <TouchableOpacity
+                  style={styles.circulationRow}
+                  onPress={() => setWindExplanationVisible(true)}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="compass-outline" size={16} color={narrative.color} />
+                  <Text style={[styles.windDirectionBadge, { backgroundColor: narrative.color }]}>
+                    {dirLabel}
+                  </Text>
+                  <Text style={styles.windNarrativeText}>{narrative.context}</Text>
+                  {trend.rotating && (
+                    <View style={styles.windTrendContainer}>
+                      <Text style={styles.windTrendArrow}>{trend.arrow}</Text>
+                      <Text style={styles.windTrendLabel}>{trend.futureLabel}</Text>
+                    </View>
+                  )}
+                  <Ionicons name="information-circle-outline" size={16} color="#64748b" style={{ marginLeft: trend.rotating ? 8 : 'auto' }} />
+                </TouchableOpacity>
+
+                {/* Divider */}
+                <View style={styles.circulationDivider} />
+
+                {/* Row 2: 500hPa pattern */}
+                {samData && (
+                  <SAMCard
+                    data={samData}
+                    containerStyle={styles.circulationSAMRow}
+                  />
                 )}
-                
-                <Ionicons name="information-circle-outline" size={18} color="#64748b" style={{ marginLeft: trend.rotating ? 8 : 'auto' }} />
-              </TouchableOpacity>
+              </View>
             );
           })()}
-          
-          {/* SAM / AAO Circulation Index */}
-          {samData && <SAMCard data={samData} />}
 
           {/* Snow metrics - always show comparison data for consistency */}
           <View style={styles.glassMetrics}>
@@ -2613,5 +2621,46 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#1e40af',
     lineHeight: 20,
+  },
+  circulationCard: {
+    marginTop: 20,
+    marginBottom: 16,
+    marginHorizontal: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.6)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.4)',
+    overflow: 'hidden',
+  },
+  circulationCardTitle: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#94a3b8',
+    letterSpacing: 1,
+    paddingHorizontal: 12,
+    paddingTop: 10,
+    paddingBottom: 4,
+  },
+  circulationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  circulationDivider: {
+    height: 1,
+    backgroundColor: 'rgba(100, 116, 139, 0.15)',
+    marginHorizontal: 12,
+  },
+  circulationSAMRow: {
+    marginTop: 0,
+    marginBottom: 0,
+    marginHorizontal: 0,
+    backgroundColor: 'transparent',
+    borderWidth: 0,
+    borderRadius: 0,
+    padding: 10,
+    paddingHorizontal: 12,
   },
 });
