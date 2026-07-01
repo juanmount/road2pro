@@ -17,7 +17,7 @@ const LONGITUDES = [-70, 40];
 const LAT_MID = -40;   // mid-latitude ring
 const LAT_POLAR = -65; // polar ring
 
-const PAST_DAYS = 14;
+const PAST_DAYS = 45; // needs to span pre-blocking period for meaningful anomaly
 const FORECAST_DAYS = 7;
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
 
@@ -236,7 +236,10 @@ export async function getSAMData(): Promise<SAMData> {
   const sd = stdDev(baselineValues) || 1;
 
   const todayDiff = pastDiffs[pastDiffs.length - 1].diff;
-  const anomalySD = (todayDiff - baselineMean) / sd;
+  // Compare recent 14-day mean vs full 45-day baseline for more stable classification
+  const recentSlice = pastDiffs.slice(-14);
+  const currentDiff = recentSlice.reduce((s, d) => s + d.diff, 0) / recentSlice.length;
+  const anomalySD = (currentDiff - baselineMean) / sd;
 
   const { trend, label, days } = buildTrendLabel(futureDiffs, todayDiff, sd);
 
