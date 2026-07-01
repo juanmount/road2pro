@@ -75,42 +75,25 @@ export default function SAMCard({ data }: Props) {
                 </Text>
               </View>
 
-              <Text style={styles.sectionTitle}>¿Qué es esto?</Text>
               <Text style={styles.bodyText}>
-                Mide la dirección del viento a media atmósfera (500hPa) sobre la Cordillera Patagónica. Es el indicador más directo de si los frentes del Pacífico pueden cruzar los Andes.{'\n\n'}
-                Cuando está <Text style={{ color: '#ef4444', fontWeight: '700' }}>bloqueado</Text>, el viento sopla del este y las tormentas no logran cruzar. Cuando está <Text style={{ color: '#22c55e', fontWeight: '700' }}>activo</Text>, el flujo del oeste trae los frentes y la nieve cae.
+                {data.status.description}{'\n'}{data.status.impactOnSnow}
               </Text>
 
-              <Text style={styles.sectionTitle}>Estado actual</Text>
-              <Text style={styles.bodyText}>{data.status.description}</Text>
-
-              <Text style={styles.sectionTitle}>Impacto en nieve</Text>
-              <View style={styles.impactBox}>
-                <Text style={styles.impactText}>{data.status.impactOnSnow}</Text>
-              </View>
-
-              <Text style={styles.sectionTitle}>Tendencia próximos 7 días</Text>
-              <View style={[styles.trendBox, { borderColor: trendColor(data.trend) + '40' }]}>
+              <View style={[styles.trendBox, { borderColor: trendColor(data.trend) + '40', marginTop: 12 }]}>
                 <Text style={[styles.trendIcon, { color: trendColor(data.trend) }]}>
                   {trendIcon(data.trend)}
                 </Text>
                 <Text style={styles.bodyText}>
                   {data.trendLabel}.{' '}
                   {data.trend === 'improving'
-                    ? 'Una circulación que se activa es señal positiva para la llegada de frentes y posibles nevadas.'
+                    ? 'El flujo del oeste se recupera — señal positiva para la llegada de frentes.'
                     : data.trend === 'worsening'
-                    ? 'Una circulación que se bloquea implica menor probabilidad de frentes en los próximos días.'
-                    : 'La circulación se mantiene estable. No se esperan cambios significativos en el patrón de frentes.'}
+                    ? 'El bloqueo se intensifica. Menor probabilidad de frentes en los próximos días.'
+                    : 'Sin cambios significativos en el patrón esta semana.'}
                 </Text>
               </View>
 
-              <Text style={styles.sectionTitle}>¿Por qué a veces no nieva toda la semana?</Text>
-              <Text style={styles.bodyText}>
-                Aunque haga frío, si la circulación está bloqueada los frentes no pueden cruzar los Andes. El resultado son días despejados y secos — ideales para esquiar con buen tiempo, pero sin nieve nueva.{'\n\n'}
-                Cuando la circulación se activa, llegan los frentes del Pacífico con precipitación. Eso es lo que produce las nevadas que renuevan la nieve fresca.
-              </Text>
-
-              <Text style={styles.sectionTitle}>Escala de referencia</Text>
+              <Text style={[styles.sectionTitle, { marginTop: 20 }]}>Escala</Text>
               {[
                 { color: '#ef4444', label: 'Circulación bloqueada', note: 'Frentes casi imposibles' },
                 { color: '#f97316', label: 'Frentes limitados', note: 'Frentes débiles' },
