@@ -95,13 +95,13 @@ function stdDev(values: number[]): number {
 }
 
 /** Fetch hourly 850hPa wind speed + direction for a single point */
-async function fetchWind(lat: number, lon: number): Promise<{ time: string; uWind: number }[]> {
+async function fetchWind(lat: number, lon: number): Promise<{ time: string; uWind: number; dir: number }[]> {
   const res = await axios.get(OPEN_METEO_URL, {
     params: {
       latitude: lat,
       longitude: lon,
       hourly: 'windspeed_500hPa,winddirection_500hPa',
-      past_days: PAST_DAYS,
+      past_days: 3,
       forecast_days: FORECAST_DAYS,
       timezone: 'UTC',
     },
@@ -110,16 +110,16 @@ async function fetchWind(lat: number, lon: number): Promise<{ time: string; uWin
   const times: string[] = res.data.hourly.time;
   const speeds: number[] = res.data.hourly.windspeed_500hPa;
   const dirs: number[] = res.data.hourly.winddirection_500hPa;
-  // u-component (eastward) = -speed × sin(dir_rad)
-  // positive u = westerly flow → fronts can arrive
+  // u-component: positive = westerly (fronts arrive), negative = easterly (blocked)
   return times.map((t, i) => ({
     time: t,
     uWind: -(speeds[i] ?? 0) * Math.sin((dirs[i] ?? 0) * Math.PI / 180),
+    dir: dirs[i] ?? 0,
   }));
 }
 
-/** Group hourly values by calendar day, return daily mean */
-function dailyMeanFromHourly(data: { time: string; uWind: number }[]): Record<string, number> {
+/** Group hourly u-wind values by calendar day, return daily mean u-wind */
+function dailyMeanFromHourly(data: { time: string; uWind: number; dir: number }[]): Record<string, number> {
   const byDay: Record<string, number[]> = {};
   for (const { time, uWind } of data) {
     const day = time.slice(0, 10);
@@ -131,6 +131,54 @@ function dailyMeanFromHourly(data: { time: string; uWind: number }[]): Record<st
     result[day] = vals.reduce((s, v) => s + v, 0) / vals.length;
   }
   return result;
+}
+
+/**
+ * Classify circulation directly from mean u-wind of last 24h.
+ * Positive u = westerlies = active fronts. Negative u = easterlies = blocked.
+ * Thresholds calibrated for 500hPa at 41°S, 70°W:
+ *   Climatological westerly mean: ~+42 km/h
+ *   Strong blocking gives u < -5 km/h, moderate < +15 km/h
+ */
+function classifyFromUWind(currentU: number): SAMStatus {
+  if (currentU < -10) {
+    return {
+      level: 'very_blocked', color: '#ef4444',
+      label: 'Circulación bloqueada',
+      description: 'Flujo del este a 500hPa sobre los Andes. El anticiclón bloquea el ingreso de frentes del Pacífico.',
+      impactOnSnow: 'Probabilidad de nevadas muy baja. Predominan cielos despejados y vientos del este.',
+    };
+  }
+  if (currentU < 15) {
+    return {
+      level: 'blocked', color: '#f97316',
+      label: 'Frentes limitados',
+      description: 'Flujo débil o variable a 500hPa. Los sistemas frontales llegan debilitados a la Cordillera.',
+      impactOnSnow: 'Frentes posibles pero de menor intensidad. Nevadas limitadas.',
+    };
+  }
+  if (currentU < 35) {
+    return {
+      level: 'normal', color: '#eab308',
+      label: 'Condición normal',
+      description: 'Flujo moderado del oeste a 500hPa. Circulación dentro de valores normales de temporada.',
+      impactOnSnow: 'Condiciones típicas de invierno. Probabilidad moderada de frentes.',
+    };
+  }
+  if (currentU < 55) {
+    return {
+      level: 'active', color: '#22c55e',
+      label: 'Frentes favorables',
+      description: 'Flujo fuerte del oeste a 500hPa. Buenos canales de humedad del Pacífico hacia los Andes.',
+      impactOnSnow: 'Buena probabilidad de frentes activos y nevadas.',
+    };
+  }
+  return {
+    level: 'very_active', color: '#3b82f6',
+    label: 'Alta actividad frontal',
+    description: 'Corriente en chorro muy intensa. Alta frecuencia de sistemas frontales cruzando los Andes.',
+    impactOnSnow: 'Alta probabilidad de tormentas y nevadas significativas.',
+  };
 }
 
 function buildTrendLabel(
@@ -197,23 +245,21 @@ export async function getSAMData(): Promise<SAMData> {
 
   if (pastDays.length === 0) throw new Error('No circulation data available');
 
-  const baselineValues = pastDays.map((d) => dailyU[d]);
-  const baselineMean = baselineValues.reduce((s, v) => s + v, 0) / baselineValues.length;
-  const sd = stdDev(baselineValues) || 1;
+  // Current u-wind: last 24h mean (most recent available hours)
+  const recentHours = pointData[0]  // single point
+    ? Object.values(pointData[0]).slice(-1)[0]  // today's daily mean u-wind
+    : 0;
+  const allPastU = pastDays.map((d) => dailyU[d]);
+  const sd = stdDev(allPastU) || 10;
 
-  // Recent 3-day mean vs 45-day baseline — short window captures active blocking
-  const recentSlice = pastDays.slice(-3).map((d) => dailyU[d]);
-  const currentU = recentSlice.reduce((s, v) => s + v, 0) / recentSlice.length;
-  // Negative anomalySD → weaker westerlies than normal → blocked
-  // We invert so that positive = blocked (consistent with AAO convention)
-  const anomalySD = -(currentU - baselineMean) / sd;
-
-  const todayU = dailyU[pastDays[pastDays.length - 1]];
+  // Use last available daily mean as current u-wind
+  const currentU = dailyU[pastDays[pastDays.length - 1]] ?? 0;
+  const todayU = currentU;
   const forecastVals = futureDays.map((d) => ({ date: d, uWind: dailyU[d] }));
   const { trend, label, days } = buildTrendLabel(forecastVals, todayU, sd);
 
   const data: SAMData = {
-    status: classifySAM(anomalySD),
+    status: classifyFromUWind(currentU),
     trend,
     trendLabel: label,
     trendDays: days,
