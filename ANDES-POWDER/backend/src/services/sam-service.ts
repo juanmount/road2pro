@@ -190,7 +190,7 @@ function buildTrendLabel(
   // +2 day offset accounts for lag between upper-level flow and actual precipitation at resort
   const FAVORABLE_U = 30;
   const BLOCKED_U = 10;
-  const LAG_DAYS = 2;
+  const LAG_DAYS = 1;
 
   let improveDays: number | null = null;
   let worsenDays: number | null = null;
