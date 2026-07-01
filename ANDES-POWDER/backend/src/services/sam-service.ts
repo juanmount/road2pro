@@ -12,11 +12,12 @@ import axios from 'axios';
 
 const OPEN_METEO_URL = 'https://api.open-meteo.com/v1/forecast';
 
-// Sample points in the Pacific just west of Patagonia
+// Sample points over/near the Andes at 500hPa
+// Here the 500hPa flow directly reflects whether fronts cross or are blocked
 const SAMPLE_POINTS = [
-  { lat: -40, lon: -85 },
-  { lat: -45, lon: -85 },
-  { lat: -50, lon: -85 },
+  { lat: -41, lon: -70 },
+  { lat: -43, lon: -70 },
+  { lat: -45, lon: -72 },
 ];
 
 const PAST_DAYS = 45;
@@ -101,7 +102,7 @@ async function fetchWind(lat: number, lon: number): Promise<{ time: string; uWin
     params: {
       latitude: lat,
       longitude: lon,
-      hourly: 'windspeed_850hPa,winddirection_850hPa',
+      hourly: 'windspeed_500hPa,winddirection_500hPa',
       past_days: PAST_DAYS,
       forecast_days: FORECAST_DAYS,
       timezone: 'UTC',
@@ -109,8 +110,8 @@ async function fetchWind(lat: number, lon: number): Promise<{ time: string; uWin
     timeout: 8000,
   });
   const times: string[] = res.data.hourly.time;
-  const speeds: number[] = res.data.hourly.windspeed_850hPa;
-  const dirs: number[] = res.data.hourly.winddirection_850hPa;
+  const speeds: number[] = res.data.hourly.windspeed_500hPa;
+  const dirs: number[] = res.data.hourly.winddirection_500hPa;
   // u-component (eastward) = -speed × sin(dir_rad)
   // positive u = westerly flow → fronts can arrive
   return times.map((t, i) => ({
@@ -202,8 +203,8 @@ export async function getSAMData(): Promise<SAMData> {
   const baselineMean = baselineValues.reduce((s, v) => s + v, 0) / baselineValues.length;
   const sd = stdDev(baselineValues) || 1;
 
-  // Recent 14-day mean vs 45-day baseline
-  const recentSlice = pastDays.slice(-14).map((d) => dailyU[d]);
+  // Recent 3-day mean vs 45-day baseline — short window captures active blocking
+  const recentSlice = pastDays.slice(-3).map((d) => dailyU[d]);
   const currentU = recentSlice.reduce((s, v) => s + v, 0) / recentSlice.length;
   // Negative anomalySD → weaker westerlies than normal → blocked
   // We invert so that positive = blocked (consistent with AAO convention)
