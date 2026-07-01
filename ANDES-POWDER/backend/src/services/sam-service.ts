@@ -1,23 +1,25 @@
 /**
- * SAM (Southern Annular Mode) / AAO Proxy Service
- * Computes a regional SAM index from 500hPa geopotential height anomalies
- * sampled at 40°S vs 65°S using Open-Meteo — no API key needed, real-time.
+ * Patagonian Circulation Proxy Service
+ * Measures the strength of westerly flow at 850hPa west of the Andes.
+ * Strong westerlies → fronts cross → active (good for snow)
+ * Weak/easterly flow → blocked → no fronts (bad for snow)
  *
- * Positive anomaly (40S height above normal vs 65S) → blocked circulation
- * Negative anomaly → active fronts / more snowfall chances
+ * 3 sample points at 40-50°S, 85°W (Pacific just west of Andes):
+ * u-wind = −speed × sin(direction°)  — positive = westerly
  */
 
 import axios from 'axios';
 
 const OPEN_METEO_URL = 'https://api.open-meteo.com/v1/forecast';
 
-// 2 longitudes: Pacific (relevant for Patagonia) + Indian Ocean sector
-// Fewer calls = stay under Open-Meteo free tier rate limit
-const LONGITUDES = [-70, 40];
-const LAT_MID = -40;   // mid-latitude ring
-const LAT_POLAR = -65; // polar ring
+// Sample points in the Pacific just west of Patagonia
+const SAMPLE_POINTS = [
+  { lat: -40, lon: -85 },
+  { lat: -45, lon: -85 },
+  { lat: -50, lon: -85 },
+];
 
-const PAST_DAYS = 45; // needs to span pre-blocking period for meaningful anomaly
+const PAST_DAYS = 45;
 const FORECAST_DAYS = 7;
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
 
@@ -93,12 +95,13 @@ function stdDev(values: number[]): number {
   return Math.sqrt(variance);
 }
 
-async function fetchHeights(lat: number, lon: number): Promise<{ time: string; height: number }[]> {
+/** Fetch hourly 850hPa wind speed + direction for a single point */
+async function fetchWind(lat: number, lon: number): Promise<{ time: string; uWind: number }[]> {
   const res = await axios.get(OPEN_METEO_URL, {
     params: {
       latitude: lat,
       longitude: lon,
-      hourly: 'geopotential_height_500hPa',
+      hourly: 'windspeed_850hPa,winddirection_850hPa',
       past_days: PAST_DAYS,
       forecast_days: FORECAST_DAYS,
       timezone: 'UTC',
@@ -106,60 +109,61 @@ async function fetchHeights(lat: number, lon: number): Promise<{ time: string; h
     timeout: 8000,
   });
   const times: string[] = res.data.hourly.time;
-  const heights: number[] = res.data.hourly.geopotential_height_500hPa;
-  return times.map((t, i) => ({ time: t, height: heights[i] ?? 0 }));
+  const speeds: number[] = res.data.hourly.windspeed_850hPa;
+  const dirs: number[] = res.data.hourly.winddirection_850hPa;
+  // u-component (eastward) = -speed × sin(dir_rad)
+  // positive u = westerly flow → fronts can arrive
+  return times.map((t, i) => ({
+    time: t,
+    uWind: -(speeds[i] ?? 0) * Math.sin((dirs[i] ?? 0) * Math.PI / 180),
+  }));
 }
 
-function groupByDay(data: { time: string; height: number }[]): Record<string, number[]> {
+/** Group hourly values by calendar day, return daily mean */
+function dailyMeanFromHourly(data: { time: string; uWind: number }[]): Record<string, number> {
   const byDay: Record<string, number[]> = {};
-  for (const { time, height } of data) {
+  for (const { time, uWind } of data) {
     const day = time.slice(0, 10);
     if (!byDay[day]) byDay[day] = [];
-    if (height > 0) byDay[day].push(height);
+    byDay[day].push(uWind);
   }
-  return byDay;
-}
-
-function dailyMean(byDay: Record<string, number[]>): Record<string, number> {
   const result: Record<string, number> = {};
   for (const [day, vals] of Object.entries(byDay)) {
-    if (vals.length > 0) result[day] = vals.reduce((s, v) => s + v, 0) / vals.length;
+    result[day] = vals.reduce((s, v) => s + v, 0) / vals.length;
   }
   return result;
 }
 
 function buildTrendLabel(
-  forecastDiffs: { date: string; diff: number }[],
-  todayDiff: number,
+  forecastVals: { date: string; uWind: number }[],
+  todayU: number,
   sd: number
 ): { trend: SAMData['trend']; label: string; days: number | null } {
-  // Find the first future day that crosses a meaningful threshold
   const threshold = sd * 0.6;
 
   let improveDays: number | null = null;
   let worsenDays: number | null = null;
 
-  for (let i = 0; i < forecastDiffs.length; i++) {
-    const delta = forecastDiffs[i].diff - todayDiff;
-    if (delta < -threshold && improveDays === null) improveDays = i + 1;
-    if (delta > threshold && worsenDays === null) worsenDays = i + 1;
+  for (let i = 0; i < forecastVals.length; i++) {
+    const delta = forecastVals[i].uWind - todayU;
+    // improving = u-wind increases (more westerly = more fronts)
+    if (delta > threshold && improveDays === null) improveDays = i + 1;
+    if (delta < -threshold && worsenDays === null) worsenDays = i + 1;
   }
 
-  // Average of forecast vs today
-  const forecastMean =
-    forecastDiffs.reduce((s, d) => s + d.diff, 0) / forecastDiffs.length;
-  const overallDelta = forecastMean - todayDiff;
+  const forecastMean = forecastVals.reduce((s, d) => s + d.uWind, 0) / (forecastVals.length || 1);
+  const overallDelta = forecastMean - todayU;
 
-  if (overallDelta < -threshold) {
-    const d = improveDays ?? forecastDiffs.length;
+  if (overallDelta > threshold) {
+    const d = improveDays ?? forecastVals.length;
     return {
       trend: 'improving',
       label: d <= 2 ? 'Mejora próximos días' : `Mejora en ~${d} días`,
       days: d,
     };
   }
-  if (overallDelta > threshold) {
-    const d = worsenDays ?? forecastDiffs.length;
+  if (overallDelta < -threshold) {
+    const d = worsenDays ?? forecastVals.length;
     return {
       trend: 'worsening',
       label: d <= 2 ? 'Mayor bloqueo próximo' : `Mayor bloqueo en ~${d} días`,
@@ -172,76 +176,42 @@ function buildTrendLabel(
 export async function getSAMData(): Promise<SAMData> {
   if (cache && Date.now() - cache.fetchedAt < CACHE_TTL_MS) return cache.data;
 
-  // Fetch sequentially to avoid Open-Meteo free tier rate limit (429)
-  const allFetches: Awaited<ReturnType<typeof fetchHeights>>[] = [];
-  const points = [
-    ...LONGITUDES.map((lon) => ({ lat: LAT_MID, lon })),
-    ...LONGITUDES.map((lon) => ({ lat: LAT_POLAR, lon })),
-  ];
-  for (const { lat, lon } of points) {
-    allFetches.push(await fetchHeights(lat, lon));
-    await sleep(300); // 300ms between calls
+  // Fetch 3 points sequentially to stay under Open-Meteo rate limit
+  const pointData: Record<string, number>[] = [];
+  for (const { lat, lon } of SAMPLE_POINTS) {
+    const raw = await fetchWind(lat, lon);
+    pointData.push(dailyMeanFromHourly(raw));
+    await sleep(400);
   }
 
-  const midData = allFetches.slice(0, LONGITUDES.length);
-  const polarData = allFetches.slice(LONGITUDES.length);
+  // Merge: daily mean u-wind across all 3 sample points
+  const allDays = [...new Set(pointData.flatMap(Object.keys))].sort();
+  const dailyU: Record<string, number> = {};
+  for (const day of allDays) {
+    const vals = pointData.map((p) => p[day]).filter((v) => v !== undefined) as number[];
+    if (vals.length > 0) dailyU[day] = vals.reduce((s, v) => s + v, 0) / vals.length;
+  }
 
-  // Group by day and compute daily zonal means per latitude ring
-  const midMeans = dailyMean(
-    Object.fromEntries(
-      Object.entries(
-        midData.reduce((acc, pts) => {
-          const byDay = groupByDay(pts);
-          for (const [day, vals] of Object.entries(byDay)) {
-            if (!acc[day]) acc[day] = [];
-            acc[day].push(...vals);
-          }
-          return acc;
-        }, {} as Record<string, number[]>)
-      ).map(([d, v]) => [d, [v.reduce((s, x) => s + x, 0) / v.length]])
-    )
-  );
-
-  const polarMeans = dailyMean(
-    Object.fromEntries(
-      Object.entries(
-        polarData.reduce((acc, pts) => {
-          const byDay = groupByDay(pts);
-          for (const [day, vals] of Object.entries(byDay)) {
-            if (!acc[day]) acc[day] = [];
-            acc[day].push(...vals);
-          }
-          return acc;
-        }, {} as Record<string, number[]>)
-      ).map(([d, v]) => [d, [v.reduce((s, x) => s + x, 0) / v.length]])
-    )
-  );
-
-  // Build daily height difference series (40S - 65S)
   const today = new Date().toISOString().slice(0, 10);
-  const allDays = Object.keys(midMeans)
-    .filter((d) => midMeans[d] !== undefined && polarMeans[d] !== undefined)
-    .sort();
+  const pastDays = allDays.filter((d) => d <= today && dailyU[d] !== undefined);
+  const futureDays = allDays.filter((d) => d > today && dailyU[d] !== undefined);
 
-  const pastDays = allDays.filter((d) => d <= today);
-  const futureDays = allDays.filter((d) => d > today);
+  if (pastDays.length === 0) throw new Error('No circulation data available');
 
-  const pastDiffs = pastDays.map((d) => ({ date: d, diff: midMeans[d] - polarMeans[d] }));
-  const futureDiffs = futureDays.map((d) => ({ date: d, diff: midMeans[d] - polarMeans[d] }));
-
-  if (pastDiffs.length === 0) throw new Error('No SAM data computed');
-
-  const baselineValues = pastDiffs.map((d) => d.diff);
+  const baselineValues = pastDays.map((d) => dailyU[d]);
   const baselineMean = baselineValues.reduce((s, v) => s + v, 0) / baselineValues.length;
   const sd = stdDev(baselineValues) || 1;
 
-  const todayDiff = pastDiffs[pastDiffs.length - 1].diff;
-  // Compare recent 14-day mean vs full 45-day baseline for more stable classification
-  const recentSlice = pastDiffs.slice(-14);
-  const currentDiff = recentSlice.reduce((s, d) => s + d.diff, 0) / recentSlice.length;
-  const anomalySD = (currentDiff - baselineMean) / sd;
+  // Recent 14-day mean vs 45-day baseline
+  const recentSlice = pastDays.slice(-14).map((d) => dailyU[d]);
+  const currentU = recentSlice.reduce((s, v) => s + v, 0) / recentSlice.length;
+  // Negative anomalySD → weaker westerlies than normal → blocked
+  // We invert so that positive = blocked (consistent with AAO convention)
+  const anomalySD = -(currentU - baselineMean) / sd;
 
-  const { trend, label, days } = buildTrendLabel(futureDiffs, todayDiff, sd);
+  const todayU = dailyU[pastDays[pastDays.length - 1]];
+  const forecastVals = futureDays.map((d) => ({ date: d, uWind: dailyU[d] }));
+  const { trend, label, days } = buildTrendLabel(forecastVals, todayU, sd);
 
   const data: SAMData = {
     status: classifySAM(anomalySD),
