@@ -186,30 +186,31 @@ function buildTrendLabel(
   todayU: number,
   sd: number
 ): { trend: SAMData['trend']; label: string; days: number | null } {
-  const threshold = sd * 0.6;
+  // "Improving" requires forecast u-wind to reach clearly favorable levels (>30 km/h westerly)
+  // +2 day offset accounts for lag between upper-level flow and actual precipitation at resort
+  const FAVORABLE_U = 30;
+  const BLOCKED_U = 10;
+  const LAG_DAYS = 2;
 
   let improveDays: number | null = null;
   let worsenDays: number | null = null;
 
   for (let i = 0; i < forecastVals.length; i++) {
-    const delta = forecastVals[i].uWind - todayU;
-    // improving = u-wind increases (more westerly = more fronts)
-    if (delta > threshold && improveDays === null) improveDays = i + 1;
-    if (delta < -threshold && worsenDays === null) worsenDays = i + 1;
+    if (forecastVals[i].uWind >= FAVORABLE_U && improveDays === null) improveDays = i + 1 + LAG_DAYS;
+    if (forecastVals[i].uWind < BLOCKED_U && todayU >= FAVORABLE_U && worsenDays === null) worsenDays = i + 1;
   }
 
   const forecastMean = forecastVals.reduce((s, d) => s + d.uWind, 0) / (forecastVals.length || 1);
-  const overallDelta = forecastMean - todayU;
 
-  if (overallDelta > threshold) {
-    const d = improveDays ?? forecastVals.length;
+  if (forecastMean >= FAVORABLE_U && todayU < FAVORABLE_U) {
+    const d = improveDays ?? forecastVals.length + LAG_DAYS;
     return {
       trend: 'improving',
-      label: d <= 2 ? 'Mejora próximos días' : `Mejora en ~${d} días`,
+      label: d <= 3 ? 'Mejora próximos días' : `Mejora en ~${d} días`,
       days: d,
     };
   }
-  if (overallDelta < -threshold) {
+  if (forecastMean < BLOCKED_U && todayU >= FAVORABLE_U) {
     const d = worsenDays ?? forecastVals.length;
     return {
       trend: 'worsening',
