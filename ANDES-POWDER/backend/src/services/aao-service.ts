@@ -14,7 +14,11 @@ const NOAA_AAO_DAILY_URLS = [
   'https://www.cpc.ncep.noaa.gov/products/precip/CWlink/daily_ao_index/aao/aao.index',
 ];
 
-// NOAA PSL monthly fallback (always stable)
+// NOAA CPC monthly — updated continuously, includes current partial month
+const NOAA_CPC_MONTHLY_URL =
+  'https://www.cpc.ncep.noaa.gov/products/precip/CWlink/daily_ao_index/aao/monthly.aao.index.b79.current.ascii.table';
+
+// NOAA PSL monthly fallback (always stable, may lag ~1 month)
 const NOAA_PSL_AAO_URL = 'https://psl.noaa.gov/data/correlation/aao.data';
 
 const BROWSER_UA =
@@ -114,17 +118,21 @@ function parseAAOText(text: string): AAODay[] {
   return days;
 }
 
-function parsePSLMonthly(text: string): AAODay[] {
-  // PSL format: Year Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec
+function parseMonthlyTable(text: string): AAODay[] {
+  // Handles both CPC and PSL monthly formats:
+  //   CPC: Year Jan Feb Mar ... Dec  (header line present)
+  //   PSL: Year val val val ...
   const months = ['01','02','03','04','05','06','07','08','09','10','11','12'];
   const days: AAODay[] = [];
   for (const line of text.trim().split('\n')) {
     const parts = line.trim().split(/\s+/);
-    if (parts.length < 13) continue;
+    if (parts.length < 2) continue;
     const year = parseInt(parts[0]);
-    if (isNaN(year) || year < 1979) continue;
-    for (let m = 0; m < 12; m++) {
-      const val = parseFloat(parts[m + 1]);
+    if (isNaN(year) || year < 1979 || year > 2100) continue;
+    const values = parts.slice(1);
+    for (let m = 0; m < Math.min(values.length, 12); m++) {
+      const val = parseFloat(values[m]);
+      // Skip fill values (CPC uses -999.9, PSL uses -99.9 or similar)
       if (isNaN(val) || Math.abs(val) > 50) continue;
       days.push({ date: `${year}-${months[m]}-15`, index: val });
     }
@@ -154,15 +162,29 @@ export class AAOService {
       } catch { /* try next */ }
     }
 
-    // Fallback: NOAA PSL monthly data
+    // Fallback 1: NOAA CPC monthly (includes current partial month — most accurate)
     if (allDays.length === 0) {
-      console.warn('[AAO] Daily URLs failed, falling back to PSL monthly data');
+      try {
+        console.warn('[AAO] Daily URLs failed, trying CPC monthly table');
+        const res = await axios.get(NOAA_CPC_MONTHLY_URL, {
+          timeout: 10000,
+          responseType: 'text',
+          headers: { 'User-Agent': BROWSER_UA },
+          validateStatus: (s) => s === 200,
+        });
+        allDays = parseMonthlyTable(res.data as string);
+      } catch { /* try PSL */ }
+    }
+
+    // Fallback 2: NOAA PSL monthly (may lag ~1 month behind)
+    if (allDays.length === 0) {
+      console.warn('[AAO] Falling back to PSL monthly data');
       const res = await axios.get(NOAA_PSL_AAO_URL, {
         timeout: 10000,
         responseType: 'text',
         headers: { 'User-Agent': BROWSER_UA },
       });
-      allDays = parsePSLMonthly(res.data as string);
+      allDays = parseMonthlyTable(res.data as string);
     }
 
     if (allDays.length === 0) {
