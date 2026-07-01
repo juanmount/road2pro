@@ -7,8 +7,18 @@
 
 import axios from 'axios';
 
-const NOAA_AAO_URL =
-  'https://www.cpc.ncep.noaa.gov/products/precip/CWlink/daily_ao_index/aao/daily_aao_index.txt';
+// NOAA CPC candidate URLs for daily AAO index (they occasionally reorganize paths)
+const NOAA_AAO_DAILY_URLS = [
+  'https://www.cpc.ncep.noaa.gov/products/precip/CWlink/daily_ao_index/aao/daily_aao.index',
+  'https://www.cpc.ncep.noaa.gov/products/precip/CWlink/daily_ao_index/aao/daily_aao_index.txt',
+  'https://www.cpc.ncep.noaa.gov/products/precip/CWlink/daily_ao_index/aao/aao.index',
+];
+
+// NOAA PSL monthly fallback (always stable)
+const NOAA_PSL_AAO_URL = 'https://psl.noaa.gov/data/correlation/aao.data';
+
+const BROWSER_UA =
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36';
 
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
 
@@ -104,17 +114,59 @@ function parseAAOText(text: string): AAODay[] {
   return days;
 }
 
+function parsePSLMonthly(text: string): AAODay[] {
+  // PSL format: Year Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec
+  const months = ['01','02','03','04','05','06','07','08','09','10','11','12'];
+  const days: AAODay[] = [];
+  for (const line of text.trim().split('\n')) {
+    const parts = line.trim().split(/\s+/);
+    if (parts.length < 13) continue;
+    const year = parseInt(parts[0]);
+    if (isNaN(year) || year < 1979) continue;
+    for (let m = 0; m < 12; m++) {
+      const val = parseFloat(parts[m + 1]);
+      if (isNaN(val) || Math.abs(val) > 50) continue;
+      days.push({ date: `${year}-${months[m]}-15`, index: val });
+    }
+  }
+  return days;
+}
+
 export class AAOService {
   async getCurrentAAOData(): Promise<AAOData> {
     if (cache && Date.now() - cache.fetchedAt < CACHE_TTL_MS) {
       return cache.data;
     }
 
-    const response = await axios.get(NOAA_AAO_URL, { timeout: 10000, responseType: 'text' });
-    const allDays = parseAAOText(response.data as string);
+    let allDays: AAODay[] = [];
+
+    // Try each daily URL in order
+    for (const url of NOAA_AAO_DAILY_URLS) {
+      try {
+        const res = await axios.get(url, {
+          timeout: 10000,
+          responseType: 'text',
+          headers: { 'User-Agent': BROWSER_UA },
+          validateStatus: (s) => s === 200,
+        });
+        const parsed = parseAAOText(res.data as string);
+        if (parsed.length > 0) { allDays = parsed; break; }
+      } catch { /* try next */ }
+    }
+
+    // Fallback: NOAA PSL monthly data
+    if (allDays.length === 0) {
+      console.warn('[AAO] Daily URLs failed, falling back to PSL monthly data');
+      const res = await axios.get(NOAA_PSL_AAO_URL, {
+        timeout: 10000,
+        responseType: 'text',
+        headers: { 'User-Agent': BROWSER_UA },
+      });
+      allDays = parsePSLMonthly(res.data as string);
+    }
 
     if (allDays.length === 0) {
-      throw new Error('No AAO data parsed from NOAA');
+      throw new Error('No AAO data available from any source');
     }
 
     const last14Days = allDays.slice(-14);
