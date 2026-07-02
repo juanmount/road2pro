@@ -20,7 +20,7 @@ const SAMPLE_POINTS = [
 
 const PAST_DAYS = 45;
 const FORECAST_DAYS = 7;
-const CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
+const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -228,12 +228,15 @@ function buildTrendLabel(
 export async function getSAMData(): Promise<SAMData> {
   if (cache && Date.now() - cache.fetchedAt < CACHE_TTL_MS) return cache.data;
 
-  // Fetch 3 points sequentially to stay under Open-Meteo rate limit
+  // Fetch points sequentially to stay under Open-Meteo rate limit
   const pointData: Record<string, number>[] = [];
-  for (const { lat, lon } of SAMPLE_POINTS) {
+  let firstRawHourly: { time: string; uWind: number; dir: number }[] = [];
+  for (let pi = 0; pi < SAMPLE_POINTS.length; pi++) {
+    const { lat, lon } = SAMPLE_POINTS[pi];
     const raw = await fetchWind(lat, lon);
+    if (pi === 0) firstRawHourly = raw;
     pointData.push(dailyMeanFromHourly(raw));
-    await sleep(400);
+    if (pi < SAMPLE_POINTS.length - 1) await sleep(400);
   }
 
   // Merge: daily mean u-wind across all 3 sample points
@@ -250,15 +253,15 @@ export async function getSAMData(): Promise<SAMData> {
 
   if (pastDays.length === 0) throw new Error('No circulation data available');
 
-  // Current u-wind: last 24h mean (most recent available hours)
-  const recentHours = pointData[0]  // single point
-    ? Object.values(pointData[0]).slice(-1)[0]  // today's daily mean u-wind
-    : 0;
   const allPastU = pastDays.map((d) => dailyU[d]);
   const sd = stdDev(allPastU) || 10;
 
-  // Use last available daily mean as current u-wind
-  const currentU = dailyU[pastDays[pastDays.length - 1]] ?? 0;
+  // Current u-wind: mean of last 6 hourly observations (captures intraday transitions)
+  const nowISO = new Date().toISOString();
+  const pastHourly = firstRawHourly.filter((h) => h.time <= nowISO).slice(-6);
+  const currentU = pastHourly.length > 0
+    ? pastHourly.reduce((s, h) => s + h.uWind, 0) / pastHourly.length
+    : (dailyU[pastDays[pastDays.length - 1]] ?? 0);
   const todayU = currentU;
   const forecastVals = futureDays.map((d) => ({ date: d, uWind: dailyU[d] }));
   const { trend, label, days } = buildTrendLabel(forecastVals, todayU, sd);
