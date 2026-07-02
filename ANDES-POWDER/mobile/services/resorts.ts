@@ -25,17 +25,9 @@ export const resortsService = {
   ): Promise<any[]> {
     console.log('[SIMPLE] Fetching hourly forecast for', elevation);
     
-    // Get resort data
-    const resortResponse = await api.get(`/resorts/${id}`);
-    const resort = resortResponse.data;
-    
-    const elevationMeters = elevation === 'base' ? resort.baseElevation : 
-                           elevation === 'mid' ? resort.midElevation : 
-                           resort.summitElevation;
-    
     // Fetch from Andes Powder backend which has wind gust data
     console.log('[FORECAST] Fetching from Andes Powder backend...');
-    console.log('[FORECAST] Resort:', resort.slug, 'Elevation:', elevation);
+    console.log('[FORECAST] Resort:', id, 'Elevation:', elevation);
     const endpoint = `/resorts/${id}/forecast/hourly`;
     console.log('[API CALL] Endpoint:', endpoint, 'Params:', { elevation, hours });
     
