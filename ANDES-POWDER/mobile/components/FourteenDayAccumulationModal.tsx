@@ -34,6 +34,7 @@ export default function FourteenDayAccumulationModal({ visible, onClose, resortS
 
   useEffect(() => {
     if (!visible) return;
+    let cancelled = false;
     setLoading(true);
     setError(null);
     setData(null);
@@ -42,19 +43,23 @@ export default function FourteenDayAccumulationModal({ visible, onClose, resortS
         const resp = await api.get<AccumResponse>(`/resorts/${encodeURIComponent(resortSlug)}/accumulation`, {
           params: { elevation, days: 14 },
         });
+        if (cancelled) return;
         setData(resp.data);
 
         try {
           const depth = await api.get<any>(`/resorts/${encodeURIComponent(resortSlug)}/snow-depth`);
+          if (cancelled) return;
           const list = Array.isArray(depth.data?.snowDepth) ? depth.data.snowDepth : [];
           const byBand = list.find((d: any) => d.elevation === elevation);
           setSnowDepthCm(Number(byBand?.snowDepthCm || 0));
         } catch {}
       } catch (e) {
+        if (cancelled) return;
         try {
           const d = await api.get<any[]>(`/resorts/${encodeURIComponent(resortSlug)}/forecast/daily`, {
             params: { elevation, days: 7 },
           });
+          if (cancelled) return;
           const next = (d.data || []).map((row: any) => ({
             date: row.date,
             predicted_cm: Number(row.snowfall || 0),
@@ -79,17 +84,19 @@ export default function FourteenDayAccumulationModal({ visible, onClose, resortS
 
           try {
             const depth = await api.get<any>(`/resorts/${encodeURIComponent(resortSlug)}/snow-depth`);
+            if (cancelled) return;
             const list = Array.isArray(depth.data?.snowDepth) ? depth.data.snowDepth : [];
             const byBand = list.find((dd: any) => dd.elevation === elevation);
             setSnowDepthCm(Number(byBand?.snowDepthCm || 0));
           } catch {}
         } catch (e2) {
-          setError('No se pudo cargar el acumulado.');
+          if (!cancelled) setError('No se pudo cargar el acumulado.');
         }
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     })();
+    return () => { cancelled = true; };
   }, [visible, resortSlug, elevation]);
 
   const totals = useMemo(() => {
