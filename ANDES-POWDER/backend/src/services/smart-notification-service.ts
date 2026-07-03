@@ -562,7 +562,8 @@ class SmartNotificationService {
           INNER JOIN resorts r ON ef.resort_id = r.id
           WHERE ef.valid_time >= NOW()
             AND ef.valid_time <= NOW() + INTERVAL '7 days'
-            AND ef.elevation_band = 'summit'
+            AND ef.elevation_band = 'mid'
+            AND ef.phase_classification IN ('snow', 'sleet')
             AND ef.forecast_run_id = (
               SELECT id FROM forecast_runs fr
               WHERE fr.resort_id = ef.resort_id
@@ -586,7 +587,7 @@ class SmartNotificationService {
             INNER JOIN resorts r ON ef.resort_id = r.id
             WHERE ef.valid_time >= NOW()
               AND ef.valid_time <= NOW() + INTERVAL '7 days'
-              AND ef.elevation_band = 'summit'
+              AND ef.elevation_band = 'mid'
               AND ef.forecast_run_id = (
                 SELECT id FROM forecast_runs fr
                 WHERE fr.resort_id = ef.resort_id

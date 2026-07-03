@@ -977,6 +977,7 @@ router.get('/:id/accumulation', async (req: Request, res: Response) => {
               AND ef.forecast_run_id = (SELECT id FROM run)
               AND (ef.valid_time AT TIME ZONE '${tz}') >= (SELECT day_start_local FROM bounds)
               AND (ef.valid_time AT TIME ZONE '${tz}') < (SELECT day_start_local FROM bounds) + interval '1 day'
+              AND ef.phase_classification IN ('snow', 'sleet')
           ), 0) AS predicted_cm`;
 
       const r = await pool.query(sql, [offset, resort.id, elevationBand]);
