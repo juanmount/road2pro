@@ -538,7 +538,29 @@ export class SnowEngine {
       
       hybrid.freezingLevels = [...hybrid.freezingLevels, ...additionalLevels].slice(0, 168);
     }
-    
+
+    // Override per-band FRZ with GFS for overlapping hours.
+    // ECMWF often lacks freezinglevel_height so the engine estimates FRZ from surface temperature,
+    // which is wrong in inversion scenarios and causes incorrect phase classification (snow vs rain).
+    // GFS reliably provides actual freezinglevel_height as a proper model field.
+    if (secondary?.freezingLevels?.length > 0) {
+      const gfsFrzByTime = new Map<number, number>();
+      for (const gf of secondary.freezingLevels) {
+        gfsFrzByTime.set(new Date(gf.time).getTime(), gf.freezingLevel);
+      }
+      const applyGfsFrz = (band: any[]) => {
+        for (const hour of band) {
+          const t = new Date(hour.time).getTime();
+          const gfsFrz = gfsFrzByTime.get(t);
+          if (gfsFrz != null) hour.freezingLevel = gfsFrz;
+        }
+      };
+      applyGfsFrz(hybrid.base);
+      applyGfsFrz(hybrid.mid);
+      applyGfsFrz(hybrid.summit);
+      console.log('    → FRZ: using GFS freezinglevel_height for all overlapping hours');
+    }
+
     // ECMWF is primary and most accurate - use its precipitation directly.
     // No max-merge across models: GFS/GEFS can be extreme outliers (9x ECMWF) causing massive inflation.
     console.log('    → Precipitation: using ECMWF as single source of truth (no max-merge)');
