@@ -985,6 +985,8 @@ router.get('/:id/accumulation', async (req: Request, res: Response) => {
                 WHEN (ef.freezing_level_m - ${elevationMeters}) <= 50  THEN ef.snowfall_cm_corrected * 0.45
                 WHEN (ef.freezing_level_m - ${elevationMeters}) <= 150 THEN ef.snowfall_cm_corrected * 0.20
                 WHEN (ef.freezing_level_m - ${elevationMeters}) <= 250 THEN ef.snowfall_cm_corrected * 0.08
+                WHEN (ef.freezing_level_m - ${elevationMeters}) <= 350 THEN ef.snowfall_cm_corrected * 0.04
+                WHEN (ef.freezing_level_m - ${elevationMeters}) <= 450 THEN ef.snowfall_cm_corrected * 0.02
                 ELSE 0
               END
               * CASE

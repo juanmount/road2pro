@@ -217,6 +217,8 @@ export default function ResortDetailScreen() {
           else if (margin <= 50) baseAdjustment = 0.45;
           else if (margin <= 150) baseAdjustment = 0.20;
           else if (margin <= 250) baseAdjustment = 0.08;
+          else if (margin <= 350) baseAdjustment = 0.04;
+          else if (margin <= 450) baseAdjustment = 0.02;
           else baseAdjustment = 0;
           
           if (baseAdjustment > 0) {
@@ -346,6 +348,8 @@ export default function ResortDetailScreen() {
               else if (margin <= 50) baseAdjustment = 0.45;
               else if (margin <= 150) baseAdjustment = 0.20;
               else if (margin <= 250) baseAdjustment = 0.08;
+              else if (margin <= 350) baseAdjustment = 0.04;
+              else if (margin <= 450) baseAdjustment = 0.02;
               else baseAdjustment = 0;
               
               if (baseAdjustment > 0) {
@@ -792,6 +796,12 @@ export default function ResortDetailScreen() {
           } else if (margin <= 250) {
             baseAdjustment = 0.08; // Almost all rain
             reason = 'rain_dominant';
+          } else if (margin <= 350) {
+            baseAdjustment = 0.04; // Warm nose - partial refreeze
+            reason = 'warm_nose';
+          } else if (margin <= 450) {
+            baseAdjustment = 0.02; // Deep warm nose - minimal refreeze
+            reason = 'warm_nose_deep';
           } else {
             baseAdjustment = 0; // All rain
             reason = 'rain';
