@@ -949,6 +949,7 @@ router.get('/:id/accumulation', async (req: Request, res: Response) => {
       : elevationBand === 'mid'
       ? parseFloat(resort.mid_elevation || 1600)
       : parseFloat(resort.summit_elevation || 2100);
+    const windMultiplier = elevationBand === 'summit' ? 1.3 : elevationBand === 'mid' ? 1.2 : 1.0;
     const totalDays = Math.max(2, Math.min(30, parseInt(String(days)) || 14));
     const last = Math.floor(totalDays / 2);
     const next = totalDays - last;
@@ -986,6 +987,14 @@ router.get('/:id/accumulation', async (req: Request, res: Response) => {
                 WHEN (ef.freezing_level_m - ${elevationMeters}) <= 250 THEN ef.snowfall_cm_corrected * 0.08
                 ELSE 0
               END
+              * CASE
+                  WHEN (COALESCE(ef.wind_speed_kmh, 0) * ${windMultiplier}) > 60 THEN 0.65
+                  WHEN (COALESCE(ef.wind_speed_kmh, 0) * ${windMultiplier}) > 40 THEN 0.75
+                  WHEN (COALESCE(ef.wind_speed_kmh, 0) * ${windMultiplier}) > 25 THEN 0.85
+                  WHEN (COALESCE(ef.wind_speed_kmh, 0) * ${windMultiplier}) > 15 THEN 0.92
+                  ELSE 0.97
+                END
+              * 0.93
             )
             FROM elevation_forecasts ef
             WHERE ef.resort_id = $2
@@ -997,8 +1006,8 @@ router.get('/:id/accumulation', async (req: Request, res: Response) => {
 
       const r = await pool.query(sql, [offset, resort.id, elevationBand]);
       const row = r.rows[0] || {};
-      // Apply ~0.65 factor to approximate wind/solar/density losses that the frontend also applies
-      const rawPred = Number.parseFloat(row.predicted_cm || 0) * 0.65;
+      // Wind loss already applied per-hour in SQL; 0.93 covers solar/density (winter baseline)
+      const rawPred = Number.parseFloat(row.predicted_cm || 0);
       const cap = elevationBand === 'base' ? 18 : (elevationBand === 'mid' ? 25 : 40);
       const predicted = Math.min(cap, Math.max(0, Number.isFinite(rawPred) ? rawPred : 0));
       const isPast = offset < 0;
