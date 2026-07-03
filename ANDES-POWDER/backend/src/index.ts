@@ -90,20 +90,19 @@ app.post('/api/admin/clean-all-forecasts', async (req, res) => {
 
 // Admin endpoint to manually trigger forecast sync
 app.post('/api/admin/sync-forecasts', async (req, res) => {
-  try {
-    console.log('Manual sync triggered...');
-    const { forecastService } = await import('./services/forecast-service');
-    console.log('Forecast service imported, starting sync...');
-    await forecastService.processAllResorts();
-    console.log('Sync completed successfully');
-    res.json({ success: true, message: 'Forecast sync completed' });
-  } catch (error: any) {
-    console.error('Manual sync error:', error);
-    res.status(500).json({ 
-      error: error.message || String(error),
-      stack: error.stack 
-    });
-  }
+  // Respond immediately so Railway doesn't 502 on the long-running job
+  res.json({ success: true, message: 'Forecast sync started in background' });
+  // Run sync in background without blocking the HTTP response
+  (async () => {
+    try {
+      console.log('Manual sync triggered (background)...');
+      const { forecastService } = await import('./services/forecast-service');
+      await forecastService.processAllResorts();
+      console.log('Background sync completed successfully');
+    } catch (error: any) {
+      console.error('Background sync error:', error);
+    }
+  })();
 });
 
 // Admin endpoint to manually trigger notification scan
