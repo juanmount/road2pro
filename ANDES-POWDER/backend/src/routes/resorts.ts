@@ -944,6 +944,11 @@ router.get('/:id/accumulation', async (req: Request, res: Response) => {
       : 'America/Argentina/Buenos_Aires';
 
     const elevationBand = String(elevation);
+    const elevationMeters = elevationBand === 'base'
+      ? parseFloat(resort.base_elevation || 1000)
+      : elevationBand === 'mid'
+      ? parseFloat(resort.mid_elevation || 1600)
+      : parseFloat(resort.summit_elevation || 2100);
     const totalDays = Math.max(2, Math.min(30, parseInt(String(days)) || 14));
     const last = Math.floor(totalDays / 2);
     const next = totalDays - last;
@@ -970,20 +975,30 @@ router.get('/:id/accumulation', async (req: Request, res: Response) => {
           to_char((SELECT day_start_local FROM bounds),'YYYY-MM-DD') AS day_key,
           (SELECT created_at FROM run) AS run_timestamp,
           COALESCE((
-            SELECT SUM(snowfall_cm_corrected)
+            SELECT SUM(
+              CASE
+                WHEN ef.phase_classification NOT IN ('snow', 'sleet') THEN 0
+                WHEN ef.freezing_level_m IS NULL THEN ef.snowfall_cm_corrected * 0.7
+                WHEN (ef.freezing_level_m - ${elevationMeters}) <= -300 THEN ef.snowfall_cm_corrected * 0.95
+                WHEN (ef.freezing_level_m - ${elevationMeters}) <= -100 THEN ef.snowfall_cm_corrected * 0.88
+                WHEN (ef.freezing_level_m - ${elevationMeters}) <= 50  THEN ef.snowfall_cm_corrected * 0.45
+                WHEN (ef.freezing_level_m - ${elevationMeters}) <= 150 THEN ef.snowfall_cm_corrected * 0.20
+                WHEN (ef.freezing_level_m - ${elevationMeters}) <= 250 THEN ef.snowfall_cm_corrected * 0.08
+                ELSE 0
+              END
+            )
             FROM elevation_forecasts ef
             WHERE ef.resort_id = $2
               AND ef.elevation_band = $3
               AND ef.forecast_run_id = (SELECT id FROM run)
               AND (ef.valid_time AT TIME ZONE '${tz}') >= (SELECT day_start_local FROM bounds)
               AND (ef.valid_time AT TIME ZONE '${tz}') < (SELECT day_start_local FROM bounds) + interval '1 day'
-              AND ef.phase_classification IN ('snow', 'sleet')
           ), 0) AS predicted_cm`;
 
       const r = await pool.query(sql, [offset, resort.id, elevationBand]);
       const row = r.rows[0] || {};
       const rawPred = Number.parseFloat(row.predicted_cm || 0);
-      const cap = elevationBand === 'base' ? 30 : (elevationBand === 'mid' ? 40 : 50);
+      const cap = elevationBand === 'base' ? 25 : (elevationBand === 'mid' ? 30 : 45);
       const predicted = Math.min(cap, Math.max(0, Number.isFinite(rawPred) ? rawPred : 0));
       const isPast = offset < 0;
       if (isPast) totalPast += predicted; else totalNext += predicted;
