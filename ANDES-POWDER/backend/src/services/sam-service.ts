@@ -186,11 +186,11 @@ function buildTrendLabel(
   todayU: number,
   sd: number
 ): { trend: SAMData['trend']; label: string; days: number | null } {
-  // "Improving" requires forecast u-wind to reach clearly favorable levels (>30 km/h westerly)
-  // +2 day offset accounts for lag between upper-level flow and actual precipitation at resort
-  const FAVORABLE_U = 30;
+  // "Improving" requires forecast u-wind to reach favorable levels (>25 km/h westerly)
+  // No lag added: GFS forecast data already captures when flow arrives at resort
+  const FAVORABLE_U = 25;
   const BLOCKED_U = 10;
-  const LAG_DAYS = 1;
+  const LAG_DAYS = 0;
 
   let improveDays: number | null = null;
   let worsenDays: number | null = null;
