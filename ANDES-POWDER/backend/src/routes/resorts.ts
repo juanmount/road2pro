@@ -959,7 +959,130 @@ router.get('/:id/accumulation', async (req: Request, res: Response) => {
     let totalPast = 0;
     let totalNext = 0;
 
+    // --- Fetch live FRZ from Open-Meteo (same override the hourly endpoint uses) ---
+    let liveFrzPoints: Array<{ t: number; v: number }> = [];
+    try {
+      const om = new OpenMeteoService();
+      const omForecast = await om.getForecast(
+        parseFloat(resort.latitude),
+        parseFloat(resort.longitude),
+        elevationMeters
+      );
+      const frzTimes: string[] = omForecast?.hourly?.time || [];
+      const frzRaw: Array<number | null> = (omForecast?.hourly as any)?.freezinglevel_height || [];
+      const frzFilled: number[] = Array.from({ length: frzTimes.length }, (_, i) => {
+        const v = frzRaw[i]; return v == null ? NaN : Math.round(Number(v));
+      });
+      let fi = frzFilled.findIndex(Number.isFinite);
+      if (fi === -1) fi = 0;
+      if (fi > 0) for (let i = 0; i < fi; i++) frzFilled[i] = frzFilled[fi];
+      let ix = Math.max(0, fi);
+      while (ix < frzFilled.length) {
+        if (Number.isFinite(frzFilled[ix])) { ix++; continue; }
+        let jx = ix + 1;
+        while (jx < frzFilled.length && !Number.isFinite(frzFilled[jx])) jx++;
+        const lx = ix - 1, rx = jx < frzFilled.length ? jx : -1;
+        if (rx !== -1 && Number.isFinite(frzFilled[lx]) && Number.isFinite(frzFilled[rx])) {
+          const span = rx - lx;
+          for (let k = 1; k < span; k++)
+            frzFilled[lx + k] = Math.round(frzFilled[lx] + ((frzFilled[rx] - frzFilled[lx]) * k) / span);
+          ix = rx + 1;
+        } else {
+          const fv = Number.isFinite(frzFilled[lx]) ? (frzFilled[lx] as number) : 2000;
+          for (let k = ix; k < (rx === -1 ? frzFilled.length : rx); k++) frzFilled[k] = fv;
+          ix = rx === -1 ? frzFilled.length : rx + 1;
+        }
+      }
+      for (let idx = 0; idx < frzTimes.length; idx++) {
+        const tv = frzFilled[idx];
+        if (Number.isFinite(tv)) liveFrzPoints.push({ t: new Date(frzTimes[idx]).getTime(), v: tv });
+      }
+    } catch { console.warn('[ACCUMULATION] live FRZ fetch failed, falling back to DB values'); }
+
+    // --- Pre-fetch all future hourly rows grouped by local date ---
+    const futureHoursMap = new Map<string, any[]>();
+    const FRZ_TOL = 4 * 60 * 60 * 1000;
+    const localDateFmt = new Intl.DateTimeFormat('en-CA', {
+      timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit'
+    });
+    try {
+      const fhRes = await pool.query(
+        `SELECT ef.valid_time, ef.snowfall_cm_corrected, ef.wind_speed_kmh,
+                ef.phase_classification, ef.freezing_level_m
+         FROM elevation_forecasts ef
+         WHERE ef.resort_id = $1
+           AND ef.elevation_band = $2
+           AND ef.valid_time >= NOW()
+           AND ef.forecast_run_id = (
+             SELECT id FROM forecast_runs WHERE resort_id = $1 ORDER BY created_at DESC LIMIT 1
+           )
+         ORDER BY ef.valid_time`,
+        [resort.id, elevationBand]
+      );
+      for (const row of fhRes.rows) {
+        const t = new Date(row.valid_time).getTime();
+        let bestFrz: number | null = null, bestDt = Infinity;
+        for (const p of liveFrzPoints) {
+          const dt = Math.abs(p.t - t);
+          if (dt < bestDt) { bestDt = dt; bestFrz = p.v; }
+        }
+        row.live_frz = (bestFrz != null && bestDt <= FRZ_TOL) ? bestFrz : null;
+        const dk = localDateFmt.format(new Date(row.valid_time));
+        if (!futureHoursMap.has(dk)) futureHoursMap.set(dk, []);
+        futureHoursMap.get(dk)!.push(row);
+      }
+    } catch { console.warn('[ACCUMULATION] future hours pre-fetch failed'); }
+
+    const todayStr = localDateFmt.format(new Date());
+    const todayBase = new Date(todayStr + 'T12:00:00Z');
+
     for (let offset = -last; offset < next; offset++) {
+      const isPast = offset < 0;
+      const cap = elevationBand === 'base' ? 18 : (elevationBand === 'mid' ? 25 : 40);
+
+      if (!isPast) {
+        // Future days: JS computation with live Open-Meteo FRZ
+        const targetDate = new Date(todayBase);
+        targetDate.setUTCDate(targetDate.getUTCDate() + offset);
+        const dateKey = targetDate.toISOString().slice(0, 10);
+        const hours = futureHoursMap.get(dateKey) || [];
+        let dailyTotal = 0;
+        for (const hr of hours) {
+          if (!['snow', 'sleet'].includes(hr.phase_classification)) continue;
+          const snow = parseFloat(hr.snowfall_cm_corrected || 0);
+          if (snow <= 0) continue;
+          const frz = hr.live_frz != null ? hr.live_frz
+            : (hr.freezing_level_m != null ? parseFloat(hr.freezing_level_m) : null);
+          let retention: number;
+          if (frz == null) { retention = 0.7; }
+          else {
+            const margin = frz - elevationMeters;
+            if (margin <= -300) retention = 0.95;
+            else if (margin <= -100) retention = 0.88;
+            else if (margin <= 50) retention = 0.45;
+            else if (margin <= 150) retention = 0.20;
+            else if (margin <= 250) retention = 0.08;
+            else if (margin <= 350) retention = 0.04;
+            else if (margin <= 450) retention = 0.02;
+            else retention = 0;
+          }
+          if (retention === 0) continue;
+          const wind = parseFloat(hr.wind_speed_kmh || 0) * windMultiplier;
+          const wf = wind > 60 ? 0.65 : wind > 40 ? 0.75 : wind > 25 ? 0.85 : wind > 15 ? 0.92 : 0.97;
+          dailyTotal += snow * retention * wf * 0.93;
+        }
+        const predicted = Math.min(cap, Math.max(0, dailyTotal));
+        totalNext += predicted;
+        daysArr.push({
+          date: dateKey,
+          predicted_cm: Math.round(predicted * 10) / 10,
+          run_timestamp: null,
+          is_past: false,
+        });
+        continue;
+      }
+
+      // Past days: SQL (will be overridden by snowfall_history below)
       const sql = `
         WITH bounds AS (
           SELECT date_trunc('day', (NOW() AT TIME ZONE '${tz}')) + ($1 || ' day')::interval AS day_start_local
@@ -1008,17 +1131,14 @@ router.get('/:id/accumulation', async (req: Request, res: Response) => {
 
       const r = await pool.query(sql, [offset, resort.id, elevationBand]);
       const row = r.rows[0] || {};
-      // Wind loss already applied per-hour in SQL; 0.93 covers solar/density (winter baseline)
       const rawPred = Number.parseFloat(row.predicted_cm || 0);
-      const cap = elevationBand === 'base' ? 18 : (elevationBand === 'mid' ? 25 : 40);
       const predicted = Math.min(cap, Math.max(0, Number.isFinite(rawPred) ? rawPred : 0));
-      const isPast = offset < 0;
-      if (isPast) totalPast += predicted; else totalNext += predicted;
+      totalPast += predicted;
       daysArr.push({
         date: row.day_key || '',
         predicted_cm: Math.round((Number.isFinite(predicted) ? predicted : 0) * 10) / 10,
         run_timestamp: row.run_timestamp || null,
-        is_past: isPast,
+        is_past: true,
       });
     }
 
