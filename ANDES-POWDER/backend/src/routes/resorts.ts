@@ -482,23 +482,15 @@ router.get('/:id/forecast/hourly', async (req: Request, res: Response) => {
         }
       }
 
-      const MIN_FRZ = 300;
-      const MAX_FRZ = 4800;
-      const LAPSE = 0.0065;
       for (const h of hourlyForecasts) {
         if (h.freezingLevel == null || !Number.isFinite(h.freezingLevel)) {
-          const est = Math.round((midElevationDbHourly || 0) + (Number(h.temperature) / LAPSE));
-          h.freezingLevel = Math.max(MIN_FRZ, Math.min(MAX_FRZ, Number.isFinite(est) ? est : 2000));
+          h.freezingLevel = 2000; // Safe neutral default when model FRZ data is missing
         }
       }
     } catch (e) {
-      const MIN_FRZ = 300;
-      const MAX_FRZ = 4800;
-      const LAPSE = 0.0065;
       for (const h of hourlyForecasts) {
         if (h.freezingLevel == null || !Number.isFinite(h.freezingLevel)) {
-          const est = Math.round((midElevationDbHourly || 0) + (Number(h.temperature) / LAPSE));
-          h.freezingLevel = Math.max(MIN_FRZ, Math.min(MAX_FRZ, Number.isFinite(est) ? est : 2000));
+          h.freezingLevel = 2000; // Safe neutral default when model FRZ data is missing
         }
       }
     }
