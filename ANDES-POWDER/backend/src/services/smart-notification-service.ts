@@ -382,9 +382,10 @@ class SmartNotificationService {
             else timeText = `en ~${Math.ceil(diffH / 24)} días`;
           }
 
-          // rounded ya calculado arriba
+          // rounded used for dedup/re-alert logic only, not exposed in notification text
+          const timeLabel = timeText ? `Pico ${timeText}.` : '';
           const title = `❄️ Nevada en camino — ${info.name}`;
-          const body = `${rounded} cm esperados en media montaña. Pico: ${timeText || 'pronto'}. Abrí la app para el detalle por elevación.`;
+          const body = `Nieve esperada en media montaña. ${timeLabel} Abrí la app para el detalle por elevación.`.trim();
 
           tokensToSend.push({
             token: user.pushToken,
