@@ -410,105 +410,26 @@ router.get('/:id/forecast/hourly', async (req: Request, res: Response) => {
       };
     });
 
-    try {
-      const om = new OpenMeteoService();
-      const omForecast = await om.getForecast(
-        parseFloat(resort.latitude),
-        parseFloat(resort.longitude),
-        midElevationDbHourly || parseFloat(resort.midElevation)
-      );
-      const times: string[] = omForecast?.hourly?.time || [];
-      const frzRaw: Array<number | null> = (omForecast?.hourly as any)?.freezinglevel_height || [];
-
-      const frzFilled: number[] = Array.from({ length: times.length }, (_, i) => {
-        const v = frzRaw[i];
-        return v == null ? NaN : Math.round(Number(v));
-      });
-
-      let firstIdx = frzFilled.findIndex((v) => Number.isFinite(v));
-      if (firstIdx === -1) {
-        firstIdx = 0;
-      }
-      if (firstIdx > 0) {
-        for (let i = 0; i < firstIdx; i++) frzFilled[i] = frzFilled[firstIdx];
-      }
-
-      let i = Math.max(0, firstIdx);
-      while (i < frzFilled.length) {
-        if (Number.isFinite(frzFilled[i])) {
-          i++;
-          continue;
+    // Fill missing FRZ with last known valid value from DB
+    const missingFrz = hourlyForecasts.some(h => h.freezingLevel == null || !Number.isFinite(h.freezingLevel as number));
+    if (missingFrz) {
+      let lastKnownFrz: number | null = null;
+      try {
+        const lastFrzResult = await pool.query(
+          `SELECT freezing_level_m FROM elevation_forecasts
+           WHERE resort_id = $1::uuid AND elevation_band = 'mid'
+             AND freezing_level_m IS NOT NULL
+           ORDER BY valid_time DESC LIMIT 1`,
+          [resort.id]
+        );
+        if (lastFrzResult.rows.length > 0) {
+          lastKnownFrz = Math.round(parseFloat(lastFrzResult.rows[0].freezing_level_m));
         }
-        let j = i + 1;
-        while (j < frzFilled.length && !Number.isFinite(frzFilled[j])) j++;
-        const left = i - 1;
-        const right = j < frzFilled.length ? j : -1;
-        if (right !== -1 && Number.isFinite(frzFilled[left]) && Number.isFinite(frzFilled[right])) {
-          const leftVal = frzFilled[left] as number;
-          const rightVal = frzFilled[right] as number;
-          const span = right - left;
-          for (let k = 1; k < span; k++) {
-            frzFilled[left + k] = Math.round(leftVal + ((rightVal - leftVal) * k) / span);
-          }
-          i = right + 1;
-        } else {
-          const fillVal = Number.isFinite(frzFilled[left]) ? (frzFilled[left] as number) : 2000;
-          for (let k = i; k < (right === -1 ? frzFilled.length : right); k++) frzFilled[k] = fillVal;
-          i = right === -1 ? frzFilled.length : right + 1;
-        }
-      }
-
-      const providerPoints: Array<{ t: number; v: number }> = [];
-      for (let idx = 0; idx < times.length; idx++) {
-        const t = new Date(times[idx]).getTime();
-        const v = frzFilled[idx];
-        if (Number.isFinite(v)) providerPoints.push({ t, v });
-      }
-      const TOL = 4 * 60 * 60 * 1000;
-
+      } catch (_) {}
+      const frzFallback = lastKnownFrz ?? 2000;
       for (const h of hourlyForecasts) {
-        const t = new Date(h.time).getTime();
-        let best: { t: number; v: number } | null = null;
-        let bestDt = Number.POSITIVE_INFINITY;
-        for (const p of providerPoints) {
-          const dt = Math.abs(p.t - t);
-          if (dt < bestDt) {
-            bestDt = dt;
-            best = p;
-          }
-        }
-        if (best && bestDt <= TOL) {
-          h.freezingLevel = best.v;
-        }
-      }
-
-      // Fill missing FRZ with last known valid value from DB (better than inventing a number)
-      const missingFrz = hourlyForecasts.some(h => h.freezingLevel == null || !Number.isFinite(h.freezingLevel));
-      if (missingFrz) {
-        let lastKnownFrz: number | null = null;
-        try {
-          const lastFrzResult = await pool.query(
-            `SELECT freezing_level_m FROM elevation_forecasts
-             WHERE resort_id = $1::uuid AND elevation_band = 'mid'
-               AND freezing_level_m IS NOT NULL
-             ORDER BY valid_time DESC LIMIT 1`,
-            [resort.id]
-          );
-          if (lastFrzResult.rows.length > 0) {
-            lastKnownFrz = Math.round(parseFloat(lastFrzResult.rows[0].freezing_level_m));
-          }
-        } catch (_) {}
-        const frzFallback = lastKnownFrz ?? 2000;
-        for (const h of hourlyForecasts) {
-          if (h.freezingLevel == null || !Number.isFinite(h.freezingLevel)) {
-            h.freezingLevel = frzFallback;
-          }
-        }
-      }
-    } catch (e) {
-      for (const h of hourlyForecasts) {
-        if (h.freezingLevel == null || !Number.isFinite(h.freezingLevel)) {
-          h.freezingLevel = 2000;
+        if (h.freezingLevel == null || !Number.isFinite(h.freezingLevel as number)) {
+          h.freezingLevel = frzFallback;
         }
       }
     }
