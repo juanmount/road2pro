@@ -216,29 +216,38 @@ export class OpenMeteoProvider implements ForecastProvider {
     const tempLapseRate = -0.0065; // °C per meter (standard atmosphere)
     const tempAdjustment = elevationDiff * tempLapseRate;
     
-    // Winter bias: Patagonian Andes katabatic and terrain effects make lower elevations
-    // systematically colder than standard lapse rate predicts in winter (May-Sep).
-    // Reference is summit; interpolating DOWN to base/mid adds too much warmth.
     const month = new Date().getMonth() + 1;
-    const winterBias = (month >= 5 && month <= 9 && elevationDiff < 0) ? -2.0 : 0;
-    
+    const isWinter = month >= 5 && month <= 9;
+    const isDownward = elevationDiff < 0;
+
     const WIND_INCREASE_RATE = 0.0004; // 40% per 1000m
     const windMultiplier = Math.max(0.5, 1 + (elevationDiff * WIND_INCREASE_RATE));
     
-    return reference.map(point => ({
-      time: point.time,
-      temperature: point.temperature + tempAdjustment + winterBias,
-      precipitation: point.precipitation,
-      snowfall: point.snowfall ? point.snowfall * (1 + elevationDiff / 1000 * 0.1) : undefined,
-      windSpeed: Math.round(point.windSpeed * windMultiplier),
-      windGust: point.windGust ? Math.round(point.windGust * windMultiplier) : point.windGust,
-      windDirection: point.windDirection,
-      humidity: point.humidity,
-      cloudCover: point.cloudCover,
-      pressure: point.pressure,
-      freezingLevel: point.freezingLevel,
-      temperature850hPa: point.temperature850hPa  // T850 is constant across elevations (fixed pressure level)
-    }));
+    return reference.map(point => {
+      // Temperature-dependent winter bias (only when interpolating DOWN from summit in winter).
+      // Warm/stable summit (T > +2°C): full -2°C — strong valley inversion, model overshoots warmth.
+      // Cold/frontal summit (T < -2°C): minimal -0.5°C — well-mixed atmosphere, standard lapse rate holds.
+      // Linear interpolation between the two regimes.
+      let winterBias = 0;
+      if (isWinter && isDownward) {
+        const biasScale = Math.max(0, Math.min(1, (point.temperature + 2) / 4));
+        winterBias = biasScale * (-2.0) + (1 - biasScale) * (-0.5);
+      }
+      return {
+        time: point.time,
+        temperature: point.temperature + tempAdjustment + winterBias,
+        precipitation: point.precipitation,
+        snowfall: point.snowfall ? point.snowfall * (1 + elevationDiff / 1000 * 0.1) : undefined,
+        windSpeed: Math.round(point.windSpeed * windMultiplier),
+        windGust: point.windGust ? Math.round(point.windGust * windMultiplier) : point.windGust,
+        windDirection: point.windDirection,
+        humidity: point.humidity,
+        cloudCover: point.cloudCover,
+        pressure: point.pressure,
+        freezingLevel: point.freezingLevel,
+        temperature850hPa: point.temperature850hPa
+      };
+    });
   }
   
   /**
