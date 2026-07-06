@@ -482,15 +482,33 @@ router.get('/:id/forecast/hourly', async (req: Request, res: Response) => {
         }
       }
 
-      for (const h of hourlyForecasts) {
-        if (h.freezingLevel == null || !Number.isFinite(h.freezingLevel)) {
-          h.freezingLevel = 2000; // Safe neutral default when model FRZ data is missing
+      // Fill missing FRZ with last known valid value from DB (better than inventing a number)
+      const missingFrz = hourlyForecasts.some(h => h.freezingLevel == null || !Number.isFinite(h.freezingLevel));
+      if (missingFrz) {
+        let lastKnownFrz: number | null = null;
+        try {
+          const lastFrzResult = await pool.query(
+            `SELECT freezing_level_m FROM elevation_forecasts
+             WHERE resort_id = $1::uuid AND elevation_band = 'mid'
+               AND freezing_level_m IS NOT NULL
+             ORDER BY valid_time DESC LIMIT 1`,
+            [resort.id]
+          );
+          if (lastFrzResult.rows.length > 0) {
+            lastKnownFrz = Math.round(parseFloat(lastFrzResult.rows[0].freezing_level_m));
+          }
+        } catch (_) {}
+        const frzFallback = lastKnownFrz ?? 2000;
+        for (const h of hourlyForecasts) {
+          if (h.freezingLevel == null || !Number.isFinite(h.freezingLevel)) {
+            h.freezingLevel = frzFallback;
+          }
         }
       }
     } catch (e) {
       for (const h of hourlyForecasts) {
         if (h.freezingLevel == null || !Number.isFinite(h.freezingLevel)) {
-          h.freezingLevel = 2000; // Safe neutral default when model FRZ data is missing
+          h.freezingLevel = 2000;
         }
       }
     }
