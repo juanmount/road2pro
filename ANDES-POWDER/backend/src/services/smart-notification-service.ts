@@ -18,7 +18,7 @@ interface UserPreferences {
   quietHoursEnd: string;
 }
 
-type AlertType = 'snow' | 'wind' | 'storm' | 'snow5d' | 'snow36h';
+type AlertType = 'snow' | 'wind' | 'storm' | 'snow48h';
 
 interface ForecastData {
   resortId: string;
@@ -196,7 +196,7 @@ class SmartNotificationService {
           id SERIAL PRIMARY KEY,
           user_id TEXT NOT NULL,
           resort_id TEXT NOT NULL,
-          alert_type TEXT NOT NULL CHECK (alert_type IN ('snow','wind','storm','snow5d','snow36h')),
+          alert_type TEXT NOT NULL CHECK (alert_type IN ('snow','wind','storm','snow48h')),
           sent_at TIMESTAMP NOT NULL DEFAULT NOW()
         );
       `);
@@ -215,7 +215,7 @@ class SmartNotificationService {
           END;
           ALTER TABLE notification_log
             ADD CONSTRAINT notification_log_alert_type_check
-            CHECK (alert_type IN ('snow','wind','storm','snow5d','snow36h'));
+            CHECK (alert_type IN ('snow','wind','storm','snow48h'));
         END$$;
       `);
       await pool.query(`
@@ -272,8 +272,8 @@ class SmartNotificationService {
         throw err;
       }
     }
-    // Clean entries older than 48h
-    await pool.query(`DELETE FROM notification_log WHERE sent_at < NOW() - INTERVAL '48 hours'`);
+    // Clean entries older than 7 days
+    await pool.query(`DELETE FROM notification_log WHERE sent_at < NOW() - INTERVAL '7 days'`);
   }
 
   private async getLastAmountWithin(userId: string, resortId: string, alertType: AlertType, hours: number): Promise<number | null> {
@@ -297,16 +297,13 @@ class SmartNotificationService {
   }
 
   private async shouldRealertDueToIncrease(userId: string, resortId: string, alertType: AlertType, newAmount: number, hours: number): Promise<boolean> {
-    if (alertType !== 'snow5d' && alertType !== 'snow36h') return false;
+    if (alertType !== 'snow48h') return false;
     const last = await this.getLastAmountWithin(userId, resortId, alertType, hours);
     if (last === null) return false;
     const absDelta = newAmount - last;
     const pct = last > 0 ? absDelta / last : 0;
-    if (alertType === 'snow5d') {
-      return absDelta >= 7 || pct >= 0.30;
-    } else {
-      return absDelta >= 5 || pct >= 0.20;
-    }
+    // Only re-alert on a very significant revision (+15cm or +40%) to avoid spam
+    return absDelta >= 15 || pct >= 0.40;
   }
 
   /**
@@ -368,8 +365,8 @@ class SmartNotificationService {
           // Precompute rounded amount for dedup/re-alert checks
           const rounded = Math.max(0, Math.round(Number(info.sumCm) || 0));
 
-          // Dedup windows: 12h for 5d, 6h for 36h
-          const dedupHours = alertType === 'snow5d' ? 12 : 6;
+          // Single 48h alert type: 24h cooldown
+          const dedupHours = 24;
           if (await this.wasRecentlySentWithin(user.userId, resortId, alertType, dedupHours)) {
             const allow = await this.shouldRealertDueToIncrease(user.userId, resortId, alertType, rounded, dedupHours);
             if (!allow) continue;
@@ -386,12 +383,8 @@ class SmartNotificationService {
           }
 
           // rounded ya calculado arriba
-          const title = alertType === 'snow5d'
-            ? `❄️ Aviso: ${rounded} cm (5 días) — ${info.name}`
-            : `❄️ Alerta: ${rounded} cm (36 h) — ${info.name}`;
-          const body = alertType === 'snow5d'
-            ? `Se esperan ${rounded} cm acumulados en los próximos 5 días. Pico: ${timeText || 'pronto'}`
-            : `Se esperan ${rounded} cm en las próximas 36 h. Pico: ${timeText || 'pronto'}`;
+          const title = `❄️ Nevada en camino — ${info.name}`;
+          const body = `${rounded} cm esperados en media montaña. Pico: ${timeText || 'pronto'}. Abrí la app para el detalle por elevación.`;
 
           tokensToSend.push({
             token: user.pushToken,
@@ -564,6 +557,7 @@ class SmartNotificationService {
             AND ef.valid_time <= NOW() + INTERVAL '7 days'
             AND ef.elevation_band = 'mid'
             AND ef.phase_classification IN ('snow', 'sleet')
+            AND COALESCE(ef.confidence_score, 0) >= 0.55
             AND ef.forecast_run_id = (
               SELECT id FROM forecast_runs fr
               WHERE fr.resort_id = ef.resort_id
@@ -588,6 +582,7 @@ class SmartNotificationService {
             WHERE ef.valid_time >= NOW()
               AND ef.valid_time <= NOW() + INTERVAL '7 days'
               AND ef.elevation_band = 'mid'
+              AND COALESCE(ef.confidence_score, 0) >= 0.55
               AND ef.forecast_run_id = (
                 SELECT id FROM forecast_runs fr
                 WHERE fr.resort_id = ef.resort_id
@@ -610,16 +605,9 @@ class SmartNotificationService {
         validTime: new Date(row.valid_time),
       }));
 
-      // Send snow alerts
-      const snowForecasts = forecasts.filter(f => f.snowfallCm >= 5);
-      if (snowForecasts.length > 0) {
-        await this.sendSnowAlerts(snowForecasts);
-      }
-
-      // Send accumulation-based snow alerts (5 days and 36 hours) using the same user threshold
+      // Single snow alert: 48h window, mid elevation, solid events only
       if (forecasts.length > 0) {
-        await this.sendAccumulationAlertsByWindow(forecasts, 120, 'snow5d');
-        await this.sendAccumulationAlertsByWindow(forecasts, 36, 'snow36h');
+        await this.sendAccumulationAlertsByWindow(forecasts, 48, 'snow48h');
       }
 
       // Send wind alerts
