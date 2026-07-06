@@ -101,7 +101,12 @@ export class SMNWeatherService {
     const LAPSE_RATE = 6.5; // °C per 1000m
     const elevationDiff = toElevation - fromElevation;
     const adjustment = (elevationDiff / 1000) * -LAPSE_RATE;
-    return temperature + adjustment;
+    // Winter lake-effect bias: Bariloche airport sits next to Nahuel Huapi lake
+    // and runs ~2°C warmer than mountain elevations in winter due to lake thermal buffering.
+    // Standard lapse rate alone consistently under-estimates cold on the mountain (May–Sep).
+    const month = new Date().getMonth() + 1; // 1-12
+    const winterBias = (month >= 5 && month <= 9) ? -2.0 : 0;
+    return temperature + adjustment + winterBias;
   }
   
   /**
