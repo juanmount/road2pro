@@ -53,7 +53,10 @@ export class OpenMeteoProvider implements ForecastProvider {
         'cloudcover_high',
         'pressure_msl',
         'freezinglevel_height',
-        ...(model === 'gfs' ? ['temperature_850hPa'] : [])  // T850 only available in GFS
+        'temperature_850hPa',
+        'temperature_700hPa',
+        'geopotential_height_850hPa',
+        'geopotential_height_700hPa'
       ].join(','),
       daily: [
         'temperature_2m_max',
@@ -128,13 +131,20 @@ export class OpenMeteoProvider implements ForecastProvider {
     // Build stable freezing level array
     const times = data.hourly.time.map((t: string) => new Date(t));
     console.log(`[OpenMeteo] Building stable FRZ for ${resort.name}...`);
+    const pressureLevels = {
+      t850: data.hourly.temperature_850hPa || [],
+      h850: data.hourly.geopotential_height_850hPa || [],
+      t700: data.hourly.temperature_700hPa || [],
+      h700: data.hourly.geopotential_height_700hPa || [],
+    };
     let freezingLevels;
     try {
       freezingLevels = this.buildStableFreezingLevels(
         data.hourly.freezinglevel_height || [],
         data.hourly.temperature_2m,
         times,
-        resort.midElevation
+        resort.midElevation,
+        pressureLevels
       );
       console.log(`[OpenMeteo] buildStableFreezingLevels completed for ${resort.name}`);
     } catch (error) {
@@ -276,64 +286,97 @@ export class OpenMeteoProvider implements ForecastProvider {
   }
   
   /**
-   * Build stable freezing level array
-   * Strategy: Use ECMWF data when available, then smoothly transition using temperature
-   * This avoids jumps from ~1650m (ECMWF) to ~3700m (ICON fallback)
+   * Derive freezing level from atmospheric pressure-level temperatures via linear interpolation.
+   * Primary source when model does not publish freezinglevel_height directly (e.g. ECMWF on Open-Meteo).
+   */
+  private deriveFrzFromPressureLevels(
+    t850: number | null | undefined,
+    h850: number | null | undefined,
+    t700: number | null | undefined,
+    h700: number | null | undefined
+  ): number | null {
+    if (t850 === null || t850 === undefined || h850 === null || h850 === undefined) return null;
+
+    // Case 1: FRZ is below 850hPa (cold post-frontal, T850 < 0)
+    // Extrapolate downward using standard lapse rate: h_frz = h_850 + T_850 / 0.0065
+    if (t850 < 0) {
+      return Math.max(0, Math.round(h850 + t850 / 0.0065));
+    }
+
+    // Case 2: FRZ is between 850hPa and 700hPa (most common winter scenario)
+    if (t700 !== null && t700 !== undefined && h700 !== null && h700 !== undefined && t700 < 0) {
+      const frzHeight = h850 + (h700 - h850) * (t850 / (t850 - t700));
+      return Math.round(Math.max(h850, Math.min(h700, frzHeight)));
+    }
+
+    // Case 3: FRZ is above 700hPa (warm event, T700 >= 0)
+    if (t700 !== null && t700 !== undefined && h700 !== null && h700 !== undefined) {
+      return Math.min(5000, Math.round(h700 + t700 / 0.0065));
+    }
+
+    return null;
+  }
+
+  /**
+   * Build stable freezing level array.
+   * Priority: (1) direct model FRZ, (2) derived from pressure-level temperatures, (3) temperature-based estimate.
    */
   private buildStableFreezingLevels(
-    ecmwfFreezingLevels: (number | null)[],
+    rawFreezingLevels: (number | null)[],
     temperatures: number[],
     times: Date[],
-    referenceElevation: number
+    referenceElevation: number,
+    pressureLevels?: {
+      t850: (number | null)[];
+      h850: (number | null)[];
+      t700: (number | null)[];
+      h700: (number | null)[];
+    }
   ): Array<{ time: Date; heightM: number }> {
     const result: Array<{ time: Date; heightM: number }> = [];
     let lastKnownFRZ: number | null = null;
     let lastKnownTemp: number | null = null;
-    
-    // Debug: Log first 3 ECMWF values
-    console.log('[buildStableFreezingLevels] First 3 ECMWF FRZ:', ecmwfFreezingLevels.slice(0, 3));
-    console.log('[buildStableFreezingLevels] First 3 temps:', temperatures.slice(0, 3));
-    console.log('[buildStableFreezingLevels] Reference elevation:', referenceElevation);
-    
+
     for (let i = 0; i < times.length; i++) {
-      const ecmwfFRZ = ecmwfFreezingLevels[i];
+      const rawFRZ = rawFreezingLevels[i];
       const temp = temperatures[i];
-      
-      if (ecmwfFRZ !== null && ecmwfFRZ !== undefined) {
-        // Use ECMWF data directly
-        lastKnownFRZ = ecmwfFRZ;
+
+      // Priority 1: direct model value (ICON / GFS freezinglevel_height)
+      let frzValue: number | null = (rawFRZ !== null && rawFRZ !== undefined) ? rawFRZ : null;
+
+      // Priority 2: derive from pressure-level temperatures (ECMWF T850/T700 + geopotential heights)
+      if (frzValue === null && pressureLevels) {
+        frzValue = this.deriveFrzFromPressureLevels(
+          pressureLevels.t850[i], pressureLevels.h850[i],
+          pressureLevels.t700[i], pressureLevels.h700[i]
+        );
+        if (frzValue !== null && i < 3) {
+          console.log(`[buildStableFreezingLevels] Hour ${i}: Derived from pressure levels ${frzValue}m (T850=${pressureLevels.t850[i]}, T700=${pressureLevels.t700[i]})`);
+        }
+      }
+
+      if (frzValue !== null) {
+        lastKnownFRZ = frzValue;
         lastKnownTemp = temp;
-        result.push({ time: times[i], heightM: ecmwfFRZ });
-        if (i < 3) console.log(`[buildStableFreezingLevels] Hour ${i}: Using ECMWF ${ecmwfFRZ}m`);
+        result.push({ time: times[i], heightM: frzValue });
+        if (i < 3) console.log(`[buildStableFreezingLevels] Hour ${i}: FRZ=${frzValue}m`);
       } else if (lastKnownFRZ !== null && lastKnownTemp !== null) {
-        // ECMWF data missing - adjust last known FRZ based on temperature change
-        // Formula: ΔFreezingLevel = ΔTemperature / lapseRate
-        const lapseRate = 0.0065; // °C per meter
+        // Priority 3: propagate last known FRZ adjusted by temperature change
         const tempChange: number = temp - lastKnownTemp;
-        const frzAdjustment: number = tempChange / lapseRate;
-        const adjustedFRZ: number = lastKnownFRZ + frzAdjustment;
-        
-        // Update for next iteration
+        const adjustedFRZ: number = lastKnownFRZ + tempChange / 0.0065;
         lastKnownFRZ = adjustedFRZ;
         lastKnownTemp = temp;
-        
         result.push({ time: times[i], heightM: Math.max(0, adjustedFRZ) });
-        if (i < 3) console.log(`[buildStableFreezingLevels] Hour ${i}: Adjusted from ${lastKnownFRZ}m to ${adjustedFRZ}m (temp change: ${tempChange}°C)`);
       } else {
-        // No ECMWF data and no previous reference - use conservative estimate
-        // Use temperature-based estimation but cap at reasonable values
-        const lapseRate = 0.0065;
-        const estimatedFRZ = referenceElevation + (temp / lapseRate);
-        const cappedFRZ = Math.min(3000, Math.max(500, estimatedFRZ)); // Cap between 500-3000m
-        
+        // Priority 4: cold-start estimate from surface temperature
+        const estimatedFRZ = referenceElevation + (temp / 0.0065);
+        const cappedFRZ = Math.min(3000, Math.max(500, estimatedFRZ));
         lastKnownFRZ = cappedFRZ;
         lastKnownTemp = temp;
-        
         result.push({ time: times[i], heightM: cappedFRZ });
-        if (i < 3) console.log(`[buildStableFreezingLevels] Hour ${i}: Estimated ${cappedFRZ}m (temp: ${temp}°C, ref: ${referenceElevation}m)`);
       }
     }
-    
+
     console.log('[buildStableFreezingLevels] First 3 results:', result.slice(0, 3).map(r => r.heightM));
     return result;
   }
