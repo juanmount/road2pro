@@ -182,9 +182,13 @@ export class PhaseClassifier {
       return { phase: 'snow', confidence: 'high', snowRatio: 1.0 };
     }
     
-    // If clearly above freezing level, it's rain regardless of T850
+    // If clearly above freezing level AND local temperature is warm, it's rain.
+    // If local temperature is below 0°C despite high FRZ (pre-frontal inversion),
+    // precipitation cannot be liquid — classify as snow or mixed.
     if (margin > 300) {
-      return { phase: 'rain', confidence: 'high', snowRatio: 0.0 };
+      if (surfaceTemp >= 0) return { phase: 'rain', confidence: 'high', snowRatio: 0.0 };
+      if (surfaceTemp < -2) return { phase: 'snow', confidence: 'medium', snowRatio: 0.9 };
+      return { phase: 'mixed', confidence: 'medium', snowRatio: 0.6 };
     }
     
     // PRIORITY 2: T850 thresholds for marginal cases

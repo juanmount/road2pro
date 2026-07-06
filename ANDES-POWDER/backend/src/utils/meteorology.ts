@@ -71,9 +71,13 @@ export function determinePrecipitationPhase(
     return 'snow'; // Well below freezing level (>200m) = definite snow
   }
   
-  // If clearly above freezing level, it's rain regardless of wet bulb
+  // If clearly above freezing level AND wet bulb is above 0°C, it's rain.
+  // Exception: if local wet bulb is below 0°C (cold air at elevation despite high FRZ),
+  // precipitation cannot be liquid — classify as snow or mixed.
   if (margin > 300) {
-    return 'rain'; // Well above freezing level (>300m) = definite rain
+    if (wetBulbC >= 0) return 'rain';
+    if (wetBulbC < -2.5) return 'snow'; // Cold local air, high FRZ = inversion / pre-frontal
+    return 'mixed';
   }
   
   // PRIORITY 2: Wet bulb temperature for marginal cases
