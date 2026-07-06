@@ -206,12 +206,18 @@ export class OpenMeteoProvider implements ForecastProvider {
     const tempLapseRate = -0.0065; // °C per meter (standard atmosphere)
     const tempAdjustment = elevationDiff * tempLapseRate;
     
+    // Winter bias: Patagonian Andes katabatic and terrain effects make lower elevations
+    // systematically colder than standard lapse rate predicts in winter (May-Sep).
+    // Reference is summit; interpolating DOWN to base/mid adds too much warmth.
+    const month = new Date().getMonth() + 1;
+    const winterBias = (month >= 5 && month <= 9 && elevationDiff < 0) ? -2.0 : 0;
+    
     const WIND_INCREASE_RATE = 0.0004; // 40% per 1000m
     const windMultiplier = Math.max(0.5, 1 + (elevationDiff * WIND_INCREASE_RATE));
     
     return reference.map(point => ({
       time: point.time,
-      temperature: point.temperature + tempAdjustment,
+      temperature: point.temperature + tempAdjustment + winterBias,
       precipitation: point.precipitation,
       snowfall: point.snowfall ? point.snowfall * (1 + elevationDiff / 1000 * 0.1) : undefined,
       windSpeed: Math.round(point.windSpeed * windMultiplier),
