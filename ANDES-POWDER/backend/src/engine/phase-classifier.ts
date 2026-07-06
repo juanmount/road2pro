@@ -33,7 +33,8 @@ export class PhaseClassifier {
     
     // NEW: Use T850 if feature flag is enabled and data is available
     if (FEATURES.USE_T850 && temperature850hPa !== undefined) {
-      return this.classifyWithT850(temp, temperature850hPa, freezingLevel, elevation, humidity);
+      const result = this.classifyWithT850(temp, temperature850hPa, freezingLevel, elevation, humidity);
+      return this.applySafetyOverride(result, temp);
     }
     
     // LEGACY: Calculate wet bulb temperature for more accurate phase determination
@@ -57,10 +58,10 @@ export class PhaseClassifier {
     if (phase === 'rain') {
       // High confidence if wet bulb well above 0°C or well above freezing level
       if (wetBulb > 2 || margin > 200) {
-        return { phase: 'rain', confidence: 'high', snowRatio: 0.0 };
+        return this.applySafetyOverride({ phase: 'rain', confidence: 'high', snowRatio: 0.0 }, temp);
       }
       // Medium confidence if marginal - still rain, no snow
-      return { phase: 'rain', confidence: 'medium', snowRatio: 0.0 };
+      return this.applySafetyOverride({ phase: 'rain', confidence: 'medium', snowRatio: 0.0 }, temp);
     }
     
     if (phase === 'mixed') {
@@ -75,6 +76,21 @@ export class PhaseClassifier {
     
     // Fallback (should not reach here)
     return { phase: 'none', confidence: 'low', snowRatio: 0.0 };
+  }
+
+  /**
+   * Universal safety override: local temperature below 0°C cannot produce liquid rain.
+   * Covers warm-T850 / high-FRZ cases where the model sees warm air aloft but the
+   * mountain surface is below freezing (pre-frontal inversions, cold summit layers).
+   */
+  private applySafetyOverride(result: PhaseResult, surfaceTemp: number): PhaseResult {
+    if (result.phase === 'rain' && surfaceTemp < 0) {
+      if (surfaceTemp < -2) {
+        return { phase: 'snow', confidence: 'medium', snowRatio: 0.9 };
+      }
+      return { phase: 'mixed', confidence: 'medium', snowRatio: 0.6 };
+    }
+    return result;
   }
   
   /**
