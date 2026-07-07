@@ -137,10 +137,16 @@ export class OpenMeteoProvider implements ForecastProvider {
       t700: data.hourly.temperature_700hPa || [],
       h700: data.hourly.geopotential_height_700hPa || [],
     };
+    // ECMWF's freezinglevel_height is unreliable when elevation param is set
+    // (it gets clamped near the summit and misses warm frontal intrusions).
+    // For ECMWF always derive FRZ from T850/T700 pressure-level interpolation.
+    // For GFS/GEFS use freezinglevel_height directly (it is accurate).
+    const isECMWF = raw.model === 'ecmwf-ifs';
+    const rawFrzInput = isECMWF ? [] : (data.hourly.freezinglevel_height || []);
     let freezingLevels;
     try {
       freezingLevels = this.buildStableFreezingLevels(
-        data.hourly.freezinglevel_height || [],
+        rawFrzInput,
         data.hourly.temperature_2m,
         times,
         resort.midElevation,
