@@ -939,7 +939,7 @@ router.get('/:id/accumulation', async (req: Request, res: Response) => {
     try {
       const fhRes = await pool.query(
         `SELECT ef.valid_time, ef.snowfall_cm_corrected, ef.wind_speed_kmh,
-                ef.phase_classification, ef.freezing_level_m
+                ef.phase_classification, ef.freezing_level_m, ef.temperature_c
          FROM elevation_forecasts ef
          WHERE ef.resort_id = $1
            AND ef.elevation_band = $2
@@ -979,11 +979,12 @@ router.get('/:id/accumulation', async (req: Request, res: Response) => {
         const hours = futureHoursMap.get(dateKey) || [];
         let dailyTotal = 0;
         for (const hr of hours) {
-          if (!['snow', 'sleet'].includes(hr.phase_classification)) continue;
+          if (!['snow', 'sleet', 'mixed'].includes(hr.phase_classification)) continue;
           const snow = parseFloat(hr.snowfall_cm_corrected || 0);
           if (snow <= 0) continue;
           const frz = hr.live_frz != null ? hr.live_frz
             : (hr.freezing_level_m != null ? parseFloat(hr.freezing_level_m) : null);
+          const surfaceTemp = parseFloat(hr.temperature_c || 0);
           let retention: number;
           if (frz == null) { retention = 0.7; }
           else {
@@ -996,6 +997,10 @@ router.get('/:id/accumulation', async (req: Request, res: Response) => {
             else if (margin <= 350) retention = 0.04;
             else if (margin <= 450) retention = 0.02;
             else retention = 0;
+          }
+          // T<0°C: snow/mixed precipitación sí acumula aunque FRZ esté alto
+          if (surfaceTemp < 0 && hr.phase_classification !== 'sleet') {
+            retention = Math.max(retention, hr.phase_classification === 'snow' ? 0.75 : 0.45);
           }
           if (retention === 0) continue;
           const wind = parseFloat(hr.wind_speed_kmh || 0) * windMultiplier;
@@ -1032,11 +1037,14 @@ router.get('/:id/accumulation', async (req: Request, res: Response) => {
           COALESCE((
             SELECT SUM(
               CASE
-                WHEN ef.phase_classification NOT IN ('snow', 'sleet') THEN 0
+                WHEN ef.phase_classification NOT IN ('snow', 'sleet', 'mixed') THEN 0
+                WHEN ef.snowfall_cm_corrected <= 0 THEN 0
                 WHEN ef.freezing_level_m IS NULL THEN ef.snowfall_cm_corrected * 0.7
                 WHEN (ef.freezing_level_m - ${elevationMeters}) <= -300 THEN ef.snowfall_cm_corrected * 0.95
                 WHEN (ef.freezing_level_m - ${elevationMeters}) <= -100 THEN ef.snowfall_cm_corrected * 0.88
                 WHEN (ef.freezing_level_m - ${elevationMeters}) <= 50  THEN ef.snowfall_cm_corrected * 0.45
+                WHEN ef.phase_classification = 'mixed' AND ef.temperature_c < 0 THEN ef.snowfall_cm_corrected * 0.45
+                WHEN ef.phase_classification = 'snow'  AND ef.temperature_c < 0 THEN ef.snowfall_cm_corrected * 0.75
                 WHEN (ef.freezing_level_m - ${elevationMeters}) <= 150 THEN ef.snowfall_cm_corrected * 0.20
                 WHEN (ef.freezing_level_m - ${elevationMeters}) <= 250 THEN ef.snowfall_cm_corrected * 0.08
                 WHEN (ef.freezing_level_m - ${elevationMeters}) <= 350 THEN ef.snowfall_cm_corrected * 0.04
@@ -1140,12 +1148,22 @@ router.get('/:id/forecast/daily', async (req: Request, res: Response) => {
     // Import pool dynamically like the working debug endpoint
     const dbPool = (await import('../config/database')).default;
 
+    // Resolve slug → UUID first
+    const resortRes = await dbPool.query(
+      'SELECT id FROM resorts WHERE slug = $1 OR id::text = $1',
+      [id]
+    );
+    if (resortRes.rows.length === 0) {
+      return res.status(404).json({ error: 'Resort not found' });
+    }
+    const resortId = resortRes.rows[0].id;
+
     const result = await dbPool.query(
       `SELECT 
-        valid_time::date as date,
+        (valid_time AT TIME ZONE 'America/Argentina/Buenos_Aires')::date as date,
         MAX(temperature_c) as max_temp,
         MIN(temperature_c) as min_temp,
-        SUM(snowfall_cm_corrected) as total_snowfall,
+        SUM(CASE WHEN phase_classification IN ('snow','sleet','mixed') THEN snowfall_cm_corrected ELSE 0 END) as total_snowfall,
         SUM(precipitation_mm) as total_precipitation,
         AVG(powder_score) as avg_powder_score,
         MAX(wind_speed_kmh) as max_wind_speed,
@@ -1155,10 +1173,13 @@ router.get('/:id/forecast/daily', async (req: Request, res: Response) => {
       WHERE resort_id = $1
       AND elevation_band = $2
       AND valid_time >= NOW()
-      GROUP BY valid_time::date
+      AND forecast_run_id = (
+        SELECT id FROM forecast_runs WHERE resort_id = $1 ORDER BY created_at DESC LIMIT 1
+      )
+      GROUP BY (valid_time AT TIME ZONE 'America/Argentina/Buenos_Aires')::date
       ORDER BY date
       LIMIT $3`,
-      [id, elevationBand, daysLimit]
+      [resortId, elevationBand, daysLimit]
     );
     
     if (result.rows.length === 0) {
