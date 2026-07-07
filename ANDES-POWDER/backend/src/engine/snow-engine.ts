@@ -441,7 +441,10 @@ export class SnowEngine {
       inCloud: visibilityConditions.inCloud,
       cloudBaseMeters: visibilityConditions.cloudBaseMeters || undefined,
       snowfallCmCorrected: corrected.snowfallCorrected,
-      phaseClassification: phase.phase, // Use phase directly, not classifyPhase
+      // Final safety override before DB write: T<0°C cannot produce liquid rain.
+      phaseClassification: (phase.phase === 'rain' && data.temperature < 0)
+        ? (data.temperature < -2 ? 'snow' : 'mixed')
+        : phase.phase,
       snowQuality,
       powderScore: corrected.powderScoreCorrected,
       skiabilityScore,
