@@ -153,6 +153,16 @@ export default function HomeScreen() {
             );
             const snowfall24h = snowHours24.reduce((sum: number, h: any) => sum + (h.snowfall || 0), 0);
 
+            // HOY = snowfall from now until midnight tonight (remaining hours of today)
+            const midnightTonight = new Date();
+            midnightTonight.setHours(23, 59, 59, 999);
+            const todayHours = hourlyForecast.filter((h: any) => {
+              const t = new Date(h.time);
+              return t >= now && t <= midnightTonight &&
+                (h.phase === 'snow' || h.phase === 'mixed' || h.phase === 'sleet');
+            });
+            const todaySnowfall = todayHours.reduce((sum: number, h: any) => sum + (h.snowfall || 0), 0);
+
             const currentConditions = {
               temperature: currentHour.temperature,
               windSpeed: currentHour.windSpeed,
@@ -162,9 +172,6 @@ export default function HomeScreen() {
               cloudCover: currentHour.cloudCover,
               snowfall24h,
             };
-            
-            // Calculate today's snowfall from hourly data (next 24 hours, snow/mixed phases only)
-            const todaySnowfall = snowfall24h;
             
             console.log(`[HOME] ${resort.name}: Using hour ${new Date(currentHour.time).toISOString()}`);
             console.log(`[HOME] ${resort.name}: temp=${currentConditions.temperature}° wind=${currentConditions.windSpeed}km/h phase=${currentConditions.phase} cloudCover=${currentConditions.cloudCover}% today=${todaySnowfall}cm`);
