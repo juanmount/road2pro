@@ -181,17 +181,35 @@ export class OpenMeteoProvider implements ForecastProvider {
     };
   }
   
+  private deaccumulate3hourly(values: (number | null | undefined)[]): number[] {
+    const result: number[] = new Array(values.length).fill(0);
+    let i = 0;
+    while (i < values.length) {
+      const v = values[i];
+      if (!v || v <= 0) { result[i] = 0; i++; continue; }
+      let j = i + 1;
+      while (j < values.length && values[j] === v) j++;
+      const blockSize = j - i;
+      const perHour = blockSize >= 2 && blockSize <= 6 ? v / blockSize : v;
+      for (let k = i; k < j; k++) result[k] = perHour;
+      i = j;
+    }
+    return result;
+  }
+
   private parseHourlyDataWithFreezingLevel(
     hourly: any, 
     times: Date[], 
     referenceElevation: number,
     forecastFreezingLevels: number[] = []
   ): TimeSeriesPoint[] {
+    const precipDeacc = this.deaccumulate3hourly(hourly.precipitation);
+    const snowDeacc   = this.deaccumulate3hourly(hourly.snowfall);
     return times.map((time, i) => ({
       time,
       temperature: hourly.temperature_2m[i] || 0,
-      precipitation: hourly.precipitation[i] || 0,
-      snowfall: hourly.snowfall?.[i],
+      precipitation: precipDeacc[i],
+      snowfall: snowDeacc[i],
       windSpeed: hourly.windspeed_10m[i] || 0,
       windGust: hourly.windgusts_10m?.[i],
       windDirection: hourly.winddirection_10m?.[i],
