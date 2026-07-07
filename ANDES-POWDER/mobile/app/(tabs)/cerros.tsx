@@ -30,6 +30,9 @@ const resortImages: Record<string, any> = {
   'cerro-castor': require('../../assets/cerro-castor-bg.jpg'),
   'cerro-chapelco': require('../../assets/cerro-chapelco-bg.jpg'),
   'las-lenas': require('../../assets/cerro-lenas-bg.jpg'),
+  'cerro-bayo': require('../../assets/cerro-bayo-bg.jpeg'),
+  'la-hoya': require('../../assets/cerro-lahoya-bg.jpeg'),
+  'caviahue': require('../../assets/cerro-caviahue-bg.jpg'),
 };
 
 const getResortImage = (slug: string) => {
@@ -41,6 +44,7 @@ export default function HomeScreen() {
   const [resorts, setResorts] = useState<ResortWithConditions[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [visitCounts, setVisitCounts] = useState<Record<string, number>>({});
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [checkingOnboarding, setCheckingOnboarding] = useState(true);
   const [alerts, setAlerts] = useState<Alert[]>([]);
@@ -76,10 +80,7 @@ export default function HomeScreen() {
   const checkOnboardingStatus = async () => {
     try {
       const completed = await AsyncStorage.getItem('onboarding_completed');
-      setShowOnboarding(completed !== 'true');
-      
-      // Don't show Season 0 modal automatically on first load
-      // It will be shown after resorts load if needed
+      setShowOnboarding(!completed);
     } catch (error) {
       console.error('Error checking onboarding status:', error);
       setShowOnboarding(false);
@@ -92,11 +93,34 @@ export default function HomeScreen() {
     setShowOnboarding(false);
   };
 
+  const VISIT_KEY = 'resort_visit_counts';
+
+  const loadVisitCounts = async (): Promise<Record<string, number>> => {
+    try {
+      const raw = await AsyncStorage.getItem(VISIT_KEY);
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {};
+    }
+  };
+
+  const registerVisit = async (slug: string) => {
+    try {
+      const counts = await loadVisitCounts();
+      counts[slug] = (counts[slug] || 0) + 1;
+      await AsyncStorage.setItem(VISIT_KEY, JSON.stringify(counts));
+      setVisitCounts({ ...counts });
+    } catch {
+      // silent
+    }
+  };
+
   const loadResorts = async () => {
     try {
       setLoading(true);
       setError(null);
-      const data = await resortsService.getAll();
+      const [data, counts] = await Promise.all([resortsService.getAll(), loadVisitCounts()]);
+      setVisitCounts(counts);
       
       // Load forecasts for each resort
       const resortsWithConditions = await Promise.all(
@@ -124,6 +148,11 @@ export default function HomeScreen() {
             }
             
             const currentHour = closestHour;
+            const snowHours24 = hourlyForecast.slice(0, 24).filter(
+              (h: any) => h.phase === 'snow' || h.phase === 'mixed' || h.phase === 'sleet'
+            );
+            const snowfall24h = snowHours24.reduce((sum: number, h: any) => sum + (h.snowfall || 0), 0);
+
             const currentConditions = {
               temperature: currentHour.temperature,
               windSpeed: currentHour.windSpeed,
@@ -131,11 +160,11 @@ export default function HomeScreen() {
               precipitation: currentHour.precipitation,
               phase: currentHour.phase,
               cloudCover: currentHour.cloudCover,
-              snowfall24h: hourlyForecast.slice(0, 24).reduce((sum: number, h: any) => sum + (h.snowfall || 0), 0),
+              snowfall24h,
             };
             
-            // Calculate today's snowfall from hourly data (next 24 hours)
-            const todaySnowfall = hourlyForecast.slice(0, 24).reduce((sum: number, h: any) => sum + (h.snowfall || 0), 0);
+            // Calculate today's snowfall from hourly data (next 24 hours, snow/mixed phases only)
+            const todaySnowfall = snowfall24h;
             
             console.log(`[HOME] ${resort.name}: Using hour ${new Date(currentHour.time).toISOString()}`);
             console.log(`[HOME] ${resort.name}: temp=${currentConditions.temperature}° wind=${currentConditions.windSpeed}km/h phase=${currentConditions.phase} cloudCover=${currentConditions.cloudCover}% today=${todaySnowfall}cm`);
@@ -152,7 +181,10 @@ export default function HomeScreen() {
         })
       );
       
-      setResorts(resortsWithConditions);
+      const sorted = [...resortsWithConditions].sort((a, b) =>
+        (counts[b.slug] || 0) - (counts[a.slug] || 0)
+      );
+      setResorts(sorted);
     } catch (err) {
       setError('Failed to load resorts');
       console.error(err);
@@ -170,7 +202,10 @@ export default function HomeScreen() {
     return (
       <TouchableOpacity
         style={styles.resortCard}
-        onPress={() => router.push(`/(tabs)/resort/${item.slug}`)}
+        onPress={() => {
+          registerVisit(item.slug);
+          router.push(`/(tabs)/resort/${item.slug}`);
+        }}
         activeOpacity={0.9}
       >
         <ImageBackground
@@ -199,7 +234,9 @@ export default function HomeScreen() {
                       if (name.includes('chapelco')) return '140km • 35 pistas';
                       if (name.includes('bayo')) return '30km • 24 pistas';
                       if (name.includes('castor')) return '35km • 28 pistas';
-                      return '35km • 28 pistas';
+                      if (name.includes('hoya')) return '22km • 25 pistas';
+                      if (name.includes('caviahue')) return '38km • 28 pistas';
+                      return '-';
                     })()}
                   </Text>
                 </View>
@@ -231,13 +268,10 @@ export default function HomeScreen() {
                       <Text style={styles.tempLabel}>Actual</Text>
                     </View>
                   </View>
-                  <View style={styles.weatherRight}>
-                    <Text style={styles.windValue}>💨 {Math.round(item.currentConditions.windSpeed || 0)} km/h</Text>
-                  </View>
                 </View>
               )}
               
-              {/* Forecast Stats */}
+              {/* Forecast Stats + Wind */}
               <View style={styles.quickStats}>
                 <View style={styles.statItem}>
                   <Text style={styles.statLabel}>Hoy</Text>
@@ -250,15 +284,19 @@ export default function HomeScreen() {
                 </View>
                 <View style={styles.statDivider} />
                 <View style={styles.statItem}>
-                  <Text style={styles.statLabel}>Summit</Text>
+                  <Text style={styles.statLabel}>Cumbre</Text>
                   <Text style={styles.statValue}>{item.summitElevation}m</Text>
                 </View>
+                <View style={styles.statDivider} />
+                <View style={styles.statItem}>
+                  <Text style={styles.statLabel}>Viento</Text>
+                  <Text style={styles.statValue}>{Math.round(item.currentConditions?.windSpeed || 0)} km/h</Text>
+                </View>
               </View>
-              
-              {/* View Details Arrow */}
-              <View style={styles.viewDetailsContainer}>
-                <Text style={styles.viewDetailsText}>Ver detalles</Text>
-                <Text style={styles.viewDetailsArrow}>→</Text>
+
+              {/* Tappable indicator */}
+              <View style={styles.tapIndicator}>
+                <Ionicons name="arrow-forward-circle-outline" size={20} color="rgba(56,189,248,0.85)" />
               </View>
             </View>
           </View>
@@ -330,6 +368,7 @@ export default function HomeScreen() {
             style={styles.headerLogo}
             resizeMode="contain"
           />
+          <Text style={styles.headerTagline}>La nieve de los Andes, en tu mano</Text>
         </View>
       </View>
       
@@ -362,8 +401,8 @@ const styles = StyleSheet.create({
   
   // Header
   header: {
-    paddingTop: 70,
-    paddingBottom: 12,
+    paddingTop: 52,
+    paddingBottom: 8,
     paddingHorizontal: 20,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(56, 189, 248, 0.15)',
@@ -372,9 +411,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   headerLogo: {
-    width: 300,
-    height: 70,
-    marginBottom: 12,
+    width: 200,
+    height: 44,
+    marginBottom: 4,
   },
   headerSubtitle: {
     fontSize: 13,
@@ -383,19 +422,25 @@ const styles = StyleSheet.create({
     letterSpacing: 1.5,
     textTransform: 'uppercase',
   },
+  headerTagline: {
+    fontSize: 12,
+    color: '#94a3b8',
+    letterSpacing: 0.5,
+    marginTop: 4,
+  },
   
   // List
   listContainer: {
-    paddingTop: 16,
-    paddingHorizontal: 16,
-    paddingBottom: 100, // Extra space so last card (Las Leñas) isn't covered by bottom nav
+    paddingTop: 10,
+    paddingHorizontal: 12,
+    paddingBottom: 120,
   },
   
   // Resort Card
   resortCard: {
-    height: 220,
-    borderRadius: 20,
-    marginBottom: 16,
+    height: 192,
+    borderRadius: 16,
+    marginBottom: 10,
     overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 8 },
@@ -411,7 +456,7 @@ const styles = StyleSheet.create({
   },
   resortCardGradient: {
     flex: 1,
-    padding: 20,
+    padding: 14,
     backgroundColor: 'rgba(0,0,0,0.65)',
   },
   resortCardContent: {
@@ -434,10 +479,10 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   resortCardName: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: '700',
     color: '#fff',
-    marginBottom: 4,
+    marginBottom: 2,
     letterSpacing: -0.5,
   },
   alertBadge: {
@@ -489,21 +534,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 12,
-    paddingBottom: 12,
+    marginBottom: 6,
+    paddingBottom: 6,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255,255,255,0.15)',
   },
   weatherLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 8,
   },
   weatherIcon: {
-    fontSize: 36,
+    fontSize: 24,
   },
   tempValue: {
-    fontSize: 32,
+    fontSize: 22,
     fontWeight: '700',
     color: '#fff',
   },
@@ -513,13 +558,10 @@ const styles = StyleSheet.create({
     marginTop: 2,
     textTransform: 'uppercase',
   },
-  weatherRight: {
-    alignItems: 'flex-end',
-  },
-  windValue: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#cbd5e1',
+  tapIndicator: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
   },
   
   // Forecast Stats
@@ -549,24 +591,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.2)',
   },
   
-  // View Details
-  viewDetailsContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-    gap: 8,
-  },
-  viewDetailsText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#38bdf8',
-    letterSpacing: 0.3,
-  },
-  viewDetailsArrow: {
-    fontSize: 16,
-    color: '#38bdf8',
-    fontWeight: '700',
-  },
   
   // Loading & Error States
   loadingText: {
