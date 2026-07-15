@@ -390,9 +390,13 @@ router.get('/:id/share-card', async (req: Request, res: Response) => {
     res.setHeader('Cache-Control', 'public, max-age=3600');
     res.setHeader('Content-Disposition', `inline; filename="forecast-${resort.slug}.png"`);
     res.send(Buffer.from(png));
-  } catch (err) {
+  } catch (err: any) {
     console.error('[share-card] Error:', err);
-    res.status(500).json({ error: 'Failed to generate share card' });
+    res.status(500).json({
+      error: 'Failed to generate share card',
+      detail: err?.message ?? String(err),
+      stack: err?.stack?.split('\n').slice(0, 5),
+    });
   }
 });
 
