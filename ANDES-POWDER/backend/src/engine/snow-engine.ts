@@ -99,6 +99,17 @@ export class SnowEngine {
     console.log(`  → Hybrid forecast built: ${primaryForecast.mid.length} hours`);
     
     console.log('  → Processing forecast data...');
+
+    // Guard: if observed FRZ is >400m above the model's own hour-0 FRZ,
+    // the observation is likely a transient warm reading — skip blend so
+    // the model's forecast (e.g. an incoming cold front) is not hidden.
+    if (observedFreezingLevel && primaryForecast.mid[0]?.freezingLevel) {
+      const modelFrzHour0 = primaryForecast.mid[0].freezingLevel;
+      if (observedFreezingLevel > modelFrzHour0 + 400) {
+        console.log(`  ⚠ Observed FRZ (${observedFreezingLevel}m) >400m above model (${modelFrzHour0}m) — skipping blend`);
+        observedFreezingLevel = null;
+      }
+    }
     
     // 4. Process elevation forecasts with phase classification and corrections
     console.log('  → Applying phase classification and corrections...');
