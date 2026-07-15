@@ -290,7 +290,7 @@ router.get('/:id/share-card', async (req: Request, res: Response) => {
 
     // Resort info
     const resortRes = await pool.query(
-      `SELECT id, name, slug, base_elevation_m, mid_elevation_m, summit_elevation_m
+      `SELECT id, name, slug, base_elevation, mid_elevation, summit_elevation
        FROM resorts WHERE slug = $1 OR id::text = $1 LIMIT 1`,
       [id]
     );
@@ -336,9 +336,9 @@ router.get('/:id/share-card', async (req: Request, res: Response) => {
     const sortedDates = Object.keys(byDate).sort().slice(0, days);
     if (!sortedDates.length) return res.status(404).json({ error: 'No forecast data available' });
 
-    const baseElev   = resort.base_elevation_m ?? 1000;
-    const midElev    = resort.mid_elevation_m  ?? 1700;
-    const summitElev = resort.summit_elevation_m ?? 2100;
+    const baseElev   = resort.base_elevation   ?? 1000;
+    const midElev    = resort.mid_elevation    ?? 1700;
+    const summitElev = resort.summit_elevation ?? 2100;
 
     const dayRows: DayRow[] = sortedDates.map(dateStr => {
       const d = new Date(dateStr + 'T12:00:00Z');
