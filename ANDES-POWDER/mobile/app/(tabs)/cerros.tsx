@@ -22,6 +22,8 @@ interface ResortWithConditions extends Resort {
     snowfall24h: number;
   } | null;
   todaySnowfall?: number;
+  summitTodaySnowfall?: number;
+  bestElevation?: 'base' | 'mid' | 'summit';
 }
 
 // Resort background images mapping
@@ -94,6 +96,25 @@ export default function HomeScreen() {
   };
 
   const VISIT_KEY = 'resort_visit_counts';
+  const CONDITIONS_CACHE_KEY = 'resort-list-conditions-v2';
+  const CONDITIONS_CACHE_TTL = 15 * 60 * 1000; // 15 min
+
+  const loadConditionsCache = async (allowStale = false): Promise<{ data: ResortWithConditions[]; ageMs: number } | null> => {
+    try {
+      const raw = await AsyncStorage.getItem(CONDITIONS_CACHE_KEY);
+      if (!raw) return null;
+      const { data, timestamp } = JSON.parse(raw);
+      const ageMs = Date.now() - timestamp;
+      if (!allowStale && ageMs > CONDITIONS_CACHE_TTL) return null;
+      return { data: data as ResortWithConditions[], ageMs };
+    } catch { return null; }
+  };
+
+  const saveConditionsCache = async (data: ResortWithConditions[]) => {
+    try {
+      await AsyncStorage.setItem(CONDITIONS_CACHE_KEY, JSON.stringify({ data, timestamp: Date.now() }));
+    } catch {}
+  };
 
   const loadVisitCounts = async (): Promise<Record<string, number>> => {
     try {
@@ -117,16 +138,30 @@ export default function HomeScreen() {
 
   const loadResorts = async () => {
     try {
-      setLoading(true);
       setError(null);
-      const [data, counts] = await Promise.all([resortsService.getAll(), loadVisitCounts()]);
+
+      // Show cached data immediately, then refresh in background
+      const [cached, counts] = await Promise.all([loadConditionsCache(), loadVisitCounts()]);
       setVisitCounts(counts);
+      if (cached) {
+        const sorted = [...cached.data].sort((a, b) => (counts[b.slug] || 0) - (counts[a.slug] || 0));
+        setResorts(sorted);
+        setLoading(false);
+      } else {
+        setLoading(true);
+      }
+
+      // Fetch fresh data (always, cache or not)
+      const data = await resortsService.getAll();
       
       // Load forecasts for each resort
       const resortsWithConditions = await Promise.all(
         data.map(async (resort) => {
           try {
-            const hourlyForecast = await resortsService.getHourlyForecast(resort.id, 'mid', 48);
+            const [hourlyForecast, summitForecast] = await Promise.all([
+              resortsService.getHourlyForecast(resort.id, 'mid', 48),
+              resortsService.getHourlyForecast(resort.id, 'summit', 48).catch(() => []),
+            ]);
             
             if (!hourlyForecast || hourlyForecast.length === 0) {
               console.log(`[HOME] No hourly forecast for ${resort.name} - skipping conditions`);
@@ -163,6 +198,24 @@ export default function HomeScreen() {
             });
             const todaySnowfall = todayHours.reduce((sum: number, h: any) => sum + (h.snowfall || 0), 0);
 
+            // Summit: compare using next 48h window (more representative than just rest-of-today)
+            const next48h = new Date(now.getTime() + 48 * 60 * 60 * 1000);
+            const summitNext48hHours = (summitForecast || []).filter((h: any) => {
+              const t = new Date(h.time);
+              return t >= now && t <= next48h &&
+                (h.phase === 'snow' || h.phase === 'mixed' || h.phase === 'sleet');
+            });
+            const summitSnow48h = summitNext48hHours.reduce((sum: number, h: any) => sum + (h.snowfall || 0), 0);
+            const midNext48hHours = hourlyForecast.filter((h: any) => {
+              const t = new Date(h.time);
+              return t >= now && t <= next48h &&
+                (h.phase === 'snow' || h.phase === 'mixed' || h.phase === 'sleet');
+            });
+            const midSnow48h = midNext48hHours.reduce((sum: number, h: any) => sum + (h.snowfall || 0), 0);
+
+            // summitTodaySnowfall: use 48h window for badge visibility too
+            const summitTodaySnowfall = summitSnow48h;
+
             const currentConditions = {
               temperature: currentHour.temperature,
               windSpeed: currentHour.windSpeed,
@@ -179,7 +232,9 @@ export default function HomeScreen() {
             return { 
               ...resort, 
               currentConditions,
-              todaySnowfall 
+              todaySnowfall,
+              summitTodaySnowfall: summitSnow48h > 0 ? summitSnow48h : undefined,
+              bestElevation: (summitSnow48h > midSnow48h + 3 ? 'summit' : 'mid') as 'base' | 'mid' | 'summit',
             };
           } catch (err) {
             console.log(`[HOME] Failed to load forecast for ${resort.name}:`, err);
@@ -192,8 +247,17 @@ export default function HomeScreen() {
         (counts[b.slug] || 0) - (counts[a.slug] || 0)
       );
       setResorts(sorted);
+      saveConditionsCache(sorted);
     } catch (err) {
-      setError('Failed to load resorts');
+      // On network error: fall back to stale cache if available
+      const stale = await loadConditionsCache(true);
+      if (stale) {
+        const counts = await loadVisitCounts();
+        const sorted = [...stale.data].sort((a, b) => (counts[b.slug] || 0) - (counts[a.slug] || 0));
+        setResorts(sorted);
+      } else if (resorts.length === 0) {
+        setError('Sin conexión y sin datos guardados');
+      }
       console.error(err);
     } finally {
       setLoading(false);
@@ -211,7 +275,8 @@ export default function HomeScreen() {
         style={styles.resortCard}
         onPress={() => {
           registerVisit(item.slug);
-          router.push(`/(tabs)/resort/${item.slug}`);
+          const elev = item.bestElevation || 'mid';
+          router.push(`/(tabs)/resort/${item.slug}?bestElevation=${elev}`);
         }}
         activeOpacity={0.9}
       >
@@ -283,6 +348,10 @@ export default function HomeScreen() {
                 <View style={styles.statItem}>
                   <Text style={styles.statLabel}>Hoy</Text>
                   <Text style={styles.statValue}>{Math.round(item.todaySnowfall || 0)}cm</Text>
+                  {item.summitTodaySnowfall !== undefined &&
+                    item.summitTodaySnowfall > (item.todaySnowfall || 0) + 4 && (
+                    <Text style={styles.summitHint}>🏔 {Math.round(item.summitTodaySnowfall)}cm</Text>
+                  )}
                 </View>
                 <View style={styles.statDivider} />
                 <View style={styles.statItem}>
@@ -381,6 +450,7 @@ export default function HomeScreen() {
       
       {/* Alerts Banner */}
       <AlertsBanner />
+
       
       <FlatList
         data={resorts}
@@ -591,6 +661,13 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     color: '#fff',
+  },
+  summitHint: {
+    fontSize: 9,
+    color: '#7dd3fc',
+    marginTop: 1,
+    letterSpacing: 0.2,
+    fontWeight: '600',
   },
   statDivider: {
     width: 1,

@@ -68,12 +68,14 @@ const sanitizeHourlyFrz = (hours: any[], conditionsObj: CurrentConditions | null
 };
 
 export default function ResortDetailScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, bestElevation } = useLocalSearchParams<{ id: string; bestElevation?: string }>();
   const router = useRouter();
   const { trackResortView, trackForecastCheck } = useUserEngagement();
   const [resort, setResort] = useState<Resort | null>(null);
   const [conditions, setConditions] = useState<CurrentConditions | null>(null);
-  const [selectedElevation, setSelectedElevation] = useState<ElevationBand>('mid');
+  const [selectedElevation, setSelectedElevation] = useState<ElevationBand>(
+    (['base', 'mid', 'summit'].includes(bestElevation as string) ? bestElevation as ElevationBand : 'mid')
+  );
   const [hourlyData, setHourlyData] = useState<any[]>([]);
   const [todayRealSnowfall, setTodayRealSnowfall] = useState<number>(0);
   const [todayForecastSnowfall, setTodayForecastSnowfall] = useState<number>(0);
@@ -152,7 +154,7 @@ export default function ResortDetailScreen() {
       let hourlyForecast: any[] = [];
       try {
         console.log('[LOAD] Fetching hourly forecast...');
-        hourlyForecast = await resortsService.getHourlyForecast(id, selectedElevation, 168);
+        hourlyForecast = await resortsService.getHourlyForecast(id, selectedElevation, 336);
         console.log('[LOAD] Hourly forecast loaded:', hourlyForecast?.length, 'hours');
       } catch (error) {
         console.warn('[LOAD] Failed to load hourly forecast:', error);
@@ -311,9 +313,9 @@ export default function ResortDetailScreen() {
       
       console.log('[DAILY FORECAST] Today date:', today.toISOString(), 'Day:', today.getDate(), 'Month:', today.getMonth() + 1);
       
-      // Create 7 days starting from today
+      // Create 14 days starting from today
       const dailyFromHourly: any[] = [];
-      for (let i = 0; i < 7; i++) {
+      for (let i = 0; i < 14; i++) {
         const targetDate = new Date(today);
         targetDate.setDate(today.getDate() + i);
         const dateKey = `${targetDate.getFullYear()}-${String(targetDate.getMonth() + 1).padStart(2, '0')}-${String(targetDate.getDate()).padStart(2, '0')}`;
@@ -548,16 +550,16 @@ export default function ResortDetailScreen() {
         return dayStart >= todayMidnight;
       });
 
-      // Ensure we keep exactly 7 consecutive days starting today
+      // Ensure we keep exactly 14 consecutive days starting today
       const desired: any[] = [];
-      for (let i = 0; i < 7; i++) {
+      for (let i = 0; i < 14; i++) {
         const target = new Date(todayMidnight);
         target.setDate(todayMidnight.getDate() + i);
         const key = `${target.getFullYear()}-${String(target.getMonth() + 1).padStart(2, '0')}-${String(target.getDate()).padStart(2, '0')}`;
         const existing = filteredForecast.find(d => d.date === key);
         if (existing) desired.push(existing);
       }
-      filteredForecast = desired.length > 0 ? desired : filteredForecast.slice(0, 7);
+      filteredForecast = desired.length > 0 ? desired : filteredForecast.slice(0, 14);
       
       console.log('[DAILY FORECAST] After filtering past days:', filteredForecast.length, 'days');
       console.log('[DAILY FORECAST] First day after filter:', filteredForecast[0]?.date);
@@ -1446,8 +1448,8 @@ export default function ResortDetailScreen() {
                     ? Math.round(((rawTodaySnowfall - adjustedTodaySnowfall) / rawTodaySnowfall) * 100)
                     : 0;
                   
-                  // Calculate next 7 days total
-                  const next7Days = dailyForecast.slice(0, 7);
+                  // Calculate next 14 days total
+                  const next7Days = dailyForecast.slice(0, 14);
                   const total7Days = next7Days.reduce((sum: number, day: any) => sum + (day.snowfall || 0), 0);
                   
                   return (
