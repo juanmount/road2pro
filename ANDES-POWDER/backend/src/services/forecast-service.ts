@@ -201,11 +201,11 @@ class ForecastService {
       const forecastRunId = runResult.rows[0].id;
       console.log(`  ✓ Created forecast run ${forecastRunId}`);
       
-      // Store elevation forecasts (up to 168 hours / 7 days)
+      // Store elevation forecasts (up to 336 hours / 14 days)
       const allForecasts = [
-        ...processed.base.slice(0, 168),
-        ...processed.mid.slice(0, 168),
-        ...processed.summit.slice(0, 168)
+        ...processed.base.slice(0, 336),
+        ...processed.mid.slice(0, 336),
+        ...processed.summit.slice(0, 336)
       ];
       
       for (const forecast of allForecasts) {
