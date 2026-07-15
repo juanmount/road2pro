@@ -1,6 +1,6 @@
 {
   "name": "andes-powder-backend",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "Backend API and forecast service for Andes Powder snow intelligence app",
   "main": "dist/index.js",
   "scripts": {
