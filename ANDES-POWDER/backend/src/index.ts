@@ -14,6 +14,7 @@ import weatherStationRouter from './routes/weather-station';
 import snapshotsRouter from './routes/snapshots';
 import alertsRouter from './routes/alerts';
 import iapRouter from './routes/iap';
+import shareCardRouter from './routes/share-card';
 import { forecastCronService } from './services/forecast-cron';
 import { initializeFirebase } from './config/firebase';
 import { startSnapshotCron } from './jobs/daily-snapshot';
@@ -52,6 +53,7 @@ app.use('/api/weather-station', weatherStationRouter);
 app.use('/api/snapshots', snapshotsRouter);
 app.use('/api/alerts', alertsRouter);
 app.use('/api/iap', iapRouter);
+app.use('/api/resorts', shareCardRouter);
 
 // Admin endpoint to clean old forecast data
 app.post('/api/admin/clean-old-forecasts', async (req, res) => {
