@@ -11,10 +11,10 @@ let _fontBold: ArrayBuffer | null = null;
 
 async function loadFonts(): Promise<[ArrayBuffer, ArrayBuffer]> {
   if (!_fontReg || !_fontBold) {
-    const base = 'https://unpkg.com/@fontsource/inter@5.0.8/files';
+    const base = 'https://cdn.jsdelivr.net/npm/@fontsource/inter@5.0.8/files';
     [_fontReg, _fontBold] = await Promise.all([
-      fetch(`${base}/inter-latin-400-normal.woff2`).then(r => r.arrayBuffer()),
-      fetch(`${base}/inter-latin-700-normal.woff2`).then(r => r.arrayBuffer()),
+      fetch(`${base}/inter-latin-400-normal.woff`).then(r => r.arrayBuffer()),
+      fetch(`${base}/inter-latin-700-normal.woff`).then(r => r.arrayBuffer()),
     ]);
   }
   return [_fontReg!, _fontBold!];
