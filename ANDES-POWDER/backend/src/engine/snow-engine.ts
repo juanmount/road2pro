@@ -243,8 +243,8 @@ export class SnowEngine {
     const mid: ElevationForecast[] = [];
     const summit: ElevationForecast[] = [];
     
-    // Process each elevation band - up to 168 hours (7 days)
-    const hoursToProcess = Math.min(forecast.base.length, 168);
+    // Process each elevation band - up to 336 hours (14 days)
+    const hoursToProcess = Math.min(forecast.base.length, 336);
     console.log(`  Processing ${hoursToProcess} hours of forecast data...`);
     
     // Apply observed freezing level correction: blend observed FRZ into forecast
@@ -506,8 +506,8 @@ export class SnowEngine {
       // Start with ECMWF data (most accurate)
       hybrid[elevation] = [...primaryData];
       
-      // Only fill with GFS/GEFS if ECMWF has less than 168 hours
-      if (hybrid[elevation].length < 168 && secondary && secondaryData.length > 0) {
+      // Only fill with GFS/GEFS if ECMWF has less than 336 hours
+      if (hybrid[elevation].length < 336 && secondary && secondaryData.length > 0) {
         const lastPrimaryTime = primaryData.length > 0 
           ? new Date(primaryData[primaryData.length - 1].time).getTime()
           : 0;
@@ -518,9 +518,9 @@ export class SnowEngine {
           return itemTime > lastPrimaryTime;
         });
         
-        const hoursToAdd = Math.min(additionalData.length, 168 - hybrid[elevation].length);
+        const hoursToAdd = Math.min(additionalData.length, 336 - hybrid[elevation].length);
         
-        // Merge and limit to 168 hours
+        // Merge and limit to 336 hours
         hybrid[elevation] = [...hybrid[elevation], ...additionalData.slice(0, hoursToAdd)];
         
         console.log(`    → ${elevation}: ${primaryData.length} hrs (ECMWF) + ${hoursToAdd} hrs (GFS/GEFS) = ${hybrid[elevation].length} hrs total`);
@@ -530,7 +530,7 @@ export class SnowEngine {
     }
     
     // Merge freezing levels if secondary model has them
-    if (secondary?.freezingLevels && hybrid.freezingLevels.length < 168) {
+    if (secondary?.freezingLevels && hybrid.freezingLevels.length < 336) {
       const lastPrimaryTime = hybrid.freezingLevels.length > 0
         ? new Date(hybrid.freezingLevels[hybrid.freezingLevels.length - 1].time).getTime()
         : 0;
@@ -539,7 +539,7 @@ export class SnowEngine {
         return new Date(item.time).getTime() > lastPrimaryTime;
       });
       
-      hybrid.freezingLevels = [...hybrid.freezingLevels, ...additionalLevels].slice(0, 168);
+      hybrid.freezingLevels = [...hybrid.freezingLevels, ...additionalLevels].slice(0, 336);
     }
 
     // FRZ now comes from ECMWF pressure-level interpolation (T850/T700 + geopotential heights).
