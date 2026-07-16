@@ -100,13 +100,26 @@ export class SnowEngine {
     
     console.log('  → Processing forecast data...');
 
-    // Guard: if observed FRZ is >400m above the model's own hour-0 FRZ,
+    // Guard 1: if observed FRZ is >400m above the model's own hour-0 FRZ,
     // the observation is likely a transient warm reading — skip blend so
     // the model's forecast (e.g. an incoming cold front) is not hidden.
     if (observedFreezingLevel && primaryForecast.mid[0]?.freezingLevel) {
       const modelFrzHour0 = primaryForecast.mid[0].freezingLevel;
       if (observedFreezingLevel > modelFrzHour0 + 400) {
         console.log(`  ⚠ Observed FRZ (${observedFreezingLevel}m) >400m above model (${modelFrzHour0}m) — skipping blend`);
+        observedFreezingLevel = null;
+      }
+    }
+
+    // Guard 2: use summit temperature to compute the maximum physically possible FRZ.
+    // If the SMN airport observation gives a FRZ above this ceiling, it has a
+    // low-elevation warm bias (valley heating, urban effect) — skip blend.
+    if (observedFreezingLevel && primaryForecast.summit[0]?.temperature != null) {
+      const summitTemp = primaryForecast.summit[0].temperature as number;
+      const lapse = 0.0065; // standard lapse rate °C/m
+      const maxPhysicalFRZ = Math.round(resort.summitElevation + (summitTemp / lapse));
+      if (observedFreezingLevel > maxPhysicalFRZ + 150) {
+        console.log(`  ⚠ Observed FRZ (${observedFreezingLevel}m) > summit-derived ceiling (${maxPhysicalFRZ + 150}m, summit=${resort.summitElevation}m @ ${summitTemp.toFixed(1)}°C) — warm bias, skipping blend`);
         observedFreezingLevel = null;
       }
     }
