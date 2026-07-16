@@ -12,6 +12,7 @@ import { Resort } from '../domain/models';
 class ForecastService {
   private snowEngine: SnowEngine;
   private initialized = false;
+  private isRunning = false;
   
   constructor() {
     // Initialize providers
@@ -53,6 +54,12 @@ class ForecastService {
    * Process all resorts
    */
   async processAllResorts(): Promise<void> {
+    if (this.isRunning) {
+      console.log('⚠ processAllResorts already running — skipping concurrent call');
+      return;
+    }
+    this.isRunning = true;
+    try {
     // Get resorts and process forecasts
     const result = await pool.query('SELECT * FROM resorts ORDER BY name');
     const resorts = result.rows.map(this.mapResortFromDb);
@@ -87,6 +94,9 @@ class ForecastService {
       }
     }
     console.log('Snowfall history saved');
+    } finally {
+      this.isRunning = false;
+    }
   }
   
   /**
