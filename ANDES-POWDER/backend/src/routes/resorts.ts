@@ -351,23 +351,24 @@ router.get('/:id/forecast/hourly', async (req: Request, res: Response) => {
     const hoursLimit = parseInt(hours as string);
 
     const result = await pool.query(
-      `SELECT DISTINCT ON (valid_time)
-        valid_time,
-        temperature_c,
-        precipitation_mm,
-        snowfall_cm_corrected,
-        wind_speed_kmh,
-        wind_gust_kmh,
-        wind_direction,
-        cloud_cover,
-        powder_score,
-        freezing_level_m,
-        phase_classification
-      FROM elevation_forecasts
-      WHERE resort_id = $1::uuid
-      AND elevation_band = $2
-      AND valid_time >= date_trunc('hour', NOW())
-      ORDER BY valid_time, forecast_run_id DESC
+      `SELECT DISTINCT ON (ef.valid_time)
+        ef.valid_time,
+        ef.temperature_c,
+        ef.precipitation_mm,
+        ef.snowfall_cm_corrected,
+        ef.wind_speed_kmh,
+        ef.wind_gust_kmh,
+        ef.wind_direction,
+        ef.cloud_cover,
+        ef.powder_score,
+        ef.freezing_level_m,
+        ef.phase_classification
+      FROM elevation_forecasts ef
+      JOIN forecast_runs fr ON ef.forecast_run_id = fr.id
+      WHERE ef.resort_id = $1::uuid
+      AND ef.elevation_band = $2
+      AND ef.valid_time >= date_trunc('hour', NOW())
+      ORDER BY ef.valid_time, fr.fetched_at DESC
       LIMIT $3`,
       [resort.id, elevationBand, hoursLimit]
     );
@@ -1380,24 +1381,31 @@ router.get('/:id/snow-depth-series', async (req: Request, res: Response) => {
     }
 
     const axios = (await import('axios')).default;
-    const response = await axios.get('https://api.open-meteo.com/v1/forecast', {
-      params: {
-        latitude: resort.latitude,
-        longitude: resort.longitude,
-        elevation: meters,
-        hourly: 'snow_depth',
-        past_days: days,
-        forecast_days: 1,
-        timezone: 'auto'
+    let times: string[] = [];
+    let depths: number[] = [];
+    let toCm = 100;
+    try {
+      const response = await axios.get('https://api.open-meteo.com/v1/forecast', {
+        params: {
+          latitude: resort.latitude,
+          longitude: resort.longitude,
+          elevation: meters,
+          hourly: 'snow_depth',
+          past_days: days,
+          forecast_days: 1,
+          timezone: 'auto'
+        },
+        timeout: 8000
+      });
+      times = response.data?.hourly?.time || [];
+      depths = response.data?.hourly?.snow_depth || [];
+      const unit = response.data?.hourly_units?.snow_depth;
+      toCm = unit === 'cm' ? 1 : unit === 'm' ? 100 : 100;
+      if (!Array.isArray(times) || !Array.isArray(depths) || times.length !== depths.length) {
+        times = []; depths = [];
       }
-    });
-
-    const times: string[] = response.data?.hourly?.time || [];
-    const depths: number[] = response.data?.hourly?.snow_depth || [];
-    const unit = response.data?.hourly_units?.snow_depth;
-    const toCm = unit === 'cm' ? 1 : unit === 'm' ? 100 : 100;
-    if (!Array.isArray(times) || !Array.isArray(depths) || times.length !== depths.length) {
-      return res.status(502).json({ error: 'Invalid snow depth data from provider' });
+    } catch (openMeteoErr: any) {
+      console.warn(`[snow-depth-series] Open-Meteo unavailable (${openMeteoErr?.response?.status ?? openMeteoErr?.code}) — falling back to DB`);
     }
 
     // Group by local date and take daily max snow depth (meters -> cm)

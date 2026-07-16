@@ -111,15 +111,14 @@ export class SnowEngine {
       }
     }
 
-    // Guard 2: use summit temperature to compute the maximum physically possible FRZ.
-    // If the SMN airport observation gives a FRZ above this ceiling, it has a
-    // low-elevation warm bias (valley heating, urban effect) — skip blend.
-    if (observedFreezingLevel && primaryForecast.summit[0]?.temperature != null) {
-      const summitTemp = primaryForecast.summit[0].temperature as number;
-      const lapse = 0.0065; // standard lapse rate °C/m
-      const maxPhysicalFRZ = Math.round(resort.summitElevation + (summitTemp / lapse));
-      if (observedFreezingLevel > maxPhysicalFRZ + 150) {
-        console.log(`  ⚠ Observed FRZ (${observedFreezingLevel}m) > summit-derived ceiling (${maxPhysicalFRZ + 150}m, summit=${resort.summitElevation}m @ ${summitTemp.toFixed(1)}°C) — warm bias, skipping blend`);
+    // Guard 2: compare against GFS freezinglevel_height (always direct, not derived).
+    // GFS provides freezinglevel_height natively so it's reliable even when ECMWF
+    // T850/T700 is null (ingestion window). If the SMN observation is >150m above
+    // GFS FRZ, it's airport warm bias — skip blend and trust the models.
+    if (observedFreezingLevel && multiModel.gfs?.mid[0]?.freezingLevel) {
+      const gfsFrzHour0 = multiModel.gfs.mid[0].freezingLevel;
+      if (observedFreezingLevel > gfsFrzHour0 + 150) {
+        console.log(`  ⚠ Observed FRZ (${observedFreezingLevel}m) >150m above GFS (${gfsFrzHour0}m) — airport warm bias, skipping blend`);
         observedFreezingLevel = null;
       }
     }
