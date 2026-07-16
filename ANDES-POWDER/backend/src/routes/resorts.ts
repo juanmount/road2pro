@@ -351,7 +351,7 @@ router.get('/:id/forecast/hourly', async (req: Request, res: Response) => {
     const hoursLimit = parseInt(hours as string);
 
     const result = await pool.query(
-      `SELECT 
+      `SELECT DISTINCT ON (valid_time)
         valid_time,
         temperature_c,
         precipitation_mm,
@@ -367,13 +367,7 @@ router.get('/:id/forecast/hourly', async (req: Request, res: Response) => {
       WHERE resort_id = $1::uuid
       AND elevation_band = $2
       AND valid_time >= date_trunc('hour', NOW())
-      AND forecast_run_id = (
-        SELECT id FROM forecast_runs 
-        WHERE resort_id = $1::uuid 
-        ORDER BY created_at DESC 
-        LIMIT 1
-      )
-      ORDER BY valid_time
+      ORDER BY valid_time, forecast_run_id DESC
       LIMIT $3`,
       [resort.id, elevationBand, hoursLimit]
     );

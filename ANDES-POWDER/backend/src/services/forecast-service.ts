@@ -170,13 +170,34 @@ class ForecastService {
     
     try {
       await client.query('BEGIN');
+
+      // Build forecast array upfront so we can check row count before deciding what to delete
+      const allForecasts = [
+        ...processed.base.slice(0, 336),
+        ...processed.mid.slice(0, 336),
+        ...processed.summit.slice(0, 336)
+      ];
       
-      // CRITICAL: Delete existing forecasts for this resort to prevent duplicates
-      const deleteResult = await client.query(
-        `DELETE FROM elevation_forecasts WHERE resort_id = $1`,
-        [processed.resort.id]
-      );
-      console.log(`  ✓ Deleted ${deleteResult.rowCount} existing forecasts for ${processed.resort.name}`);
+      // Delete existing forecasts — but preserve week 2 if the new fetch is short (GFS temporarily limited)
+      const FULL_FORECAST_MIN_ROWS = 800; // ~267h × 3 elevations; anything less = GFS was short
+      if (allForecasts.length >= FULL_FORECAST_MIN_ROWS) {
+        const deleteResult = await client.query(
+          `DELETE FROM elevation_forecasts WHERE resort_id = $1`,
+          [processed.resort.id]
+        );
+        console.log(`  ✓ Deleted ${deleteResult.rowCount} existing forecasts for ${processed.resort.name}`);
+      } else {
+        // Only overwrite rows within the new data's time range; keep existing week 2
+        const maxValidTime = allForecasts.reduce(
+          (max: Date, f: any) => (f.validTime > max ? f.validTime : max),
+          allForecasts[0]?.validTime ?? new Date()
+        );
+        const deleteResult = await client.query(
+          `DELETE FROM elevation_forecasts WHERE resort_id = $1 AND valid_time <= $2`,
+          [processed.resort.id, maxValidTime]
+        );
+        console.log(`  ⚠ Short forecast (${allForecasts.length} rows < ${FULL_FORECAST_MIN_ROWS}) — preserved week 2, replaced through ${maxValidTime.toISOString()} (deleted ${deleteResult.rowCount} rows)`);
+      }
       
       // Create forecast run record
       const runResult = await client.query(
@@ -202,12 +223,6 @@ class ForecastService {
       console.log(`  ✓ Created forecast run ${forecastRunId}`);
       
       // Store elevation forecasts (up to 336 hours / 14 days)
-      const allForecasts = [
-        ...processed.base.slice(0, 336),
-        ...processed.mid.slice(0, 336),
-        ...processed.summit.slice(0, 336)
-      ];
-      
       for (const forecast of allForecasts) {
         await client.query(
           `INSERT INTO elevation_forecasts (
