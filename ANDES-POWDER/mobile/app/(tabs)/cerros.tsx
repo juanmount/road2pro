@@ -324,15 +324,32 @@ export default function HomeScreen() {
                     })()}
                   </Text>
                 </View>
-                {powderScore > 0 && (
-                  <View style={[
-                    styles.powderScoreBadge,
-                    { backgroundColor: getPowderScoreColor(powderScore) }
-                  ]}>
-                    <Text style={styles.powderScoreValue}>{powderScore}</Text>
-                    <Text style={styles.powderScoreLabel}>{getPowderScoreLabel(powderScore)}</Text>
-                  </View>
-                )}
+                {item.operationalStatus?.available && (() => {
+                  const op = item.operationalStatus!;
+                  const liftPct = op.liftsTotal ? (op.liftsOpen ?? 0) / op.liftsTotal : 0;
+                  const kmPct   = op.runsTotalKm ? (op.runsOpenKm ?? 0) / op.runsTotalKm : 0;
+                  const liftColor = liftPct >= 0.6 ? '#4ade80' : liftPct >= 0.2 ? '#fbbf24' : '#f87171';
+                  const kmColor   = kmPct   >= 0.6 ? '#4ade80' : kmPct   >= 0.2 ? '#fbbf24' : '#f87171';
+                  return (
+                    <View style={styles.opStatusPanel}>
+                      <View style={styles.opStatusItem}>
+                        <Ionicons name="git-network-outline" size={10} color={liftColor} />
+                        <Text style={[styles.opStatusValue, { color: liftColor }]}>
+                          {op.liftsOpen ?? '?'}<Text style={styles.opStatusTotal}>/{op.liftsTotal ?? '?'}</Text>
+                        </Text>
+                        <Text style={styles.opStatusLabel}>medios</Text>
+                      </View>
+                      <View style={styles.opStatusSep} />
+                      <View style={styles.opStatusItem}>
+                        <Ionicons name="flag-outline" size={10} color={kmColor} />
+                        <Text style={[styles.opStatusValue, { color: kmColor }]}>
+                          {op.runsOpenKm ?? '?'}<Text style={styles.opStatusTotal}>/{op.runsTotalKm ?? '?'}km</Text>
+                        </Text>
+                        <Text style={styles.opStatusLabel}>pistas</Text>
+                      </View>
+                    </View>
+                  );
+                })()}
               </View>
               
               {/* Current Conditions */}
@@ -355,37 +372,6 @@ export default function HomeScreen() {
                 </View>
               )}
               
-              {/* Operational Status */}
-              {item.operationalStatus?.available && (() => {
-                const op = item.operationalStatus!;
-                const liftPct = op.liftsTotal ? (op.liftsOpen ?? 0) / op.liftsTotal : 0;
-                const kmPct   = op.runsTotalKm ? (op.runsOpenKm ?? 0) / op.runsTotalKm : 0;
-                const liftColor = liftPct >= 0.6 ? '#4ade80' : liftPct >= 0.2 ? '#fbbf24' : '#f87171';
-                const kmColor   = kmPct   >= 0.6 ? '#4ade80' : kmPct   >= 0.2 ? '#fbbf24' : '#f87171';
-                return (
-                  <View style={styles.operationalRow}>
-                    <View style={styles.opBadge}>
-                      <Ionicons name="git-network-outline" size={10} color={liftColor} />
-                      <Text style={[styles.opBadgeText, { color: liftColor }]}>
-                        {op.liftsOpen ?? '?'}/{op.liftsTotal ?? '?'} medios
-                      </Text>
-                      <View style={styles.opBarTrack}>
-                        <View style={[styles.opBarFill, { width: `${Math.round(liftPct * 100)}%` as any, backgroundColor: liftColor }]} />
-                      </View>
-                    </View>
-                    <View style={styles.opBadge}>
-                      <Ionicons name="flag-outline" size={10} color={kmColor} />
-                      <Text style={[styles.opBadgeText, { color: kmColor }]}>
-                        {op.runsOpenKm ?? '?'}/{op.runsTotalKm ?? '?'} km
-                      </Text>
-                      <View style={styles.opBarTrack}>
-                        <View style={[styles.opBarFill, { width: `${Math.round(kmPct * 100)}%` as any, backgroundColor: kmColor }]} />
-                      </View>
-                    </View>
-                  </View>
-                );
-              })()}
-
               {/* Forecast Stats + Wind */}
               <View style={styles.quickStats}>
                 <View style={styles.statItem}>
@@ -715,40 +701,44 @@ const styles = StyleSheet.create({
   },
   
   
-  // Operational Status Row
-  operationalRow: {
-    flexDirection: 'row',
+  // Operational Status Panel (top-right corner of card)
+  opStatusPanel: {
+    backgroundColor: 'rgba(0, 10, 30, 0.55)',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.15)',
+    paddingHorizontal: 10,
+    paddingVertical: 8,
     alignItems: 'center',
-    gap: 8,
-    marginTop: 6,
-    marginBottom: 2,
-  },
-  opBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    minWidth: 72,
     gap: 4,
-    backgroundColor: 'rgba(0,0,0,0.30)',
-    borderRadius: 6,
-    paddingHorizontal: 6,
-    paddingVertical: 3,
-    flex: 1,
   },
-  opBadgeText: {
+  opStatusItem: {
+    alignItems: 'center',
+    gap: 1,
+  },
+  opStatusValue: {
+    fontSize: 13,
+    fontWeight: '800',
+    letterSpacing: -0.3,
+  },
+  opStatusTotal: {
     fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 0.2,
-    flex: 1,
+    fontWeight: '500',
+    color: 'rgba(255,255,255,0.45)',
   },
-  opBarTrack: {
-    width: 28,
-    height: 3,
-    borderRadius: 2,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    overflow: 'hidden',
+  opStatusLabel: {
+    fontSize: 9,
+    color: 'rgba(255,255,255,0.45)',
+    fontWeight: '500',
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
   },
-  opBarFill: {
-    height: '100%',
-    borderRadius: 2,
+  opStatusSep: {
+    width: 40,
+    height: 1,
+    backgroundColor: 'rgba(56,189,248,0.15)',
+    marginVertical: 2,
   },
 
   // Loading & Error States
