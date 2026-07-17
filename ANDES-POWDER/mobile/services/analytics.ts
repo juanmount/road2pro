@@ -1,4 +1,16 @@
-import analytics from '@react-native-firebase/analytics';
+// Lazy-load native Firebase Analytics — crashes silently if native module not compiled yet
+// (Expo Go / builds without @react-native-firebase). Requires EAS build for real tracking.
+let _analytics: any = null;
+function getAnalytics(): any | null {
+  if (_analytics) return _analytics;
+  try {
+    const mod = require('@react-native-firebase/analytics');
+    _analytics = mod.default ?? mod;
+    return _analytics;
+  } catch {
+    return null;
+  }
+}
 
 export const AnalyticsEvents = {
   PRO_SCREEN_VIEW: 'pro_screen_view',
@@ -15,7 +27,9 @@ export const AnalyticsEvents = {
 
 export const trackScreenView = async (screenName: string, screenClass?: string) => {
   try {
-    await analytics().logScreenView({
+    const a = getAnalytics();
+    if (!a) return;
+    await a().logScreenView({
       screen_name: screenName,
       screen_class: screenClass || screenName,
     });
@@ -27,7 +41,9 @@ export const trackScreenView = async (screenName: string, screenClass?: string) 
 
 export const logEvent = async (eventName: string, params?: Record<string, any>) => {
   try {
-    await analytics().logEvent(eventName, params);
+    const a = getAnalytics();
+    if (!a) return;
+    await a().logEvent(eventName, params);
     console.log('[Analytics]', eventName, params);
   } catch (e) {
     console.warn('[Analytics] logEvent error:', e);
@@ -40,9 +56,11 @@ export const setUserProperties = async (properties: {
   isFounder?: boolean;
 }) => {
   try {
-    if (properties.userId) await analytics().setUserId(properties.userId);
-    if (properties.isPro !== undefined) await analytics().setUserProperty('is_pro', String(properties.isPro));
-    if (properties.isFounder !== undefined) await analytics().setUserProperty('is_founder', String(properties.isFounder));
+    const a = getAnalytics();
+    if (!a) return;
+    if (properties.userId) await a().setUserId(properties.userId);
+    if (properties.isPro !== undefined) await a().setUserProperty('is_pro', String(properties.isPro));
+    if (properties.isFounder !== undefined) await a().setUserProperty('is_founder', String(properties.isFounder));
     console.log('[Analytics] user properties:', properties);
   } catch (e) {
     console.warn('[Analytics] setUserProperties error:', e);
@@ -60,7 +78,9 @@ export const trackPurchase = async (params: {
   items: Array<{ item_id: string; item_name: string; price: number }>;
 }) => {
   try {
-    await analytics().logPurchase({
+    const a = getAnalytics();
+    if (!a) return;
+    await a().logPurchase({
       transaction_id: params.transactionId,
       value: params.value,
       currency: params.currency,
