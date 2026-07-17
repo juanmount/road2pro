@@ -18,6 +18,10 @@ type AccumResponse = {
   days: AccumDay[];
 };
 
+const BAR_MAX_H = 90;
+const SCALE_MAX = 50;
+const AXIS_TICKS = [50, 25, 10];
+
 type Props = {
   visible: boolean;
   onClose: () => void;
@@ -143,61 +147,66 @@ export default function FourteenDayAccumulationModal({ visible, onClose, resortS
           )}
 
           {!!data && (
-            <FlatList
-              horizontal
-              data={data.days}
-              keyExtractor={(item) => item.date}
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.listContent}
-              initialScrollIndex={data.todayIndex}
-              getItemLayout={(_, index) => {
-                // Item width and spacing must match styles.dayCol width and listContent padding/gap
-                const ITEM_WIDTH = 40; // styles.dayCol.width
-                const ITEM_SPACING = 10; // styles.listContent.gap
-                const CONTAINER_PADDING = 16; // styles.listContent.padding
-                const length = ITEM_WIDTH + ITEM_SPACING;
-                const offset = CONTAINER_PADDING + length * index;
-                return { length, offset, index };
-              }}
-              ref={listRef}
-              onScrollToIndexFailed={(info) => {
-                // Fallback: wait for layout then retry
-                setTimeout(() => {
-                  listRef.current?.scrollToIndex({ index: info.index, animated: false, viewPosition: 0 });
-                }, 50);
-              }}
-              renderItem={({ item, index }) => {
-                const allVals = data.days.map((d) => d.predicted_cm || 0);
-                const max = Math.max(1, ...allVals);
-                const value = item.predicted_cm || 0;
-                const h = Math.max(3, (value / max) * 90);
-                const isToday = index === data.todayIndex;
-                const label = isToday
-                  ? 'HOY'
-                  : new Date(item.date + 'T00:00:00').toLocaleDateString('es-AR', { weekday: 'short' }).toUpperCase();
-                return (
-                  <View style={styles.dayCol}>
-                    {isToday && <Text style={styles.todayLabel}>↓</Text>}
-                    <View style={[styles.barWrap, isToday && styles.todaySep]}>
-                      {value > 0 && (
-                        <Text style={[styles.barVal, item.is_past ? styles.barValPast : styles.barValFuture]}>
-                          {value < 1 && value > 0 ? value.toFixed(1) : Math.round(value)}
-                        </Text>
-                      )}
-                      <View
-                        style={[
-                          styles.bar,
-                          { height: h },
-                          item.is_past ? styles.barPast : styles.barFuture,
-                          value === 0 && styles.barEmpty,
-                        ]}
-                      />
+            <View style={styles.chartRow}>
+              <FlatList
+                horizontal
+                data={data.days}
+                keyExtractor={(item) => item.date}
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.listContent}
+                initialScrollIndex={data.todayIndex}
+                getItemLayout={(_, index) => {
+                  const length = 40 + 10;
+                  const offset = 46 + length * index;
+                  return { length, offset, index };
+                }}
+                ref={listRef}
+                onScrollToIndexFailed={(info) => {
+                  setTimeout(() => {
+                    listRef.current?.scrollToIndex({ index: Math.max(0, info.index - 2), animated: false, viewPosition: 0 });
+                  }, 50);
+                }}
+                renderItem={({ item, index }) => {
+                  const value = item.predicted_cm || 0;
+                  const h = Math.max(3, Math.min(BAR_MAX_H, (value / SCALE_MAX) * BAR_MAX_H));
+                  const isToday = index === data.todayIndex;
+                  const label = isToday
+                    ? 'HOY'
+                    : new Date(item.date + 'T00:00:00').toLocaleDateString('es-AR', { weekday: 'short' }).toUpperCase();
+                  return (
+                    <View style={styles.dayCol}>
+                      {isToday && <Text style={styles.todayLabel}>↓</Text>}
+                      <View style={[styles.barWrap, isToday && styles.todaySep]}>
+                        {value > 0 && (
+                          <Text style={[styles.barVal, item.is_past ? styles.barValPast : styles.barValFuture]}>
+                            {value < 1 && value > 0 ? value.toFixed(1) : Math.round(value)}
+                          </Text>
+                        )}
+                        <View
+                          style={[
+                            styles.bar,
+                            { height: h },
+                            item.is_past ? styles.barPast : styles.barFuture,
+                            value === 0 && styles.barEmpty,
+                          ]}
+                        />
+                      </View>
+                      <Text style={[styles.dayLabel, isToday && styles.todayDayLabel]}>{label}</Text>
                     </View>
-                    <Text style={[styles.dayLabel, isToday && styles.todayDayLabel]}>{label}</Text>
+                  );
+                }}
+              />
+              {/* Axis overlay — absolutely positioned, never scrolls */}
+              <View style={styles.axisOverlay} pointerEvents="none">
+                {AXIS_TICKS.map((cm) => (
+                  <View key={cm} style={[styles.axisTick, { bottom: (cm / SCALE_MAX) * BAR_MAX_H + 20 }]}>
+                    <Text style={styles.axisLabel}>{cm}</Text>
+                    <View style={styles.axisTickLine} />
                   </View>
-                );
-              }}
-            />
+                ))}
+                <View style={styles.axisLine} />
+              </View>
+            </View>
           )}
         </View>
       </View>
@@ -220,9 +229,15 @@ const styles = StyleSheet.create({
   totalUnit: { fontSize: 12, fontWeight: '600', color: '#94a3b8' },
   center: { padding: 20, alignItems: 'center', justifyContent: 'center' },
   errorTxt: { color: '#ef4444', fontSize: 12, fontWeight: '600' },
-  listContent: { padding: 16, gap: 10 },
+  chartRow: { position: 'relative' },
+  axisOverlay: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 38, backgroundColor: '#fff', zIndex: 2 },
+  axisTick: { position: 'absolute', right: 0, flexDirection: 'row', alignItems: 'center' },
+  axisLabel: { fontSize: 9, fontWeight: '700', color: '#94a3b8', marginRight: 3 },
+  axisTickLine: { width: 6, height: 1, backgroundColor: '#cbd5e1' },
+  axisLine: { position: 'absolute', right: 0, top: 0, bottom: 0, width: 1, backgroundColor: '#e2e8f0' },
+  listContent: { paddingLeft: 46, paddingRight: 16, gap: 10 },
   dayCol: { width: 40, alignItems: 'center' },
-  barWrap: { alignItems: 'center', justifyContent: 'flex-end', height: 110, marginBottom: 6 },
+  barWrap: { alignItems: 'center', justifyContent: 'flex-end', height: BAR_MAX_H + 20, marginBottom: 6 },
   barVal: { fontSize: 10, fontWeight: '700', marginBottom: 4 },
   barValPast: { color: '#0ea5e9' },
   barValFuture: { color: '#10b981' },
