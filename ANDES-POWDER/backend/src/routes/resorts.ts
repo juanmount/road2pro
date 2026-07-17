@@ -4,6 +4,7 @@ import { Resort, CurrentConditions, ElevationConditions } from '../types';
 import { SnowEngine } from '../engine/snow-engine';
 import { MultiModelFetcher } from '../providers/open-meteo/multi-model-fetcher';
 import { OpenMeteoService } from '../services/open-meteo';
+import { resortStatusService } from '../services/resort-status-service';
 
 const router = Router();
 
@@ -1468,6 +1469,25 @@ router.get('/:id/snow-depth-series', async (req: Request, res: Response) => {
   } catch (error) {
     console.error('Error fetching snow depth series:', error);
     res.status(500).json({ error: 'Failed to fetch snow depth series' });
+  }
+});
+
+// GET /api/resorts/:id/status  — operational status (lifts/slopes open)
+router.get('/:id/status', async (req: Request, res: Response) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT id FROM resorts WHERE slug = $1 OR id::text = $1 LIMIT 1`,
+      [req.params.id]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Resort not found' });
+
+    const status = await resortStatusService.getStatus(rows[0].id);
+    if (!status) return res.json({ available: false });
+
+    res.json({ available: true, ...status });
+  } catch (err) {
+    console.error('Error fetching resort status:', err);
+    res.status(500).json({ error: 'Failed to fetch resort status' });
   }
 });
 

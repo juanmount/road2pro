@@ -11,7 +11,17 @@ import OnboardingScreen from '../../components/OnboardingScreen';
 import AlertsBanner from '../../components/AlertsBanner';
 import alertsService, { Alert } from '../../services/alertsService';
 
+interface OperationalStatus {
+  available: boolean;
+  liftsOpen: number | null;
+  liftsTotal: number | null;
+  runsOpenKm: number | null;
+  runsTotalKm: number | null;
+  resortOpen: boolean;
+}
+
 interface ResortWithConditions extends Resort {
+  operationalStatus?: OperationalStatus | null;
   currentConditions?: {
     temperature: number;
     windSpeed: number;
@@ -158,9 +168,10 @@ export default function HomeScreen() {
       const resortsWithConditions = await Promise.all(
         data.map(async (resort) => {
           try {
-            const [hourlyForecast, summitForecast] = await Promise.all([
+            const [hourlyForecast, summitForecast, opStatus] = await Promise.all([
               resortsService.getHourlyForecast(resort.id, 'mid', 48),
               resortsService.getHourlyForecast(resort.id, 'summit', 48).catch(() => []),
+              resortsService.getOperationalStatus(resort.id).catch(() => null),
             ]);
             
             if (!hourlyForecast || hourlyForecast.length === 0) {
@@ -232,6 +243,7 @@ export default function HomeScreen() {
             return { 
               ...resort, 
               currentConditions,
+              operationalStatus: opStatus,
               todaySnowfall,
               summitTodaySnowfall: summitSnow48h > 0 ? summitSnow48h : undefined,
               bestElevation: (summitSnow48h > midSnow48h + 3 ? 'summit' : 'mid') as 'base' | 'mid' | 'summit',
@@ -343,15 +355,25 @@ export default function HomeScreen() {
                 </View>
               )}
               
+              {/* Operational Status */}
+              {item.operationalStatus?.available && (
+                <View style={styles.operationalRow}>
+                  <Ionicons name="git-network-outline" size={12} color="rgba(148,212,100,0.9)" />
+                  <Text style={styles.operationalText}>
+                    {item.operationalStatus.liftsOpen ?? '?'}/{item.operationalStatus.liftsTotal ?? '?'} medios
+                  </Text>
+                  <View style={styles.operationalDot} />
+                  <Text style={styles.operationalText}>
+                    {item.operationalStatus.runsOpenKm ?? '?'}/{item.operationalStatus.runsTotalKm ?? '?'} km pistas
+                  </Text>
+                </View>
+              )}
+
               {/* Forecast Stats + Wind */}
               <View style={styles.quickStats}>
                 <View style={styles.statItem}>
                   <Text style={styles.statLabel}>Hoy</Text>
                   <Text style={styles.statValue}>{Math.round(item.todaySnowfall || 0)}cm</Text>
-                  {item.summitTodaySnowfall !== undefined &&
-                    item.summitTodaySnowfall > (item.todaySnowfall || 0) + 4 && (
-                    <Text style={styles.summitHint}>🏔 {Math.round(item.summitTodaySnowfall)}cm</Text>
-                  )}
                 </View>
                 <View style={styles.statDivider} />
                 <View style={styles.statItem}>
@@ -676,6 +698,27 @@ const styles = StyleSheet.create({
   },
   
   
+  // Operational Status Row
+  operationalRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 4,
+    marginBottom: 2,
+  },
+  operationalText: {
+    fontSize: 11,
+    color: 'rgba(148,212,100,0.9)',
+    fontWeight: '600',
+    letterSpacing: 0.2,
+  },
+  operationalDot: {
+    width: 3,
+    height: 3,
+    borderRadius: 1.5,
+    backgroundColor: 'rgba(148,212,100,0.5)',
+  },
+
   // Loading & Error States
   loadingText: {
     marginTop: 12,

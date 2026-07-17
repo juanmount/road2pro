@@ -122,4 +122,9 @@ export const resortsService = {
     });
     return response.data;
   },
+
+  async getOperationalStatus(id: string): Promise<any> {
+    const response = await api.get(`/resorts/${id}/status`);
+    return response.data;
+  },
 };

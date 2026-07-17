@@ -6,6 +6,7 @@
 import * as schedule from 'node-schedule';
 import { SMNWeatherService } from './smn-weather-service';
 import { CatedralSyncService } from './catedral-sync';
+import { resortStatusService } from './resort-status-service';
 
 export class WeatherSyncScheduler {
   private smnService: SMNWeatherService;
@@ -16,6 +17,7 @@ export class WeatherSyncScheduler {
     this.smnService = new SMNWeatherService();
     this.catedralService = new CatedralSyncService();
   }
+
   
   /**
    * Start all scheduled sync jobs
@@ -41,10 +43,22 @@ export class WeatherSyncScheduler {
     // TODO: Catedral website sync disabled - their API doesn't exist and data loads via JavaScript
     // Need to find alternative data source or implement headless browser scraping
     
+    // Sync resort operational status (lifts/slopes) every 2h at :30
+    const statusJob = schedule.scheduleJob('30 */2 * * *', async () => {
+      console.log('\n=== Resort Operational Status Sync ===');
+      try {
+        await resortStatusService.syncAll();
+      } catch (err) {
+        console.error('✗ Resort status sync failed:', err);
+      }
+    });
+    this.jobs.push(statusJob);
+
     console.log('✓ Weather sync scheduler started');
-    console.log('  → SMN sync: Every hour at :05');
+    console.log('  → SMN sync: Every hour at :02');
+    console.log('  → Resort status: Every 2h at :30');
     console.log('  → Catedral sync: Disabled (no accessible data source)');
-    
+
     // Run initial sync immediately
     this.runInitialSync();
   }
@@ -57,7 +71,7 @@ export class WeatherSyncScheduler {
     
     try {
       await this.smnService.syncToObservations('cerro-catedral');
-      // Catedral sync disabled - no accessible data source
+      await resortStatusService.syncAll();
       console.log('✓ Initial sync completed\n');
     } catch (error) {
       console.error('✗ Initial sync failed:', error);
