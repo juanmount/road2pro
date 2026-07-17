@@ -1,16 +1,5 @@
-// Lazy-load native Firebase Analytics — crashes silently if native module not compiled yet
-// (Expo Go / builds without @react-native-firebase). Requires EAS build for real tracking.
-let _analytics: any = null;
-function getAnalytics(): any | null {
-  if (_analytics) return _analytics;
-  try {
-    const mod = require('@react-native-firebase/analytics');
-    _analytics = mod.default ?? mod;
-    return _analytics;
-  } catch {
-    return null;
-  }
-}
+// Analytics stub — safe for Expo Go and OTA builds.
+// TODO: swap for @react-native-firebase/analytics once EAS build with native Firebase is shipped.
 
 export const AnalyticsEvents = {
   PRO_SCREEN_VIEW: 'pro_screen_view',
@@ -25,29 +14,12 @@ export const AnalyticsEvents = {
   WEBCAM_VIEW: 'webcam_view',
 } as const;
 
-export const trackScreenView = async (screenName: string, screenClass?: string) => {
-  try {
-    const a = getAnalytics();
-    if (!a) return;
-    await a().logScreenView({
-      screen_name: screenName,
-      screen_class: screenClass || screenName,
-    });
-    console.log('[Analytics] screen_view:', screenName);
-  } catch (e) {
-    console.warn('[Analytics] trackScreenView error:', e);
-  }
+export const trackScreenView = async (screenName: string, _screenClass?: string) => {
+  console.log('[Analytics] screen_view:', screenName);
 };
 
 export const logEvent = async (eventName: string, params?: Record<string, any>) => {
-  try {
-    const a = getAnalytics();
-    if (!a) return;
-    await a().logEvent(eventName, params);
-    console.log('[Analytics]', eventName, params);
-  } catch (e) {
-    console.warn('[Analytics] logEvent error:', e);
-  }
+  console.log('[Analytics]', eventName, params);
 };
 
 export const setUserProperties = async (properties: {
@@ -55,16 +27,7 @@ export const setUserProperties = async (properties: {
   isPro?: boolean;
   isFounder?: boolean;
 }) => {
-  try {
-    const a = getAnalytics();
-    if (!a) return;
-    if (properties.userId) await a().setUserId(properties.userId);
-    if (properties.isPro !== undefined) await a().setUserProperty('is_pro', String(properties.isPro));
-    if (properties.isFounder !== undefined) await a().setUserProperty('is_founder', String(properties.isFounder));
-    console.log('[Analytics] user properties:', properties);
-  } catch (e) {
-    console.warn('[Analytics] setUserProperties error:', e);
-  }
+  console.log('[Analytics] user properties:', properties);
 };
 
 export const trackEarlyAccessEvent = async (eventName: string, params?: Record<string, any>) => {
@@ -77,19 +40,7 @@ export const trackPurchase = async (params: {
   currency: string;
   items: Array<{ item_id: string; item_name: string; price: number }>;
 }) => {
-  try {
-    const a = getAnalytics();
-    if (!a) return;
-    await a().logPurchase({
-      transaction_id: params.transactionId,
-      value: params.value,
-      currency: params.currency,
-      items: params.items.map(i => ({ item_id: i.item_id, item_name: i.item_name, price: i.price })),
-    });
-    console.log('[Analytics] purchase:', params.transactionId, params.value, params.currency);
-  } catch (e) {
-    console.warn('[Analytics] trackPurchase error:', e);
-  }
+  console.log('[Analytics] purchase:', params.transactionId, params.value, params.currency);
 };
 
 export const trackConversionStep = async (
