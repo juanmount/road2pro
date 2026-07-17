@@ -569,10 +569,31 @@ export class SnowEngine {
     // GFS override removed: GFS freezinglevel_height is noisy and less accurate than the
     // physically-derived ECMWF values.
 
-    // ECMWF is primary and most accurate - use its precipitation directly.
-    // No max-merge across models: GFS/GEFS can be extreme outliers (9x ECMWF) causing massive inflation.
-    console.log('    → Precipitation: using ECMWF as single source of truth (no max-merge)');
-    
+    // Week 2 precipitation blend: for h168+ progressively blend GFS precipitation.
+    // ECMWF under-predicts frontal systems in Patagonia in the extended range.
+    // GFS weight ramps from 0% at h168 → 30% at h240+ (capped to avoid GFS outliers).
+    // FRZ, temperature and wind remain ECMWF-sourced.
+    if (gfs) {
+      for (const elevation of ['base', 'mid', 'summit'] as const) {
+        const gfsData: any[] = gfs[elevation] || [];
+        if (gfsData.length === 0) continue;
+        const gfsMap = new Map<number, any>();
+        for (const p of gfsData) gfsMap.set(new Date(p.time).getTime(), p);
+
+        for (let i = 168; i < hybrid[elevation].length; i++) {
+          const point = hybrid[elevation][i];
+          if (!point) continue;
+          const gfsPoint = gfsMap.get(new Date(point.time).getTime());
+          if (!gfsPoint) continue;
+          const t = Math.min(1, (i - 168) / 72); // 0→1 over 72 h (days 7→10)
+          const gfsWeight = t * 0.30;             // max 30% GFS
+          const blended = point.precipitation * (1 - gfsWeight) + (gfsPoint.precipitation || 0) * gfsWeight;
+          point.precipitation = Math.max(0, blended);
+        }
+      }
+      console.log('    → Week 2 precipitation: ECMWF + up to 30% GFS blend (h168+)');
+    }
+
     return hybrid;
   }
   
