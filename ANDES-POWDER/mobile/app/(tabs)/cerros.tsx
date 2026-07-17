@@ -540,7 +540,7 @@ const styles = StyleSheet.create({
   
   // Resort Card
   resortCard: {
-    height: 192,
+    height: 210,
     borderRadius: 16,
     marginBottom: 10,
     overflow: 'hidden',
@@ -704,41 +704,41 @@ const styles = StyleSheet.create({
   // Operational Status Panel (top-right corner of card)
   opStatusPanel: {
     backgroundColor: 'rgba(0, 10, 30, 0.55)',
-    borderRadius: 10,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: 'rgba(56, 189, 248, 0.15)',
-    paddingHorizontal: 10,
-    paddingVertical: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
     alignItems: 'center',
-    minWidth: 72,
-    gap: 4,
+    minWidth: 68,
+    gap: 3,
   },
   opStatusItem: {
     alignItems: 'center',
-    gap: 1,
+    gap: 0,
   },
   opStatusValue: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '800',
     letterSpacing: -0.3,
   },
   opStatusTotal: {
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: '500',
     color: 'rgba(255,255,255,0.45)',
   },
   opStatusLabel: {
-    fontSize: 9,
-    color: 'rgba(255,255,255,0.45)',
+    fontSize: 8,
+    color: 'rgba(255,255,255,0.40)',
     fontWeight: '500',
     letterSpacing: 0.4,
     textTransform: 'uppercase',
   },
   opStatusSep: {
-    width: 40,
+    width: 36,
     height: 1,
-    backgroundColor: 'rgba(56,189,248,0.15)',
-    marginVertical: 2,
+    backgroundColor: 'rgba(56,189,248,0.12)',
+    marginVertical: 1,
   },
 
   // Loading & Error States
