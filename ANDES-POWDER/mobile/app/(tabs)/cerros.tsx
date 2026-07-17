@@ -356,18 +356,35 @@ export default function HomeScreen() {
               )}
               
               {/* Operational Status */}
-              {item.operationalStatus?.available && (
-                <View style={styles.operationalRow}>
-                  <Ionicons name="git-network-outline" size={12} color="rgba(148,212,100,0.9)" />
-                  <Text style={styles.operationalText}>
-                    {item.operationalStatus.liftsOpen ?? '?'}/{item.operationalStatus.liftsTotal ?? '?'} medios
-                  </Text>
-                  <View style={styles.operationalDot} />
-                  <Text style={styles.operationalText}>
-                    {item.operationalStatus.runsOpenKm ?? '?'}/{item.operationalStatus.runsTotalKm ?? '?'} km pistas
-                  </Text>
-                </View>
-              )}
+              {item.operationalStatus?.available && (() => {
+                const op = item.operationalStatus!;
+                const liftPct = op.liftsTotal ? (op.liftsOpen ?? 0) / op.liftsTotal : 0;
+                const kmPct   = op.runsTotalKm ? (op.runsOpenKm ?? 0) / op.runsTotalKm : 0;
+                const liftColor = liftPct >= 0.6 ? '#4ade80' : liftPct >= 0.2 ? '#fbbf24' : '#f87171';
+                const kmColor   = kmPct   >= 0.6 ? '#4ade80' : kmPct   >= 0.2 ? '#fbbf24' : '#f87171';
+                return (
+                  <View style={styles.operationalRow}>
+                    <View style={styles.opBadge}>
+                      <Ionicons name="git-network-outline" size={10} color={liftColor} />
+                      <Text style={[styles.opBadgeText, { color: liftColor }]}>
+                        {op.liftsOpen ?? '?'}/{op.liftsTotal ?? '?'} medios
+                      </Text>
+                      <View style={styles.opBarTrack}>
+                        <View style={[styles.opBarFill, { width: `${Math.round(liftPct * 100)}%` as any, backgroundColor: liftColor }]} />
+                      </View>
+                    </View>
+                    <View style={styles.opBadge}>
+                      <Ionicons name="flag-outline" size={10} color={kmColor} />
+                      <Text style={[styles.opBadgeText, { color: kmColor }]}>
+                        {op.runsOpenKm ?? '?'}/{op.runsTotalKm ?? '?'} km
+                      </Text>
+                      <View style={styles.opBarTrack}>
+                        <View style={[styles.opBarFill, { width: `${Math.round(kmPct * 100)}%` as any, backgroundColor: kmColor }]} />
+                      </View>
+                    </View>
+                  </View>
+                );
+              })()}
 
               {/* Forecast Stats + Wind */}
               <View style={styles.quickStats}>
@@ -702,21 +719,36 @@ const styles = StyleSheet.create({
   operationalRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    marginTop: 4,
+    gap: 8,
+    marginTop: 6,
     marginBottom: 2,
   },
-  operationalText: {
-    fontSize: 11,
-    color: 'rgba(148,212,100,0.9)',
-    fontWeight: '600',
-    letterSpacing: 0.2,
+  opBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(0,0,0,0.30)',
+    borderRadius: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    flex: 1,
   },
-  operationalDot: {
-    width: 3,
+  opBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 0.2,
+    flex: 1,
+  },
+  opBarTrack: {
+    width: 28,
     height: 3,
-    borderRadius: 1.5,
-    backgroundColor: 'rgba(148,212,100,0.5)',
+    borderRadius: 2,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    overflow: 'hidden',
+  },
+  opBarFill: {
+    height: '100%',
+    borderRadius: 2,
   },
 
   // Loading & Error States
