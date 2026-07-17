@@ -18,6 +18,7 @@
       "supportsTablet": false,
       "bundleIdentifier": "com.andespowder.app",
       "buildNumber": "21",
+      "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
@@ -69,7 +70,8 @@
       ],
       "expo-asset",
       "expo-web-browser",
-      "expo-tracking-transparency"
+      "expo-tracking-transparency",
+      "@react-native-firebase/app"
     ],
     "extra": {
       "router": {

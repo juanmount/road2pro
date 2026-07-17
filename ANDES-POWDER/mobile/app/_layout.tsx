@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { Stack, useRouter, useSegments } from 'expo-router';
+import { Stack, useRouter, useSegments, usePathname } from 'expo-router';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider, useAuth } from '../contexts/AuthContext';
 import notificationService from '../services/notifications';
@@ -7,6 +7,7 @@ import { initMeta } from '../services/meta';
 import { Platform } from 'react-native';
 import { getTrackingPermissionsAsync, requestTrackingPermissionsAsync } from 'expo-tracking-transparency';
 import Constants from 'expo-constants';
+import { trackScreenView, setUserProperties } from '../services/analytics';
 
 export let devBypassActive = false;
 export function setDevBypass(v: boolean) { devBypassActive = v; }
@@ -15,6 +16,7 @@ function RootLayoutNav() {
   const { user, loading } = useAuth();
   const segments = useSegments();
   const router = useRouter();
+  const pathname = usePathname();
 
   useEffect(() => {
     (async () => {
@@ -54,8 +56,14 @@ function RootLayoutNav() {
   useEffect(() => {
     if (user) {
       notificationService.initialize(user.uid);
+      setUserProperties({ userId: user.uid });
     }
   }, [user]);
+
+  // Track screen views on every navigation change
+  useEffect(() => {
+    if (pathname) trackScreenView(pathname);
+  }, [pathname]);
 
   return (
     <Stack
