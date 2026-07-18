@@ -11,6 +11,8 @@ Notifications.setNotificationHandler({
     shouldShowAlert: true,
     shouldPlaySound: true,
     shouldSetBadge: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
   }),
 });
 
@@ -138,7 +140,7 @@ class NotificationService {
     }
 
     try {
-      await api.put('/notifications/preferences', {
+      await api.put('/push/preferences', {
         token: this.expoPushToken,
         preferences,
       });
@@ -197,7 +199,7 @@ class NotificationService {
         body: 'Se pronostican 15cm en Cerro Catedral en las próximas 24 horas',
         data: { resortId: 'cerro-catedral' },
       },
-      trigger: { seconds: 2 },
+      trigger: null,
     });
   }
 

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { trackUserEngagement, setUserProperties } from '../services/analytics';
+import { logEvent, setUserProperties } from '../services/analytics';
 
 interface UserEngagementData {
   daysActive: number;
@@ -30,10 +30,7 @@ export const useUserEngagement = () => {
         setEngagement(parsed);
         
         // Update user properties in analytics
-        await setUserProperties({
-          daysActive: parsed.daysActive,
-          resortsViewed: parsed.resortsViewed,
-        });
+        await setUserProperties({ userId: undefined });
       } else {
         // First time user
         const initialData: UserEngagementData = {
@@ -94,9 +91,7 @@ export const useUserEngagement = () => {
     await saveEngagementData(updatedData);
     
     // Update analytics
-    await setUserProperties({
-      resortsViewed: updatedData.resortsViewed,
-    });
+    await logEvent('resort_view', { resorts_viewed: updatedData.resortsViewed });
   };
 
   // Track forecast check
@@ -115,11 +110,11 @@ export const useUserEngagement = () => {
   const sendEngagementSnapshot = async () => {
     if (!engagement) return;
 
-    await trackUserEngagement({
-      daysActive: engagement.daysActive,
-      resortsViewed: engagement.resortsViewed,
-      forecastsChecked: engagement.forecastsChecked,
-      avgSessionDuration: engagement.avgSessionDuration,
+    await logEvent('user_engagement', {
+      days_active: engagement.daysActive,
+      resorts_viewed: engagement.resortsViewed,
+      forecasts_checked: engagement.forecastsChecked,
+      avg_session_duration: engagement.avgSessionDuration,
     });
   };
 
