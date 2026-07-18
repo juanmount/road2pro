@@ -325,28 +325,27 @@ export default function HomeScreen() {
                   </Text>
                 </View>
                 {item.operationalStatus?.available && (() => {
+                  const hour = new Date().getHours();
+                  const isClosed = hour < 8 || hour >= 19;
                   const op = item.operationalStatus!;
-                  const liftPct = op.liftsTotal ? (op.liftsOpen ?? 0) / op.liftsTotal : 0;
-                  const kmPct   = op.runsTotalKm ? (op.runsOpenKm ?? 0) / op.runsTotalKm : 0;
-                  const liftColor = liftPct >= 0.6 ? '#4ade80' : liftPct >= 0.2 ? '#fbbf24' : '#f87171';
-                  const kmColor   = kmPct   >= 0.6 ? '#4ade80' : kmPct   >= 0.2 ? '#fbbf24' : '#f87171';
+                  const open  = isClosed ? 0 : (op.liftsOpen  ?? 0);
+                  const total = op.liftsTotal ?? 0;
+                  const pct   = isClosed ? 0 : (total > 0 ? open / total : 0);
+                  const color = isClosed ? 'rgba(255,255,255,0.35)' : pct >= 0.5 ? '#4ade80' : pct >= 0.2 ? '#fbbf24' : '#f87171';
                   return (
                     <View style={styles.opStatusPanel}>
-                      <View style={styles.opStatusItem}>
-                        <Ionicons name="git-network-outline" size={10} color={liftColor} />
-                        <Text style={[styles.opStatusValue, { color: liftColor }]}>
-                          {op.liftsOpen ?? '?'}<Text style={styles.opStatusTotal}>/{op.liftsTotal ?? '?'}</Text>
-                        </Text>
-                        <Text style={styles.opStatusLabel}>medios</Text>
+                      <Text style={styles.opStatusLabel}>MEDIOS</Text>
+                      <Text style={[styles.opStatusValue, { color }]}>
+                        {open}
+                        <Text style={styles.opStatusTotal}>/{total}</Text>
+                      </Text>
+                      <View style={styles.opBarTrack}>
+                        <View style={[styles.opBarFill, {
+                          width: `${Math.round(pct * 100)}%` as any,
+                          backgroundColor: color,
+                        }]} />
                       </View>
-                      <View style={styles.opStatusSep} />
-                      <View style={styles.opStatusItem}>
-                        <Ionicons name="flag-outline" size={10} color={kmColor} />
-                        <Text style={[styles.opStatusValue, { color: kmColor }]}>
-                          {op.runsOpenKm ?? '?'}<Text style={styles.opStatusTotal}>/{op.runsTotalKm ?? '?'}km</Text>
-                        </Text>
-                        <Text style={styles.opStatusLabel}>pistas</Text>
-                      </View>
+                      <Text style={styles.opStatusSub}>abiertos</Text>
                     </View>
                   );
                 })()}
@@ -703,42 +702,52 @@ const styles = StyleSheet.create({
   
   // Operational Status Panel (top-right corner of card)
   opStatusPanel: {
-    backgroundColor: 'rgba(0, 10, 30, 0.55)',
-    borderRadius: 8,
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 8, 24, 0.60)',
+    borderRadius: 10,
     borderWidth: 1,
-    borderColor: 'rgba(56, 189, 248, 0.15)',
-    paddingHorizontal: 8,
-    paddingVertical: 5,
-    alignItems: 'center',
-    minWidth: 68,
-    gap: 3,
-  },
-  opStatusItem: {
-    alignItems: 'center',
-    gap: 0,
-  },
-  opStatusValue: {
-    fontSize: 12,
-    fontWeight: '800',
-    letterSpacing: -0.3,
-  },
-  opStatusTotal: {
-    fontSize: 9,
-    fontWeight: '500',
-    color: 'rgba(255,255,255,0.45)',
+    borderColor: 'rgba(255,255,255,0.10)',
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    minWidth: 70,
+    gap: 2,
   },
   opStatusLabel: {
     fontSize: 8,
-    color: 'rgba(255,255,255,0.40)',
-    fontWeight: '500',
-    letterSpacing: 0.4,
+    color: 'rgba(255,255,255,0.45)',
+    fontWeight: '700',
+    letterSpacing: 1.2,
     textTransform: 'uppercase',
   },
-  opStatusSep: {
-    width: 36,
-    height: 1,
-    backgroundColor: 'rgba(56,189,248,0.12)',
-    marginVertical: 1,
+  opStatusValue: {
+    fontSize: 22,
+    fontWeight: '800',
+    letterSpacing: -0.5,
+    lineHeight: 24,
+  },
+  opStatusTotal: {
+    fontSize: 17,
+    fontWeight: '400',
+    color: 'rgba(255,255,255,0.45)',
+  },
+  opBarTrack: {
+    width: 44,
+    height: 3,
+    borderRadius: 2,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    overflow: 'hidden',
+    marginTop: 2,
+  },
+  opBarFill: {
+    height: '100%',
+    borderRadius: 2,
+  },
+  opStatusSub: {
+    fontSize: 8,
+    color: 'rgba(255,255,255,0.35)',
+    fontWeight: '500',
+    letterSpacing: 0.5,
+    marginTop: 1,
   },
 
   // Loading & Error States
