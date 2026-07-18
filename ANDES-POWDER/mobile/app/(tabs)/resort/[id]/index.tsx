@@ -10,6 +10,7 @@ import { SnowfallChart } from '../../../../components/SnowfallChart';
 import { TemperatureCurve } from '../../../../components/TemperatureCurve';
 import { WebcamsModal } from '../../../../components/WebcamsModal';
 import FourteenDayAccumulationCard from '../../../../components/FourteenDayAccumulationCard';
+import TwoWeekSnowGrid from '../../../../components/TwoWeekSnowGrid';
 import FourteenDayAccumulationModal from '../../../../components/FourteenDayAccumulationModal';
 import BestTimeCard from '../../../../components/BestTimeCard';
 import ENSOCard from '../../../../components/ENSOCard';
@@ -1502,6 +1503,9 @@ export default function ResortDetailScreen() {
       {bestTimeWindows.length > 0 && (
         <BestTimeCard windows={bestTimeWindows} />
       )}
+
+      {/* 2-Week Snow Grid — at-a-glance view for all elevations (defer until parent data is ready) */}
+      {!loading && <TwoWeekSnowGrid resortId={String(id)} />}
 
       {/* Weekly Forecast - Horizontal Scroll */}
       {dailyForecast.length > 0 && (

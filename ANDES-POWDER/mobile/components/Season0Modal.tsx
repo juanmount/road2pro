@@ -63,31 +63,29 @@ export default function Season0Modal({ visible, onClose }: Season0ModalProps) {
             {/* Content */}
             <View style={styles.content}>
               <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Algoritmos en Calibración</Text>
+                <Text style={styles.sectionTitle}>Física Andina en Calibración</Text>
                 <Text style={styles.sectionText}>
-                  Storm Crossing Engine, Snow Reality y ENSO Integration se están 
-                  validando con datos reales de esta temporada.
+                  La montaña patagónica es impredecible. Por eso, durante esta Temporada 0 estamos calibrando nuestros modelos únicos: <Text style={{fontWeight: 'bold', color: '#38bdf8'}}>Storm Crossing Engine</Text> (cruces de sistemas del Pacífico) y <Text style={{fontWeight: 'bold', color: '#38bdf8'}}>Snow Reality Engine</Text> (viento blanco, humedad y radiación solar).
                 </Text>
               </View>
 
               <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Funcionalidades Disponibles</Text>
+                <Text style={styles.sectionTitle}>Herramientas de Precisión Local</Text>
                 <Text style={styles.sectionText}>
-                  Pronósticos por elevación, viento ajustado, freezing level en tiempo real 
-                  y análisis completo para 4 resorts patagónicos.
+                  Accedé a pronósticos separados por altura (base, mid, cumbre), el efecto del viento ajustado por la topografía de cada cerro y el freezing level real basado en estaciones del SMN.
                 </Text>
               </View>
 
               <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Season 1 — 2027</Text>
+                <Text style={styles.sectionTitle}>Season 1 — Rumbo al Invierno 2027</Text>
                 <Text style={styles.sectionText}>
-                  Alertas inteligentes, favoritos, historial de precisión y features premium.
+                  Aportando con tu Pase Fundador, financiás estaciones físicas y satelitales en sectores fuera de pista y asegurás tu acceso premium de por vida para alertas de viento y tormentas.
                 </Text>
               </View>
 
               <View style={styles.feedbackBox}>
                 <Text style={styles.feedbackText}>
-                  Tu feedback es fundamental para el desarrollo del producto
+                  Cada reporte tuyo calibra la física para la comunidad. ¡Hagamos el pronóstico más honesto de los Andes!
                 </Text>
               </View>
             </View>

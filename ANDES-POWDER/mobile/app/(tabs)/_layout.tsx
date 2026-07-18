@@ -1,9 +1,13 @@
 import { Tabs, usePathname } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
-import { StyleSheet, Platform } from 'react-native';
+import { StyleSheet, Platform, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function TabLayout() {
+  const insets = useSafeAreaInsets();
+  const bottomInset = Platform.OS === 'android' ? insets.bottom : 0;
+
   return (
     <Tabs
       screenOptions={{
@@ -13,18 +17,23 @@ export default function TabLayout() {
           bottom: 0,
           left: 0,
           right: 0,
-          elevation: 0,
-          backgroundColor: 'transparent',
-          borderTopWidth: 0,
-          height: Platform.OS === 'ios' ? 88 : 68,
+          elevation: 8,
+          backgroundColor: Platform.OS === 'android' ? 'rgba(8, 20, 40, 0.97)' : 'transparent',
+          borderTopWidth: Platform.OS === 'android' ? 1 : 0,
+          borderTopColor: Platform.OS === 'android' ? 'rgba(56, 189, 248, 0.15)' : 'transparent',
+          height: Platform.OS === 'ios' ? 88 : 72 + bottomInset,
+          paddingBottom: Platform.OS === 'android' ? 8 + bottomInset : 0,
         },
-        tabBarBackground: () => (
-          <BlurView
-            intensity={80}
-            tint="dark"
-            style={StyleSheet.absoluteFill}
-          />
-        ),
+        tabBarBackground: () =>
+          Platform.OS === 'ios' ? (
+            <BlurView
+              intensity={80}
+              tint="dark"
+              style={StyleSheet.absoluteFill}
+            />
+          ) : (
+            <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(8, 20, 40, 0.97)' }]} />
+          ),
         tabBarActiveTintColor: '#63b3ed',
         tabBarInactiveTintColor: '#94a3b8',
         tabBarLabelStyle: {

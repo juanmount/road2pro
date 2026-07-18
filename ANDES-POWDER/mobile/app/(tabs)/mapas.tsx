@@ -1,14 +1,16 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { trackScreenView, trackEarlyAccessEvent, AnalyticsEvents } from '../../services/analytics';
+import { checkFounderAccess } from '../../services/iap';
 
 export default function MapasScreen() {
   const router = useRouter();
-  // Track screen view on mount
+  const [isFounder, setIsFounder] = useState(false);
   useEffect(() => {
+    checkFounderAccess().then(setIsFounder);
     trackScreenView('PRO_Screen', 'EarlyAccessScreen');
     trackEarlyAccessEvent(AnalyticsEvents.PRO_SCREEN_VIEW, {
       source: 'tab_navigation',
@@ -20,310 +22,315 @@ export default function MapasScreen() {
       style={styles.container}
     >
       <ScrollView contentContainerStyle={styles.content}>
-        {/* Logo & Brand Header */}
-        <View style={styles.brandHeader}>
-          <Image 
+
+        {/* Header */}
+        <View style={styles.header}>
+          <Image
             source={require('../../assets/Logo_horizontal.png')}
             style={styles.logo}
             resizeMode="contain"
           />
-          <Text style={styles.brandTagline}>Pronósticos científicos para Patagonia</Text>
+          <View style={styles.seasonBadge}>
+            <Ionicons name="snow" size={12} color="#63b3ed" />
+            <Text style={styles.seasonText}>SEASON 0 · GRATIS</Text>
+          </View>
         </View>
 
-        {/* Season 0 Badge */}
-        <View style={styles.seasonBadge}>
-          <Ionicons name="snow" size={14} color="#63b3ed" />
-          <Text style={styles.seasonText}>SEASON 0 GRATIS</Text>
-        </View>
+        {/* Qué es */}
+        <Text style={styles.intro}>
+          Pronósticos de nieve para los Andes patagónicos. Funciona de junio a octubre.
+        </Text>
 
-        {/* Why Andes Powder - Compact */}
-        <View style={styles.whyCompact}>
-          <Text style={styles.whyCompactText}>
-            <Text style={styles.whyBold}>Algoritmos únicos</Text> para Patagonia: Storm Crossing, Snow Reality Engine, ajustes por elevación. 
-            <Text style={styles.whyBold}> Más precisos que apps genéricas.</Text>
+        {/* Por qué gratis */}
+        <View style={styles.freeBlock}>
+          <Text style={styles.freeTitle}>¿Por qué es gratis?</Text>
+          <Text style={styles.freeText}>
+            Season 0 es nuestro primer año. Abrimos el acceso completo sin costo para crecer con la comunidad y validar el producto.
           </Text>
         </View>
 
-        {/* Early Access Section - MOVED TO TOP */}
-        <View style={styles.earlyAccessSection}>
-          <View style={styles.earlyAccessHeader}>
-            <Ionicons name="rocket" size={24} color="#63b3ed" />
-            <Text style={styles.earlyAccessTitle}>Acceso Anticipado Season 1</Text>
+        {/* Tecnología */}
+        <View style={styles.techBlock}>
+          <Text style={styles.techLabel}>LO QUE TENEMOS HOY</Text>
+          <View style={styles.pillRow}>
+            <View style={styles.pill}><Text style={styles.pillText}>Storm Crossing Engine</Text></View>
+            <View style={styles.pill}><Text style={styles.pillText}>Snow Reality Engine</Text></View>
           </View>
-          
-          <Text style={styles.earlyAccessDescription}>
-            Asegurá tu acceso a la próxima temporada a precio fundador.{'\n'}
-            Precio congelado para siempre.
+          <View style={styles.pillRow}>
+            <View style={styles.pill}><Text style={styles.pillText}>Ajuste por elevación</Text></View>
+            <View style={styles.pill}><Text style={styles.pillText}>Ciclos ENSO</Text></View>
+          </View>
+
+          <Text style={[styles.techLabel, { marginTop: 14 }]}>PLANEADO PARA 2027</Text>
+          <View style={styles.pillRow}>
+            <View style={styles.pillMuted}><Text style={styles.pillMutedText}>Mapa de nieve en tiempo real</Text></View>
+            <View style={styles.pillMuted}><Text style={styles.pillMutedText}>Webcams</Text></View>
+          </View>
+          <View style={styles.pillRow}>
+            <View style={styles.pillMuted}><Text style={styles.pillMutedText}>Tracking GPS</Text></View>
+          </View>
+        </View>
+
+        {/* Pase Fundador */}
+        <View style={styles.passCard}>
+          <View style={styles.passHeader}>
+            <Ionicons name="ticket-outline" size={20} color="#63b3ed" />
+            <Text style={styles.passTitle}>Pase Fundador · Temporada 2027</Text>
+          </View>
+
+          <Text style={styles.passDesc}>
+            A partir de 2027 la app es paga. Comprando ahora asegurás el acceso de junio a octubre de 2027 al precio más bajo que vamos a ofrecer.
           </Text>
 
-          <View style={styles.benefitsList}>
-            <View style={styles.benefitItem}>
-              <Ionicons name="checkmark-circle" size={20} color="#63b3ed" />
-              <Text style={styles.benefitText}>Precio fundador congelado de por vida</Text>
+          <View style={styles.priceRow}>
+            <View>
+              <Text style={styles.priceLabel}>Precio fundador</Text>
+              <Text style={styles.priceValue}>USD 9.99</Text>
+              <Text style={styles.priceNote}>Disponible hasta fin de Season 0</Text>
             </View>
-            <View style={styles.benefitItem}>
-              <Ionicons name="checkmark-circle" size={20} color="#63b3ed" />
-              <Text style={styles.benefitText}>Acceso garantizado Season 1 (2026)</Text>
-            </View>
-            <View style={styles.benefitItem}>
-              <Ionicons name="checkmark-circle" size={20} color="#63b3ed" />
-              <Text style={styles.benefitText}>Badge exclusivo de Fundador</Text>
-            </View>
-            <View style={styles.benefitItem}>
-              <Ionicons name="checkmark-circle" size={20} color="#63b3ed" />
-              <Text style={styles.benefitText}>Todas las mejoras futuras incluidas</Text>
-            </View>
-            <View style={styles.benefitItem}>
-              <Ionicons name="checkmark-circle" size={20} color="#63b3ed" />
-              <Text style={styles.benefitText}>Soporte prioritario</Text>
+            <View style={styles.priceDivider} />
+            <View>
+              <Text style={styles.priceLabel}>Precio regular 2027</Text>
+              <Text style={styles.priceRegular}>~USD 24.99</Text>
+              <Text style={styles.priceNote}>Jun – Oct 2027</Text>
             </View>
           </View>
 
-          <TouchableOpacity 
-            style={styles.ctaButton}
-            onPress={() => {
-              trackEarlyAccessEvent(AnalyticsEvents.EARLY_ACCESS_CTA_TAP, {
-                source: 'pro_screen',
-                price: 29900,
-                currency: 'ARS',
-              });
-              router.push('/(tabs)/checkout');
-            }}
-          >
-            <LinearGradient
-              colors={['#0ea5e9', '#0284c7']}
-              style={styles.ctaGradient}
+          {isFounder ? (
+            <View style={styles.founderConfirmed}>
+              <Ionicons name="checkmark-circle" size={28} color="#10b981" />
+              <Text style={styles.founderConfirmedText}>¡Ya sos Fundador! Acceso 2027 garantizado.</Text>
+            </View>
+          ) : (
+            <TouchableOpacity
+              style={styles.ctaButton}
+              onPress={() => {
+                trackEarlyAccessEvent(AnalyticsEvents.EARLY_ACCESS_CTA_TAP, {
+                  source: 'pro_screen',
+                  price: 1200,
+                  currency: 'USD',
+                });
+                router.push('/(tabs)/checkout');
+              }}
             >
-              <Ionicons name="lock-open" size={24} color="#fff" />
-              <Text style={styles.ctaText}>Reservar Próxima Temporada</Text>
-            </LinearGradient>
-          </TouchableOpacity>
-
-          <Text style={styles.priceInfo}>
-            Precio fundador: $299 ARS • Ahorrás 40% vs precio regular
-          </Text>
+              <LinearGradient
+                colors={['#0ea5e9', '#0284c7']}
+                style={styles.ctaGradient}
+              >
+                <Text style={styles.ctaText}>Comprar Pase Fundador · USD 9.99</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          )}
         </View>
 
-        {/* Current Features - Compact Grid */}
-        <View style={styles.featuresGrid}>
-          <Text style={styles.sectionTitle}>Incluido ahora (gratis)</Text>
-          <View style={styles.featureRow}>
-            <View style={styles.featurePill}>
-              <Ionicons name="snow" size={16} color="#63b3ed" />
-              <Text style={styles.featurePillText}>Pronósticos 7 días</Text>
-            </View>
-            <View style={styles.featurePill}>
-              <Ionicons name="analytics" size={16} color="#63b3ed" />
-              <Text style={styles.featurePillText}>Snow Engine</Text>
-            </View>
-          </View>
-          <View style={styles.featureRow}>
-            <View style={styles.featurePill}>
-              <Ionicons name="thunderstorm" size={16} color="#63b3ed" />
-              <Text style={styles.featurePillText}>Storm Crossing</Text>
-            </View>
-            <View style={styles.featurePill}>
-              <Ionicons name="notifications" size={16} color="#63b3ed" />
-              <Text style={styles.featurePillText}>Alertas inteligentes</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Future Features - Compact */}
-        <View style={styles.futureCompact}>
-          <Text style={styles.sectionTitle}>Próximamente (Season 1+)</Text>
-          <View style={styles.futureList}>
-            <Text style={styles.futureItem}>• Mapa de nieve en tiempo real</Text>
-            <Text style={styles.futureItem}>• Webcams integradas</Text>
-            <Text style={styles.futureItem}>• Tracking GPS</Text>
-            <Text style={styles.futureItem}>• Análisis avanzado</Text>
-          </View>
-        </View>
       </ScrollView>
     </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
+  container: { flex: 1 },
   content: {
     padding: 20,
     paddingTop: 60,
-    paddingBottom: 120,
+    paddingBottom: 100,
   },
-  brandHeader: {
+
+  // Header
+  header: {
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     marginBottom: 20,
   },
   logo: {
-    width: 280,
-    height: 60,
-    marginBottom: 8,
-  },
-  brandTagline: {
-    fontSize: 13,
-    color: '#64748b',
-    fontWeight: '500',
-    textAlign: 'center',
+    width: 160,
+    height: 36,
   },
   seasonBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(99, 179, 237, 0.15)',
+    gap: 5,
+    backgroundColor: 'rgba(99, 179, 237, 0.12)',
     paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 16,
-    alignSelf: 'center',
+    paddingVertical: 5,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#63b3ed',
-    marginBottom: 16,
+    borderColor: 'rgba(99, 179, 237, 0.35)',
   },
   seasonText: {
     color: '#63b3ed',
     fontSize: 10,
-    fontWeight: 'bold',
-    marginLeft: 6,
+    fontWeight: '700',
     letterSpacing: 0.8,
   },
-  whyCompact: {
-    backgroundColor: 'rgba(99, 179, 237, 0.08)',
+
+  // Intro
+  intro: {
+    fontSize: 15,
+    color: '#cbd5e1',
+    lineHeight: 22,
+    marginBottom: 20,
+  },
+
+  // Free block
+  freeBlock: {
+    backgroundColor: 'rgba(255,255,255,0.04)',
     borderRadius: 12,
     padding: 14,
     marginBottom: 20,
     borderWidth: 1,
-    borderColor: 'rgba(99, 179, 237, 0.2)',
+    borderColor: 'rgba(255,255,255,0.08)',
   },
-  whyCompactText: {
+  freeTitle: {
     fontSize: 13,
-    color: '#cbd5e1',
-    lineHeight: 20,
-    textAlign: 'center',
-  },
-  subtitle: {
-    fontSize: 15,
-    color: '#94a3b8',
-    lineHeight: 22,
-  },
-  sectionTitle: {
-    fontSize: 17,
-    fontWeight: '600',
-    color: '#cbd5e1',
-    marginBottom: 14,
-  },
-  featuresGrid: {
-    marginBottom: 20,
-  },
-  featureRow: {
-    flexDirection: 'row',
-    gap: 10,
-    marginTop: 10,
-  },
-  featurePill: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(99, 179, 237, 0.1)',
-    borderRadius: 10,
-    padding: 10,
-    gap: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(99, 179, 237, 0.3)',
-  },
-  featurePillText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#63b3ed',
-    flex: 1,
-  },
-  futureCompact: {
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-  },
-  futureList: {
-    gap: 8,
-    marginTop: 8,
-  },
-  futureItem: {
-    fontSize: 13,
-    color: '#94a3b8',
-    lineHeight: 20,
-  },
-  whyBold: {
     fontWeight: '700',
-    color: '#e2e8f0',
+    color: '#94a3b8',
+    marginBottom: 6,
+    letterSpacing: 0.3,
   },
-  ctaButton: {
-    marginTop: 20,
-    borderRadius: 16,
-    overflow: 'hidden',
-    shadowColor: '#0ea5e9',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
+  freeText: {
+    fontSize: 14,
+    color: '#cbd5e1',
+    lineHeight: 21,
   },
-  ctaGradient: {
+
+  // Tech block
+  techBlock: {
+    marginBottom: 24,
+  },
+  techLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#475569',
+    letterSpacing: 1,
+    marginBottom: 8,
+  },
+  pillRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 18,
-    gap: 12,
+    gap: 8,
+    marginBottom: 8,
   },
-  ctaText: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#fff',
-  },
-  earlyAccessSection: {
-    backgroundColor: 'rgba(99, 179, 237, 0.08)',
-    borderRadius: 20,
-    padding: 24,
-    marginTop: 20,
+  pill: {
+    flex: 1,
+    backgroundColor: 'rgba(99, 179, 237, 0.1)',
+    borderRadius: 8,
+    paddingVertical: 7,
+    paddingHorizontal: 10,
     borderWidth: 1,
     borderColor: 'rgba(99, 179, 237, 0.25)',
   },
-  earlyAccessHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-    gap: 12,
-  },
-  earlyAccessTitle: {
-    fontSize: 22,
-    fontWeight: 'bold',
+  pillText: {
+    fontSize: 12,
+    fontWeight: '600',
     color: '#63b3ed',
+    textAlign: 'center',
   },
-  earlyAccessDescription: {
-    fontSize: 15,
-    color: '#cbd5e1',
-    lineHeight: 22,
-    marginBottom: 20,
+  pillMuted: {
+    flex: 1,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderRadius: 8,
+    paddingVertical: 7,
+    paddingHorizontal: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.07)',
   },
-  benefitsList: {
-    marginBottom: 24,
-    gap: 12,
+  pillMutedText: {
+    fontSize: 12,
+    color: '#475569',
+    textAlign: 'center',
   },
-  benefitItem: {
+
+  // Pass card
+  passCard: {
+    backgroundColor: 'rgba(99, 179, 237, 0.07)',
+    borderRadius: 16,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(99, 179, 237, 0.2)',
+  },
+  passHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 10,
+    marginBottom: 10,
   },
-  benefitText: {
-    fontSize: 15,
+  passTitle: {
+    fontSize: 16,
+    fontWeight: '700',
     color: '#e2e8f0',
-    flex: 1,
   },
-  priceInfo: {
-    textAlign: 'center',
+  passDesc: {
+    fontSize: 14,
     color: '#94a3b8',
-    fontSize: 13,
-    marginTop: 16,
-    fontStyle: 'italic',
+    lineHeight: 21,
+    marginBottom: 18,
+  },
+  priceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+    marginBottom: 18,
+  },
+  priceLabel: {
+    fontSize: 11,
+    color: '#64748b',
+    marginBottom: 4,
+    textAlign: 'center',
+  },
+  priceValue: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: '#63b3ed',
+    textAlign: 'center',
+  },
+  priceRegular: {
+    fontSize: 22,
+    fontWeight: '600',
+    color: '#475569',
+    textAlign: 'center',
+    textDecorationLine: 'line-through',
+  },
+  priceNote: {
+    fontSize: 10,
+    color: '#475569',
+    textAlign: 'center',
+    marginTop: 3,
+  },
+  priceDivider: {
+    width: 1,
+    height: 48,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+  },
+  ctaButton: {
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  ctaGradient: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+  },
+  ctaText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#fff',
+    letterSpacing: 0.3,
+  },
+  founderConfirmed: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: 'rgba(16,185,129,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(16,185,129,0.3)',
+    borderRadius: 12,
+    padding: 14,
+  },
+  founderConfirmedText: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#10b981',
   },
 });

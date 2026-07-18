@@ -1,20 +1,59 @@
-import { View, Text, StyleSheet, ScrollView, Switch, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Switch, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useState, useEffect } from 'react';
 import Slider from '@react-native-community/slider';
 import notificationService, { NotificationPreferences, DEFAULT_NOTIFICATION_PREFERENCES } from '../../services/notifications';
+import { resortsService } from '../../services/resorts';
+import { Resort } from '../../types';
 
 export default function AlertasScreen() {
   const [preferences, setPreferences] = useState<NotificationPreferences>(DEFAULT_NOTIFICATION_PREFERENCES);
   const [pushToken, setPushToken] = useState<string | null>(null);
   const [permissionGranted, setPermissionGranted] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [resorts, setResorts] = useState<Resort[]>([]);
+  const [loadingResorts, setLoadingResorts] = useState(false);
 
   useEffect(() => {
     loadPreferences();
     setupNotifications();
+    loadResorts();
   }, []);
+
+  const loadResorts = async () => {
+    setLoadingResorts(true);
+    try {
+      const data = await resortsService.getAll();
+      setResorts(data);
+    } catch (error) {
+      console.error('Error loading resorts:', error);
+    } finally {
+      setLoadingResorts(false);
+    }
+  };
+
+  const toggleResort = (resortId: string) => {
+    if (preferences.allResorts) {
+      // Switching from "all" mode: keep all selected except the tapped one
+      const allIds = resorts.map(r => r.id).filter(id => id !== resortId);
+      setPreferences(prev => ({ ...prev, allResorts: false, favoriteResorts: allIds }));
+    } else {
+      const current = preferences.favoriteResorts || [];
+      const updated = current.includes(resortId)
+        ? current.filter(id => id !== resortId)
+        : [...current, resortId];
+      setPreferences(prev => ({ ...prev, favoriteResorts: updated }));
+    }
+  };
+
+  const toggleAllResorts = () => {
+    if (preferences.allResorts) {
+      setPreferences(prev => ({ ...prev, allResorts: false, favoriteResorts: [] }));
+    } else {
+      setPreferences(prev => ({ ...prev, allResorts: true, favoriteResorts: [] }));
+    }
+  };
 
   const loadPreferences = async () => {
     try {
@@ -74,77 +113,73 @@ export default function AlertasScreen() {
           <Text style={styles.subtitle}>Sistema de notificaciones inteligentes</Text>
         </View>
 
-        {/* Alert Settings - Compact */}
-        <View style={styles.alertsGrid}>
-          <View style={styles.compactAlertCard}>
-            <View style={styles.compactAlertHeader}>
-              <Ionicons name="snow" size={20} color="#63b3ed" />
-              <Text style={styles.compactAlertTitle}>Nieve</Text>
-              <Text style={styles.compactAlertThreshold}>≥{preferences.minSnowfallCm}cm</Text>
-            </View>
+        {/* Alert Settings */}
+        <View style={styles.alertsGroup}>
+          <View style={styles.alertRow}>
+            <Ionicons name="snow" size={18} color="#64748b" />
+            <Text style={styles.alertLabel}>Nieve</Text>
+            <Text style={styles.alertThreshold}>≥{preferences.minSnowfallCm}cm</Text>
             <Switch
               value={preferences.snowAlerts}
               onValueChange={(value) => updatePreference('snowAlerts', value)}
-              trackColor={{ false: '#1e293b', true: '#63b3ed' }}
-              thumbColor={preferences.snowAlerts ? '#fff' : '#64748b'}
-              style={styles.compactSwitch}
+              trackColor={{ false: '#1e293b', true: '#475569' }}
+              thumbColor={preferences.snowAlerts ? '#e2e8f0' : '#64748b'}
+              style={styles.alertSwitch}
             />
           </View>
 
-          <View style={styles.compactAlertCard}>
-            <View style={styles.compactAlertHeader}>
-              <Ionicons name="thunderstorm" size={20} color="#8b5cf6" />
-              <Text style={styles.compactAlertTitle}>Tormenta</Text>
-              <Text style={styles.compactAlertThreshold}>Cruce</Text>
-            </View>
+          <View style={styles.alertDivider} />
+
+          <View style={styles.alertRow}>
+            <Ionicons name="thunderstorm" size={18} color="#64748b" />
+            <Text style={styles.alertLabel}>Tormenta</Text>
+            <Text style={styles.alertThreshold}>cruce</Text>
             <Switch
               value={preferences.stormAlerts}
               onValueChange={(value) => updatePreference('stormAlerts', value)}
-              trackColor={{ false: '#1e293b', true: '#8b5cf6' }}
-              thumbColor={preferences.stormAlerts ? '#fff' : '#64748b'}
-              style={styles.compactSwitch}
+              trackColor={{ false: '#1e293b', true: '#475569' }}
+              thumbColor={preferences.stormAlerts ? '#e2e8f0' : '#64748b'}
+              style={styles.alertSwitch}
             />
           </View>
 
-          <View style={styles.compactAlertCard}>
-            <View style={styles.compactAlertHeader}>
-              <Ionicons name="flag" size={20} color="#f59e0b" />
-              <Text style={styles.compactAlertTitle}>Viento</Text>
-              <Text style={styles.compactAlertThreshold}>≥{preferences.minWindSpeedKmh}km/h</Text>
-            </View>
+          <View style={styles.alertDivider} />
+
+          <View style={styles.alertRow}>
+            <Ionicons name="flag" size={18} color="#64748b" />
+            <Text style={styles.alertLabel}>Viento</Text>
+            <Text style={styles.alertThreshold}>≥{preferences.minWindSpeedKmh}km/h</Text>
             <Switch
               value={preferences.windAlerts}
               onValueChange={(value) => updatePreference('windAlerts', value)}
-              trackColor={{ false: '#1e293b', true: '#f59e0b' }}
-              thumbColor={preferences.windAlerts ? '#fff' : '#64748b'}
-              style={styles.compactSwitch}
+              trackColor={{ false: '#1e293b', true: '#475569' }}
+              thumbColor={preferences.windAlerts ? '#e2e8f0' : '#64748b'}
+              style={styles.alertSwitch}
             />
           </View>
         </View>
 
         {/* Advanced Settings Toggle */}
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.advancedToggle}
           onPress={() => setShowAdvanced(!showAdvanced)}
         >
-          <Ionicons name="options-outline" size={18} color="#64748b" />
+          <Ionicons name="options-outline" size={16} color="#64748b" />
           <Text style={styles.advancedToggleText}>Umbrales Personalizados</Text>
-          <Ionicons 
-            name={showAdvanced ? "chevron-up" : "chevron-down"} 
-            size={18} 
-            color="#64748b" 
+          <Ionicons
+            name={showAdvanced ? 'chevron-up' : 'chevron-down'}
+            size={16}
+            color="#64748b"
           />
         </TouchableOpacity>
 
         {/* Advanced Settings */}
         {showAdvanced && (
           <View style={styles.advancedSection}>
-            
-            {/* Min Snowfall Slider */}
             {preferences.snowAlerts && (
               <View style={styles.sliderContainer}>
                 <View style={styles.sliderHeader}>
-                  <Text style={styles.sliderLabel}>Mínimo de Nieve</Text>
+                  <Text style={styles.sliderLabel}>Nieve mínima</Text>
                   <Text style={styles.sliderValue}>{preferences.minSnowfallCm} cm</Text>
                 </View>
                 <Slider
@@ -154,18 +189,17 @@ export default function AlertasScreen() {
                   step={5}
                   value={preferences.minSnowfallCm}
                   onValueChange={(value: number) => updatePreference('minSnowfallCm', value)}
-                  minimumTrackTintColor="#63b3ed"
-                  maximumTrackTintColor="#334155"
-                  thumbTintColor="#63b3ed"
+                  minimumTrackTintColor="#475569"
+                  maximumTrackTintColor="#1e293b"
+                  thumbTintColor="#94a3b8"
                 />
               </View>
             )}
 
-            {/* Min Wind Speed Slider */}
             {preferences.windAlerts && (
               <View style={styles.sliderContainer}>
                 <View style={styles.sliderHeader}>
-                  <Text style={styles.sliderLabel}>Velocidad Mínima de Viento</Text>
+                  <Text style={styles.sliderLabel}>Viento mínimo</Text>
                   <Text style={styles.sliderValue}>{preferences.minWindSpeedKmh} km/h</Text>
                 </View>
                 <Slider
@@ -175,17 +209,16 @@ export default function AlertasScreen() {
                   step={10}
                   value={preferences.minWindSpeedKmh}
                   onValueChange={(value: number) => updatePreference('minWindSpeedKmh', value)}
-                  minimumTrackTintColor="#f59e0b"
-                  maximumTrackTintColor="#334155"
-                  thumbTintColor="#f59e0b"
+                  minimumTrackTintColor="#475569"
+                  maximumTrackTintColor="#1e293b"
+                  thumbTintColor="#94a3b8"
                 />
               </View>
             )}
 
-            {/* Advance Notice Days */}
             <View style={styles.sliderContainer}>
               <View style={styles.sliderHeader}>
-                <Text style={styles.sliderLabel}>Días de Anticipación</Text>
+                <Text style={styles.sliderLabel}>Anticipación</Text>
                 <Text style={styles.sliderValue}>{preferences.advanceNoticeDays} días</Text>
               </View>
               <Slider
@@ -195,19 +228,72 @@ export default function AlertasScreen() {
                 step={1}
                 value={preferences.advanceNoticeDays}
                 onValueChange={(value: number) => updatePreference('advanceNoticeDays', value)}
-                minimumTrackTintColor="#8b5cf6"
-                maximumTrackTintColor="#334155"
-                thumbTintColor="#8b5cf6"
+                minimumTrackTintColor="#475569"
+                maximumTrackTintColor="#1e293b"
+                thumbTintColor="#94a3b8"
               />
             </View>
-
-            {/* Save Button */}
-            <TouchableOpacity style={styles.saveButton} onPress={savePreferences}>
-              <Ionicons name="checkmark-circle" size={20} color="#fff" />
-              <Text style={styles.saveButtonText}>Guardar Configuración</Text>
-            </TouchableOpacity>
           </View>
         )}
+
+        {/* Resort Filter */}
+        <View style={styles.sectionCard}>
+          <View style={styles.sectionHeader}>
+            <Ionicons name="location" size={18} color="#64748b" />
+            <Text style={styles.sectionTitle}>Cerros</Text>
+          </View>
+
+          {loadingResorts ? (
+            <ActivityIndicator color="#64748b" style={{ marginVertical: 12 }} />
+          ) : (
+            <View style={styles.resortList}>
+              <TouchableOpacity
+                style={[styles.resortRow, preferences.allResorts && styles.resortRowSelected]}
+                onPress={toggleAllResorts}
+              >
+                <Text style={[styles.resortName, preferences.allResorts && styles.resortNameSelected]}>
+                  Todos los cerros
+                </Text>
+                <Ionicons
+                  name={preferences.allResorts ? 'checkbox' : 'square-outline'}
+                  size={20}
+                  color={preferences.allResorts ? '#e2e8f0' : '#475569'}
+                />
+              </TouchableOpacity>
+
+              {resorts.map(resort => {
+                const selected = preferences.allResorts ||
+                  (preferences.favoriteResorts || []).includes(resort.id);
+                return (
+                  <TouchableOpacity
+                    key={resort.id}
+                    style={[styles.resortRow, selected && styles.resortRowSelected]}
+                    onPress={() => toggleResort(resort.id)}
+                  >
+                    <Text style={[styles.resortName, selected && styles.resortNameSelected]}>
+                      {resort.name}
+                    </Text>
+                    <Ionicons
+                      name={selected ? 'checkbox' : 'square-outline'}
+                      size={20}
+                      color={selected ? '#e2e8f0' : '#475569'}
+                    />
+                  </TouchableOpacity>
+                );
+              })}
+
+              {resorts.length === 0 && (
+                <Text style={styles.resortEmpty}>No se pudieron cargar los cerros</Text>
+              )}
+            </View>
+          )}
+        </View>
+
+        {/* Save Button */}
+        <TouchableOpacity style={styles.saveButton} onPress={savePreferences}>
+          <Ionicons name="checkmark-circle" size={20} color="#fff" />
+          <Text style={styles.saveButtonText}>Guardar</Text>
+        </TouchableOpacity>
 
         {!permissionGranted && (
           <View style={styles.permissionWarning}>
@@ -252,40 +338,39 @@ const styles = StyleSheet.create({
     color: '#64748b',
     fontWeight: '500',
   },
-  alertsGrid: {
-    gap: 12,
-    marginBottom: 20,
-  },
-  compactAlertCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+  alertsGroup: {
     backgroundColor: 'rgba(15, 23, 42, 0.6)',
     borderRadius: 12,
-    padding: 14,
     borderWidth: 1,
     borderColor: 'rgba(100, 116, 139, 0.2)',
+    marginBottom: 12,
+    overflow: 'hidden',
   },
-  compactAlertHeader: {
+  alertRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 14,
     gap: 10,
+  },
+  alertLabel: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#cbd5e1',
     flex: 1,
   },
-  compactAlertTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#e2e8f0',
-  },
-  compactAlertThreshold: {
+  alertThreshold: {
     fontSize: 13,
-    fontWeight: '500',
-    color: '#64748b',
-    marginLeft: 'auto',
-    marginRight: 12,
+    color: '#475569',
+    marginRight: 4,
   },
-  compactSwitch: {
-    transform: [{ scale: 0.9 }],
+  alertSwitch: {
+    transform: [{ scale: 0.85 }],
+  },
+  alertDivider: {
+    height: 1,
+    backgroundColor: 'rgba(100, 116, 139, 0.15)',
+    marginHorizontal: 14,
   },
   advancedSection: {
     marginTop: 8,
@@ -327,43 +412,44 @@ const styles = StyleSheet.create({
   advancedToggle: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(15, 23, 42, 0.4)',
-    borderRadius: 10,
-    padding: 12,
-    marginVertical: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    marginBottom: 4,
     gap: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(100, 116, 139, 0.3)',
   },
   advancedToggleText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#94a3b8',
+    fontSize: 13,
+    color: '#64748b',
     flex: 1,
   },
   sliderContainer: {
-    marginBottom: 24,
+    marginBottom: 4,
+    backgroundColor: 'rgba(15, 23, 42, 0.4)',
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingTop: 10,
+    paddingBottom: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(100, 116, 139, 0.15)',
   },
   sliderHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 0,
   },
   sliderLabel: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#cbd5e1',
+    fontSize: 13,
+    color: '#64748b',
   },
   sliderValue: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#63b3ed',
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#94a3b8',
   },
   slider: {
     width: '100%',
-    height: 40,
+    height: 32,
   },
   saveButton: {
     flexDirection: 'row',
@@ -394,5 +480,64 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#fff',
+  },
+  sectionCard: {
+    backgroundColor: 'rgba(15, 23, 42, 0.6)',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(100, 116, 139, 0.2)',
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 10,
+  },
+  sectionTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#94a3b8',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+  },
+  resortToggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  resortToggleLabel: {
+    fontSize: 14,
+    color: '#94a3b8',
+  },
+  resortList: {
+    gap: 4,
+  },
+  resortRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    backgroundColor: 'transparent',
+  },
+  resortRowSelected: {
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  resortName: {
+    fontSize: 14,
+    color: '#475569',
+  },
+  resortNameSelected: {
+    color: '#cbd5e1',
+    fontWeight: '500',
+  },
+  resortEmpty: {
+    fontSize: 13,
+    color: '#475569',
+    textAlign: 'center',
+    paddingVertical: 8,
   },
 });

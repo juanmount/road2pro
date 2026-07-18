@@ -82,8 +82,7 @@ export default function HourlyForecastModal({ visible, onClose, date, hours, ele
           >
             {hours.map((hour, index) => {
               const date = new Date(hour.time);
-              const hourNum = date.getUTCHours() - 3; // Convert to Argentina time
-              const displayHour = hourNum < 0 ? hourNum + 24 : hourNum;
+              const displayHour = date.getHours();
               const hasGust = hour.windGust && hour.windGust > hour.windSpeed * 1.3;
               const hasPrecip = hour.precipitation >= 0.1 || hour.snowfall >= 0.1;
               

@@ -63,7 +63,7 @@ export default function SAMCard({ data, containerStyle }: Props) {
         <View style={styles.overlay}>
           <View style={styles.modal}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Flujo Andino</Text>
+              <Text style={styles.modalTitle}>Circulación del Oeste</Text>
               <TouchableOpacity onPress={() => setModalVisible(false)}>
                 <Ionicons name="close" size={26} color="#64748b" />
               </TouchableOpacity>

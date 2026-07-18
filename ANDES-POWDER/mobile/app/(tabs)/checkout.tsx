@@ -6,6 +6,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { trackScreenView, trackEarlyAccessEvent, AnalyticsEvents, trackPurchase } from '../../services/analytics';
 import { useUserEngagement } from '../../hooks/useUserEngagement';
 import * as IAP from '../../services/iap';
+import { logEvent, logPurchase } from '../../services/meta';
 
 // Pricing configuration
 const FOUNDER_PRICE_USD = 9.99;
@@ -31,6 +32,8 @@ export default function CheckoutScreen() {
       price: FOUNDER_PRICE_USD,
       currency: 'USD',
     });
+    // Meta App Events: view founder offer
+    logEvent('view_founder_offer', { price: FOUNDER_PRICE_USD, currency: 'USD' });
   }, []);
 
   const handlePurchase = async () => {
@@ -42,6 +45,8 @@ export default function CheckoutScreen() {
         price: FOUNDER_PRICE_USD,
         currency: 'USD',
       });
+      // Meta App Events: purchase initiated
+      logEvent('purchase_initiated', { value: FOUNDER_PRICE_USD, currency: 'USD' });
 
       // Initialize IAP connection
       await IAP.initIAP();
@@ -68,6 +73,11 @@ export default function CheckoutScreen() {
         await trackEarlyAccessEvent(AnalyticsEvents.PURCHASE_COMPLETED, {
           price: FOUNDER_PRICE_USD,
           currency: 'USD',
+        });
+        // Meta App Events: purchase success (value + currency)
+        logPurchase(FOUNDER_PRICE_USD, 'USD', {
+          transaction_id: purchase.transactionId,
+          item_id: IAP.PRODUCT_IDS.FOUNDER_ACCESS,
         });
 
         // Finish transaction
@@ -97,11 +107,15 @@ export default function CheckoutScreen() {
           price: FOUNDER_PRICE_USD,
           currency: 'USD',
         });
+        // Meta App Events: purchase_failed
+        logEvent('purchase_failed', { code: error?.code || error?.errorCode });
       }
 
       setLoading(false);
 
       if (error?.userCancelled) {
+        // Meta App Events: purchase_cancel
+        logEvent('purchase_cancel');
         return;
       }
 
