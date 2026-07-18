@@ -82,15 +82,15 @@ export function SnowfallChart({ hourlyData, baseElevation = 1600, midElevation =
         <Text style={styles.title}>Nevadas por Elevación (7 Días)</Text>
         <View style={styles.legend}>
           <View style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: '#3b82f6' }]} />
+            <View style={[styles.legendDot, { backgroundColor: '#dc2626' }]} />
             <Text style={styles.legendText}>Summit ({summitElevation}m)</Text>
           </View>
           <View style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: '#60a5fa' }]} />
+            <View style={[styles.legendDot, { backgroundColor: '#f87171' }]} />
             <Text style={styles.legendText}>Mid ({midElevation}m)</Text>
           </View>
           <View style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: '#93c5fd' }]} />
+            <View style={[styles.legendDot, { backgroundColor: '#fca5a5' }]} />
             <Text style={styles.legendText}>Base ({baseElevation}m)</Text>
           </View>
         </View>
@@ -307,16 +307,16 @@ const styles = StyleSheet.create({
     borderColor: '#ffffff',
   },
   summitBar: {
-    backgroundColor: '#2563eb',
+    backgroundColor: '#dc2626',
   },
   midBar: {
-    backgroundColor: '#3b82f6',
+    backgroundColor: '#f87171',
   },
   baseBar: {
-    backgroundColor: '#60a5fa',
+    backgroundColor: '#fca5a5',
   },
   rainBar: {
-    backgroundColor: '#94a3b8',
+    backgroundColor: '#38bdf8',
   },
   barDay: {
     fontSize: 13,
