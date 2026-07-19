@@ -16,9 +16,6 @@ Library/
 .expo-shared/
 *.keystore
 *.pem
-android/.gradle/
-android/app/build/
-android/build/
-ios/Pods/
-ios/build/
+android/
+ios/
 .expo-shared/
