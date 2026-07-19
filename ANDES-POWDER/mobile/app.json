@@ -73,6 +73,12 @@
       "expo-tracking-transparency",
       "@react-native-firebase/app"
     ],
+    "doctor": {
+      "reactNativeDirectoryCheck": {
+        "exclude": ["react-native-chart-kit", "firebase"],
+        "listUnknownPackages": false
+      }
+    },
     "extra": {
       "router": {
         "origin": false
