@@ -3,6 +3,10 @@ Library/
 .expo-shared/
 .DS_Store
 
+# Native dirs (expo-doctor uses this to detect CNG intent)
+android/
+ios/
+
 # Build artifacts
 android/.gradle/
 android/app/build/

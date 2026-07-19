@@ -1,0 +1,18 @@
+# EAS Build ignore file (git root level)
+# android/ and ios/ are intentionally NOT listed here
+# They must be uploaded for bare workflow builds on EAS
+
+# Build outputs
+**/node_modules/
+**/.DS_Store
+**/*.log
+**/dist/
+**/web-build/
+
+# Secrets
+**/.env
+**/.env.local
+
+# IDE
+**/.vscode/
+**/.idea/
