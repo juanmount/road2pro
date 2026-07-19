@@ -19,6 +19,7 @@
     },
     "production": {
       "distribution": "store",
+      "prebuildCommand": "expo prebuild --clean",
       "android": {
         "buildType": "app-bundle"
       },
