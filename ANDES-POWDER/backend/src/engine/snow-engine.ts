@@ -571,7 +571,9 @@ export class SnowEngine {
 
     // Week 2 precipitation blend: for h168+ progressively blend GFS precipitation.
     // ECMWF under-predicts frontal systems in Patagonia in the extended range.
-    // GFS weight ramps from 0% at h168 → 30% at h240+ (capped to avoid GFS outliers).
+    // GFS weight ramps from 0% at h168 → 50% at h216+ (days 7→9, capped at 50%).
+    // Faster ramp (48h) and higher cap vs previous (72h / 30%) to better capture
+    // Patagonian frontal systems in the extended range.
     // FRZ, temperature and wind remain ECMWF-sourced.
     if (gfs) {
       for (const elevation of ['base', 'mid', 'summit'] as const) {
@@ -585,13 +587,13 @@ export class SnowEngine {
           if (!point) continue;
           const gfsPoint = gfsMap.get(new Date(point.time).getTime());
           if (!gfsPoint) continue;
-          const t = Math.min(1, (i - 168) / 72); // 0→1 over 72 h (days 7→10)
-          const gfsWeight = t * 0.30;             // max 30% GFS
+          const t = Math.min(1, (i - 168) / 48); // 0→1 over 48 h (days 7→9)
+          const gfsWeight = t * 0.50;             // max 50% GFS
           const blended = point.precipitation * (1 - gfsWeight) + (gfsPoint.precipitation || 0) * gfsWeight;
           point.precipitation = Math.max(0, blended);
         }
       }
-      console.log('    → Week 2 precipitation: ECMWF + up to 30% GFS blend (h168+)');
+      console.log('    → Week 2 precipitation: ECMWF + up to 50% GFS blend (h168+, ramp 48h)');
     }
 
     return hybrid;
