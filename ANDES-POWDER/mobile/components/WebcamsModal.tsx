@@ -25,7 +25,13 @@ interface ResortConfig {
 const RESORT_CAMERAS: Record<string, ResortConfig> = {
   'cerro-catedral': {
     cameras: [
-      { id: 'cam001', name: 'Punta Princesa', zone: 'Alta Montaña', type: 'webview', webUrl: 'https://g3.ipcamlive.com/player/player.php?alias=6a2c31a02eaf9&skin=white&autoplay=1&disabledownloadbutton=1' },
+      { id: 'cam001', name: 'Punta Princesa',        zone: 'Alta Montaña', type: 'webview', webUrl: 'https://g3.ipcamlive.com/player/player.php?alias=6a2c31a02eaf9&skin=white&autoplay=1&disabledownloadbutton=1' },
+      { id: 'cam006', name: 'Centro Superior',        zone: 'Alta Montaña', type: 'image',   imageUrl: 'https://varitech.ar/cameras/cam006/latest.jpg' },
+      { id: 'cam008', name: 'Diente de Caballo Sur',  zone: 'Alta Montaña', type: 'image',   imageUrl: 'https://varitech.ar/cameras/cam008/latest.jpg' },
+      { id: 'cam005', name: 'Pista Eventos',          zone: 'Base',         type: 'image',   imageUrl: 'https://varitech.ar/cameras/cam005/latest.jpg' },
+      { id: 'cam002', name: 'Playpark',               zone: 'Base',         type: 'image',   imageUrl: 'https://varitech.ar/cameras/cam002/latest.jpg' },
+      { id: 'cam003', name: 'Plaza Catalina Reynal',  zone: 'Base',         type: 'image',   imageUrl: 'https://varitech.ar/cameras/cam003/latest.jpg' },
+      { id: 'cam004', name: 'Cable Carril Inferior',  zone: 'Base',         type: 'image',   imageUrl: 'https://varitech.ar/cameras/cam004/latest.jpg' },
     ],
   },
   'cerro-castor': {
