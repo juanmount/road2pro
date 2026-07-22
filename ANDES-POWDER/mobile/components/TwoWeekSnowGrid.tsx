@@ -399,7 +399,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   dayCardWeek2: {
-    opacity: 0.85,
+    opacity: 1,
   },
   weekSepLine: {
     position: 'absolute',
