@@ -83,15 +83,15 @@ export function determinePrecipitationPhase(
   // PRIORITY 2: Wet bulb temperature for marginal cases
   // Catedral uses -2.5°C wet bulb for technical snow operations
   if (wetBulbC < -2.5) {
-    // Cold wet bulb + reasonable elevation = snow
-    if (margin < 100) return 'snow';
-    return 'mixed'; // Cold but above freezing level
+    // Cold wet bulb — snow if within 350m below FRZ (covers base 270m below FRZ in cold Patagonian fronts)
+    if (margin < 350) return 'snow';
+    return 'mixed'; // Very far below FRZ (>350m) with cold wet bulb — mixed
   }
   
   if (wetBulbC < 0) {
     // Mixed precipitation zone: wet bulb between -2.5°C and 0°C
-    if (margin < -100) return 'snow'; // Below freezing level
-    if (margin > 150) return 'rain';  // Above freezing level
+    if (margin < -100) return 'snow'; // Well above FRZ → definite snow
+    if (margin > 350) return 'rain';  // Far below FRZ (>350m) → rain
     return 'mixed'; // Transition zone
   }
   

@@ -213,13 +213,9 @@ export class PhaseClassifier {
     const T850_MIXED_THRESHOLD = -3;   // -8°C to -3°C = transition zone
     const T850_RAIN_THRESHOLD = 2;     // Above 2°C = warm air mass
     
-    // Strong cold air mass
+    // Strong cold air mass (T850 < -8°C) — snow regardless of margin
     if (t850 < T850_SNOW_THRESHOLD) {
-      if (margin < 100) {
-        return { phase: 'snow', confidence: 'high', snowRatio: 1.0 };
-      }
-      // Even if above freezing level, T850 indicates cold mass
-      return { phase: 'snow', confidence: 'medium', snowRatio: 0.85 };
+      return { phase: 'snow', confidence: 'high', snowRatio: 1.0 };
     }
     
     // Warm air mass
@@ -234,14 +230,14 @@ export class PhaseClassifier {
     // Transition zone: -8°C to 2°C at 850hPa
     // Use combination of T850, surface temp, and elevation margin
     if (t850 < T850_MIXED_THRESHOLD) {
-      // -8°C to -3°C: Favor snow
-      if (margin < -100) {
-        return { phase: 'snow', confidence: 'high', snowRatio: 1.0 };
+      // -8°C to -3°C at 850hPa: cold air mass dominates
+      // Physics: T850=-5°C at ~1500m → lapse rate implies ~-2°C at 1030m base
+      // Even with FRZ slightly above the base, the cold column produces snow
+      if (margin < 350) {
+        const highConf = t850 < -5 || margin < 0;
+        return { phase: 'snow', confidence: highConf ? 'high' : 'medium', snowRatio: 1.0 };
       }
-      if (margin < 100) {
-        return { phase: 'snow', confidence: 'medium', snowRatio: 0.9 };
-      }
-      // Mixed conditions
+      // Base is far below FRZ (>350m) — use transition ratio
       const snowRatio = this.calculateT850TransitionRatio(t850, surfaceTemp, margin);
       return { phase: 'mixed', confidence: 'low', snowRatio };
     } else {
