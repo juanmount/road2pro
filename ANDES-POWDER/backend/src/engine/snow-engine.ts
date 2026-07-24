@@ -569,13 +569,12 @@ export class SnowEngine {
     // GFS override removed: GFS freezinglevel_height is noisy and less accurate than the
     // physically-derived ECMWF values.
 
-    // Extended-range precipitation+snowfall blend: starts at h120 (day 5) to avoid an
-    // abrupt visual cliff at the week-1/week-2 boundary.
-    // GFS weight ramps 0% → 50% over 96 h (days 5→9), then stays at 50%.
-    // ECMWF under-predicts Patagonian frontal systems in the extended range.
-    // Both precipitation AND snowfall are blended so that snow bars (which use snowfall)
-    // are also corrected — previously only precipitation was blended which had no effect
-    // on the red snow bars rendered by the frontend.
+    // Week 2 precipitation+snowfall blend: for h168+ progressively blend GFS values.
+    // ECMWF under-predicts frontal systems in Patagonia in the extended range.
+    // GFS weight ramps 0% → 50% over 48 h (days 7→9, capped at 50%).
+    // Week 1 (h0–h168) remains pure ECMWF — accurate within 7 days.
+    // Both precipitation AND snowfall are blended: snowfall drives the red snow bars
+    // in the frontend, so blending only precipitation had no visible effect on them.
     // FRZ, temperature and wind remain ECMWF-sourced.
     if (gfs) {
       for (const elevation of ['base', 'mid', 'summit'] as const) {
@@ -584,18 +583,18 @@ export class SnowEngine {
         const gfsMap = new Map<number, any>();
         for (const p of gfsData) gfsMap.set(new Date(p.time).getTime(), p);
 
-        for (let i = 120; i < hybrid[elevation].length; i++) {
+        for (let i = 168; i < hybrid[elevation].length; i++) {
           const point = hybrid[elevation][i];
           if (!point) continue;
           const gfsPoint = gfsMap.get(new Date(point.time).getTime());
           if (!gfsPoint) continue;
-          const t = Math.min(1, (i - 120) / 96); // 0→1 over 96 h (days 5→9)
+          const t = Math.min(1, (i - 168) / 48); // 0→1 over 48 h (days 7→9)
           const gfsWeight = t * 0.50;             // max 50% GFS
           point.precipitation = Math.max(0, point.precipitation * (1 - gfsWeight) + (gfsPoint.precipitation || 0) * gfsWeight);
           point.snowfall      = Math.max(0, (point.snowfall ?? 0) * (1 - gfsWeight) + (gfsPoint.snowfall      || 0) * gfsWeight);
         }
       }
-      console.log('    → Extended range: ECMWF + up to 50% GFS blend (h120+, ramp 96h) — precipitation & snowfall');
+      console.log('    → Week 2: ECMWF + up to 50% GFS blend (h168+, ramp 48h) — precipitation & snowfall');
     }
 
     return hybrid;
