@@ -344,18 +344,20 @@ export class SnowEngine {
     // 1. Classify precipitation phase using wet bulb temperature (and T850 if available)
     const freezingLevel = data.freezingLevel || this.estimateFreezingLevel(data.temperature, elevationMeters);
     const humidity = data.humidity || 70; // Default to 70% if not available
+    const t850Value = typeof data.temperature850hPa === 'number' ? data.temperature850hPa : undefined;
     const phase = this.phaseClassifier.classifyPrecipitation(
       data.temperature,
       freezingLevel,
       elevationMeters,
       data.precipitation,
       humidity,
-      data.temperature850hPa  // T850 for better phase classification (GFS only)
+      t850Value
     );
     
     // Debug phase classification
     if (forecastHour === 0) {
-      console.log(`  Phase classification: precip=${data.precipitation}mm -> phase=${phase.phase}`);
+      const margin = freezingLevel - elevationMeters;
+      console.log(`  [${elevationBand}] Phase h0: temp=${data.temperature.toFixed(1)}°C frz=${freezingLevel}m elev=${elevationMeters}m margin=${margin}m T850=${t850Value ?? 'N/A'} precip=${data.precipitation.toFixed(2)}mm -> phase=${phase.phase} snowRatio=${phase.snowRatio.toFixed(2)}`);
     }
     
     // 2. Calculate raw snowfall

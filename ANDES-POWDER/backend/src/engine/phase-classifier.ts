@@ -32,7 +32,7 @@ export class PhaseClassifier {
     }
     
     // NEW: Use T850 if feature flag is enabled and data is available
-    if (FEATURES.USE_T850 && temperature850hPa !== undefined) {
+    if (FEATURES.USE_T850 && typeof temperature850hPa === 'number') {
       const result = this.classifyWithT850(temp, temperature850hPa, freezingLevel, elevation, humidity);
       return this.applySafetyOverride(result, temp);
     }
