@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, ImageBackground, StatusBar, Image } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, ImageBackground, StatusBar, Image, Modal, ScrollView, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
@@ -11,6 +11,14 @@ import OnboardingScreen from '../../components/OnboardingScreen';
 import AlertsBanner from '../../components/AlertsBanner';
 import alertsService, { Alert } from '../../services/alertsService';
 
+interface LiftStatus {
+  name: string;
+  status: 'open' | 'conditional' | 'closed' | 'unknown';
+}
+interface LiftSector {
+  sector: string;
+  lifts: LiftStatus[];
+}
 interface OperationalStatus {
   available: boolean;
   liftsOpen: number | null;
@@ -18,6 +26,7 @@ interface OperationalStatus {
   runsOpenKm: number | null;
   runsTotalKm: number | null;
   resortOpen: boolean;
+  liftsDetail?: LiftSector[] | null;
 }
 
 interface ResortWithConditions extends Resort {
@@ -54,6 +63,7 @@ const getResortImage = (slug: string) => {
 export default function HomeScreen() {
   const router = useRouter();
   const [resorts, setResorts] = useState<ResortWithConditions[]>([]);
+  const [liftsModalResort, setLiftsModalResort] = useState<ResortWithConditions | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [visitCounts, setVisitCounts] = useState<Record<string, number>>({});
@@ -332,8 +342,13 @@ export default function HomeScreen() {
                   const total = op.liftsTotal ?? 0;
                   const pct   = isClosed ? 0 : (total > 0 ? open / total : 0);
                   const color = isClosed ? 'rgba(255,255,255,0.35)' : pct >= 0.5 ? '#4ade80' : pct >= 0.2 ? '#fbbf24' : '#f87171';
+                  const hasDetail = Array.isArray(op.liftsDetail) && op.liftsDetail.length > 0;
                   return (
-                    <View style={styles.opStatusPanel}>
+                    <TouchableOpacity
+                      style={styles.opStatusPanel}
+                      onPress={() => hasDetail ? setLiftsModalResort(item) : null}
+                      activeOpacity={hasDetail ? 0.7 : 1}
+                    >
                       <Text style={styles.opStatusLabel}>MEDIOS</Text>
                       <Text style={[styles.opStatusValue, { color }]}>
                         {open}
@@ -345,8 +360,8 @@ export default function HomeScreen() {
                           backgroundColor: color,
                         }]} />
                       </View>
-                      <Text style={styles.opStatusSub}>abiertos</Text>
-                    </View>
+                      <Text style={styles.opStatusSub}>{hasDetail ? 'ver detalle' : 'abiertos'}</Text>
+                    </TouchableOpacity>
                   );
                 })()}
               </View>
@@ -452,6 +467,19 @@ export default function HomeScreen() {
     );
   }
 
+  const statusColor = (s: LiftStatus['status']) => {
+    if (s === 'open') return '#4ade80';
+    if (s === 'conditional') return '#fbbf24';
+    if (s === 'closed') return '#f87171';
+    return 'rgba(255,255,255,0.3)';
+  };
+  const statusLabel = (s: LiftStatus['status']) => {
+    if (s === 'open') return 'Abierto';
+    if (s === 'conditional') return 'Condicional';
+    if (s === 'closed') return 'Cerrado';
+    return '—';
+  };
+
   return (
     <ImageBackground
       source={require('../../assets/Background_home.jpeg')}
@@ -459,7 +487,40 @@ export default function HomeScreen() {
       imageStyle={styles.backgroundImage}
     >
       <StatusBar barStyle="light-content" />
-      
+
+      {/* Lifts Detail Modal */}
+      <Modal
+        visible={liftsModalResort !== null}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setLiftsModalResort(null)}
+      >
+        <Pressable style={styles.modalOverlay} onPress={() => setLiftsModalResort(null)}>
+          <Pressable style={styles.modalSheet} onPress={e => e.stopPropagation()}>
+            <View style={styles.modalHandle} />
+            <Text style={styles.modalTitle}>{liftsModalResort?.name}</Text>
+            <Text style={styles.modalSubtitle}>Estado de medios</Text>
+            <ScrollView style={styles.modalScroll} showsVerticalScrollIndicator={false}>
+              {(liftsModalResort?.operationalStatus?.liftsDetail ?? []).map((sector, si) => (
+                <View key={si} style={styles.sectorBlock}>
+                  <Text style={styles.sectorName}>{sector.sector}</Text>
+                  {sector.lifts.map((lift, li) => (
+                    <View key={li} style={styles.liftRow}>
+                      <View style={[styles.liftDot, { backgroundColor: statusColor(lift.status) }]} />
+                      <Text style={styles.liftName}>{lift.name}</Text>
+                      <Text style={[styles.liftStatus, { color: statusColor(lift.status) }]}>{statusLabel(lift.status)}</Text>
+                    </View>
+                  ))}
+                </View>
+              ))}
+            </ScrollView>
+            <TouchableOpacity style={styles.modalClose} onPress={() => setLiftsModalResort(null)}>
+              <Text style={styles.modalCloseText}>Cerrar</Text>
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerContent}>
@@ -773,5 +834,91 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     letterSpacing: 0.5,
+  },
+
+  // Lifts Detail Modal
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    justifyContent: 'flex-end',
+  },
+  modalSheet: {
+    backgroundColor: '#0f172a',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingHorizontal: 20,
+    paddingBottom: 32,
+    maxHeight: '80%',
+  },
+  modalHandle: {
+    width: 36,
+    height: 4,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginTop: 10,
+    marginBottom: 16,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#fff',
+    marginBottom: 2,
+  },
+  modalSubtitle: {
+    fontSize: 12,
+    color: '#94a3b8',
+    marginBottom: 16,
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+  },
+  modalScroll: {
+    maxHeight: 420,
+  },
+  sectorBlock: {
+    marginBottom: 16,
+  },
+  sectorName: {
+    fontSize: 11,
+    color: '#38bdf8',
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    marginBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(56,189,248,0.2)',
+    paddingBottom: 4,
+  },
+  liftRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+    gap: 10,
+  },
+  liftDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  liftName: {
+    flex: 1,
+    fontSize: 14,
+    color: '#e2e8f0',
+  },
+  liftStatus: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  modalClose: {
+    marginTop: 16,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  modalCloseText: {
+    color: '#94a3b8',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });
