@@ -198,10 +198,12 @@ export class PhaseClassifier {
       return { phase: 'snow', confidence: 'high', snowRatio: 1.0 };
     }
     
-    // If well below freezing level AND surface is warm: rain.
-    // Threshold 400m: below that, a cold air mass (T850 < 0°C) can still sustain snow
-    // (dense snow / graupel doesn’t fully melt in a thin warm layer in Patagonian cold fronts).
-    if (margin > 400) {
+    // If well below freezing level AND warm air mass: rain.
+    // When T850 < 0°C (cold front) skip this override entirely:
+    // ECMWF systematically overestimates FRZ by 300-500m in Patagonian cold fronts
+    // (sublimation cooling, cold air pooling in valleys, orographic effects).
+    // The T850 logic below handles these cases correctly.
+    if (margin > 400 && t850 >= 0) {
       if (surfaceTemp >= 0) return { phase: 'rain', confidence: 'high', snowRatio: 0.0 };
       if (surfaceTemp < -2) return { phase: 'snow', confidence: 'medium', snowRatio: 0.9 };
       return { phase: 'mixed', confidence: 'medium', snowRatio: 0.6 };
@@ -241,15 +243,15 @@ export class PhaseClassifier {
       const snowRatio = this.calculateT850TransitionRatio(t850, surfaceTemp, margin);
       return { phase: 'mixed', confidence: 'low', snowRatio };
     } else if (t850 < 0) {
-      // -3°C to 0°C: cold air mass — snow can survive a shallow warm layer below FRZ
-      // Catedral / Patagonia cold fronts: snow often falls up to 350m below FRZ
+      // -3°C to 0°C: cold air mass — ECMWF FRZ overestimates actual snow line by 300-500m
+      // in Patagonian cold fronts. Use 500m threshold to account for this systematic bias.
       if (margin < -100) {
         return { phase: 'snow', confidence: 'high', snowRatio: 1.0 };
       }
-      if (margin < 350) {
+      if (margin < 500) {
         return { phase: 'snow', confidence: 'medium', snowRatio: 0.9 };
       }
-      // Warm layer too thick, but some frozen precipitation may survive
+      // Warm layer very thick (>500m): mixed, transitioning to rain
       const snowRatio = this.calculateT850TransitionRatio(t850, surfaceTemp, margin);
       return { phase: 'mixed', confidence: 'low', snowRatio };
     } else {
