@@ -198,10 +198,10 @@ export class PhaseClassifier {
       return { phase: 'snow', confidence: 'high', snowRatio: 1.0 };
     }
     
-    // If clearly above freezing level AND local temperature is warm, it's rain.
-    // If local temperature is below 0°C despite high FRZ (pre-frontal inversion),
-    // precipitation cannot be liquid — classify as snow or mixed.
-    if (margin > 300) {
+    // If well below freezing level AND surface is warm: rain.
+    // Threshold 400m: below that, a cold air mass (T850 < 0°C) can still sustain snow
+    // (dense snow / graupel doesn’t fully melt in a thin warm layer in Patagonian cold fronts).
+    if (margin > 400) {
       if (surfaceTemp >= 0) return { phase: 'rain', confidence: 'high', snowRatio: 0.0 };
       if (surfaceTemp < -2) return { phase: 'snow', confidence: 'medium', snowRatio: 0.9 };
       return { phase: 'mixed', confidence: 'medium', snowRatio: 0.6 };
@@ -240,8 +240,20 @@ export class PhaseClassifier {
       // Base is far below FRZ (>350m) — use transition ratio
       const snowRatio = this.calculateT850TransitionRatio(t850, surfaceTemp, margin);
       return { phase: 'mixed', confidence: 'low', snowRatio };
+    } else if (t850 < 0) {
+      // -3°C to 0°C: cold air mass — snow can survive a shallow warm layer below FRZ
+      // Catedral / Patagonia cold fronts: snow often falls up to 350m below FRZ
+      if (margin < -100) {
+        return { phase: 'snow', confidence: 'high', snowRatio: 1.0 };
+      }
+      if (margin < 350) {
+        return { phase: 'snow', confidence: 'medium', snowRatio: 0.9 };
+      }
+      // Warm layer too thick, but some frozen precipitation may survive
+      const snowRatio = this.calculateT850TransitionRatio(t850, surfaceTemp, margin);
+      return { phase: 'mixed', confidence: 'low', snowRatio };
     } else {
-      // -3°C to 2°C: Transition to rain
+      // 0°C to 2°C: Transition to rain
       // But still check elevation margin
       if (margin < -100) {
         return { phase: 'snow', confidence: 'medium', snowRatio: 0.9 };
