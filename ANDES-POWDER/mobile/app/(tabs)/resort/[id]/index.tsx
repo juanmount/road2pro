@@ -346,9 +346,14 @@ export default function ResortDetailScreen() {
           );
           
           let adjustedSnowfall = 0;
+          const isWeek2 = i >= 7;
           hours.forEach(h => {
             const hourSnow = h.snowfall || 0;
             if (hourSnow > 0) {
+              if (isWeek2) {
+                adjustedSnowfall += hourSnow;
+                return;
+              }
               const freezingLevel = getAuthoritativeFrz(h, conditions, 3000);
               const margin = freezingLevel - elevationMeters;
               const windSpeed = h.windSpeed || 0;
@@ -781,6 +786,10 @@ export default function ResortDetailScreen() {
       let totalSolarLoss = 0;
       let totalSeasonalLoss = 0;
       
+      // Week 2: days 7+ from today — show raw snowfall without retention
+      const daysFromToday = Math.round((dayMidnight.getTime() - today.getTime()) / (24 * 60 * 60 * 1000));
+      const isWeek2 = daysFromToday >= 7;
+      
       // Store adjusted snowfall for each hour
       const adjustedSnowfallByHour = new Map<string, number>();
       
@@ -789,6 +798,12 @@ export default function ResortDetailScreen() {
         let adjusted = 0; // Declare outside to use in both branches
         
         if (hourSnow > 0) {
+          if (isWeek2) {
+            adjusted = hourSnow;
+            realSnowfall += adjusted;
+            adjustedSnowfallByHour.set(h.time, adjusted);
+            return;
+          }
           const freezingLevel = getAuthoritativeFrz(h, conditions, 3000);
           const margin = freezingLevel - elevationMeters;
           const windSpeed = h.windSpeed || 0;

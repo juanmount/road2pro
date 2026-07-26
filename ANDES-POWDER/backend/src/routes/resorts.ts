@@ -973,10 +973,19 @@ router.get('/:id/accumulation', async (req: Request, res: Response) => {
         const dateKey = targetDate.toISOString().slice(0, 10);
         const hours = futureHoursMap.get(dateKey) || [];
         let dailyTotal = 0;
+        const isWeek2 = offset >= 7;
         for (const hr of hours) {
           if (!['snow', 'sleet', 'mixed'].includes(hr.phase_classification)) continue;
           const snow = parseFloat(hr.snowfall_cm_corrected || 0);
           if (snow <= 0) continue;
+          if (isWeek2) {
+            // Week 2: raw corrected snowfall, no retention or wind loss.
+            // ECMWF resolution degrades after day 6 (6-hourly), so applying
+            // retention + wind loss on top makes values almost disappear.
+            // Show model output directly, similar to competitors.
+            dailyTotal += snow;
+            continue;
+          }
           const frz = hr.live_frz != null ? hr.live_frz
             : (hr.freezing_level_m != null ? parseFloat(hr.freezing_level_m) : null);
           const surfaceTemp = parseFloat(hr.temperature_c || 0);
@@ -1009,7 +1018,8 @@ router.get('/:id/accumulation', async (req: Request, res: Response) => {
           const wf = wind > 60 ? 0.65 : wind > 40 ? 0.75 : wind > 25 ? 0.85 : wind > 15 ? 0.92 : 0.97;
           dailyTotal += snow * retention * wf * 0.93;
         }
-        const predicted = Math.min(cap, Math.max(0, dailyTotal));
+        const effectiveCap = isWeek2 ? Math.max(cap, 50) : cap;
+        const predicted = Math.min(effectiveCap, Math.max(0, dailyTotal));
         totalNext += predicted;
         daysArr.push({
           date: dateKey,
