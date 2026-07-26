@@ -48,10 +48,17 @@
       "favicon": "./assets/favicon.png"
     },
     "scheme": "andespowder",
+    "updates": {
+      "url": "https://u.expo.dev/9ef6fdd6-aca4-443a-8bae-2b3f1f611be3"
+    },
+    "runtimeVersion": {
+      "policy": "sdkVersion"
+    },
     "plugins": [
       "expo-router",
       "expo-font",
       "expo-notifications",
+      "expo-updates",
       [
         "expo-build-properties",
         {
