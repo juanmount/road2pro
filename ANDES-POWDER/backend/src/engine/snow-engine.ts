@@ -359,6 +359,14 @@ export class SnowEngine {
       const margin = freezingLevel - elevationMeters;
       console.log(`  [${elevationBand}] Phase h0: temp=${data.temperature.toFixed(1)}°C frz=${freezingLevel}m elev=${elevationMeters}m margin=${margin}m T850=${t850Value ?? 'N/A'} precip=${data.precipitation.toFixed(2)}mm -> phase=${phase.phase} snowRatio=${phase.snowRatio.toFixed(2)}`);
     }
+    // Detailed base elevation logging for first 24h to debug phase override
+    if (elevationBand === 'base' && forecastHour < 24 && data.precipitation > 0.1) {
+      const margin = freezingLevel - elevationMeters;
+      const finalPhase = (phase.phase === 'rain' && data.temperature <= 1)
+        ? (data.temperature <= 0 ? 'snow' : 'mixed')
+        : phase.phase;
+      console.log(`  [base] h${forecastHour}: temp=${data.temperature.toFixed(2)}°C frz=${freezingLevel}m margin=${margin}m T850=${t850Value ?? 'N/A'} precip=${data.precipitation.toFixed(2)}mm -> classifier=${phase.phase} -> final=${finalPhase}`);
+    }
     
     // 2. Calculate raw snowfall
     const rawSnowfall = this.snowCalculator.calculateSnowfall(
