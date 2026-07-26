@@ -466,8 +466,8 @@ export class SnowEngine {
       inCloud: visibilityConditions.inCloud,
       cloudBaseMeters: visibilityConditions.cloudBaseMeters || undefined,
       snowfallCmCorrected: corrected.snowfallCorrected,
-      // Final safety override before DB write: T<0°C cannot produce liquid rain.
-      phaseClassification: (phase.phase === 'rain' && data.temperature < 0)
+      // Final safety override before DB write: T<=0°C cannot produce liquid rain.
+      phaseClassification: (phase.phase === 'rain' && data.temperature <= 0)
         ? (data.temperature < -2 ? 'snow' : 'mixed')
         : phase.phase,
       snowQuality,

@@ -84,7 +84,7 @@ export class PhaseClassifier {
    * mountain surface is below freezing (pre-frontal inversions, cold summit layers).
    */
   private applySafetyOverride(result: PhaseResult, surfaceTemp: number): PhaseResult {
-    if (result.phase === 'rain' && surfaceTemp < 0) {
+    if (result.phase === 'rain' && surfaceTemp <= 0) {
       if (surfaceTemp < -2) {
         return { phase: 'snow', confidence: 'medium', snowRatio: 0.9 };
       }

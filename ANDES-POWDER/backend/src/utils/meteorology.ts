@@ -99,8 +99,8 @@ export function determinePrecipitationPhase(
     // Marginal rain zone: wet bulb between 0°C and 2°C
     // Elevation becomes critical here
     if (margin < -100) return 'snow'; // Still below freezing level
-    if (margin < 50) return 'mixed';  // Near freezing level
-    return 'rain'; // Above freezing level
+    if (margin < 350) return 'mixed';  // Within 350m of FRZ — cold air mass can sustain snow/mixed
+    return 'rain'; // Well above FRZ (>350m) with warm wet bulb
   }
   
   // Warm rain: wet bulb > 2°C
