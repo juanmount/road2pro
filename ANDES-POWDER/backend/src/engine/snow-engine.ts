@@ -477,10 +477,12 @@ export class SnowEngine {
       inCloud: visibilityConditions.inCloud,
       cloudBaseMeters: visibilityConditions.cloudBaseMeters || undefined,
       snowfallCmCorrected: corrected.snowfallCorrected,
-      // Final safety override before DB write: T<=2.5°C cannot produce pure liquid rain.
+      // Final safety override before DB write:
+      // 1) rain at T<=2.5°C → mixed (or snow if T<=1°C)
+      // 2) mixed at T<=1°C → snow (cold surface freezes precip regardless of small warm layer)
       phaseClassification: (phase.phase === 'rain' && data.temperature <= 2.5)
         ? (data.temperature <= 1 ? 'snow' : 'mixed')
-        : phase.phase,
+        : (phase.phase === 'mixed' && data.temperature <= 1 ? 'snow' : phase.phase),
       snowQuality,
       powderScore: corrected.powderScoreCorrected,
       skiabilityScore,

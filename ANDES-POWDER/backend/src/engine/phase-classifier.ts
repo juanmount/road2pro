@@ -95,6 +95,12 @@ export class PhaseClassifier {
       // 1°C < temp <= 2.5°C: marginal — mixed, not pure rain
       return { phase: 'mixed', confidence: 'medium', snowRatio: 0.5 };
     }
+    // mixed at surface temp <= 1°C: FRZ is close to elevation but surface is cold.
+    // Precipitation freezes on contact — override to snow.
+    // e.g. mid at 1600m with FRZ 1670m (70m margin) and -1.4°C surface → snow.
+    if (result.phase === 'mixed' && surfaceTemp <= 1) {
+      return { phase: 'snow', confidence: 'medium', snowRatio: 0.8 };
+    }
     return result;
   }
   
