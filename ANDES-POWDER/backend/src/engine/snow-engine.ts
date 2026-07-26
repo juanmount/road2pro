@@ -270,21 +270,24 @@ export class SnowEngine {
     const hoursToProcess = Math.min(forecast.base.length, 336);
     console.log(`  Processing ${hoursToProcess} hours of forecast data...`);
     
-    // Apply observed freezing level correction: blend observed FRZ into forecast
-    // First 24h: 100% observed, 24-48h: gradual transition, 48h+: 100% forecast
+    // Apply observed freezing level correction: blend observed FRZ into BASE only.
+    // The observedFreezingLevel is derived from a valley surface station (840m airport).
+    // Applying it to mid/summit creates a physical inconsistency: model temps at those
+    // elevations (e.g. -2°C at 1600m) stay unchanged while FRZ is artificially raised
+    // to match the warm valley reading — causing wrong phase and reduced snowfall.
+    // Mid and summit use the model's own FRZ (ECMWF pressure-level derived).
     if (observedFreezingLevel) {
-      console.log(`  → Applying observed FRZ correction: ${observedFreezingLevel}m`);
+      console.log(`  → Applying observed FRZ correction to BASE only: ${observedFreezingLevel}m`);
       for (let i = 0; i < hoursToProcess; i++) {
         const blendWeight = i <= 24 ? 1.0 : i <= 48 ? 1.0 - ((i - 24) / 24) : 0;
         if (blendWeight > 0) {
           const blendFrz = (frzForecast: number) => 
-            Math.round(observedFreezingLevel * blendWeight + frzForecast * (1 - blendWeight));
+            Math.round(observedFreezingLevel! * blendWeight + frzForecast * (1 - blendWeight));
           if (forecast.base[i]) forecast.base[i].freezingLevel = blendFrz(forecast.base[i].freezingLevel || 2000);
-          if (forecast.mid[i]) forecast.mid[i].freezingLevel = blendFrz(forecast.mid[i].freezingLevel || 2000);
-          if (forecast.summit[i]) forecast.summit[i].freezingLevel = blendFrz(forecast.summit[i].freezingLevel || 2000);
+          // mid and summit intentionally NOT blended — model FRZ is more accurate at altitude
         }
       }
-      console.log(`  → FRZ after correction - Hour 0: ${forecast.mid[0]?.freezingLevel}m, Hour 24: ${forecast.mid[24]?.freezingLevel}m, Hour 48: ${forecast.mid[48]?.freezingLevel}m`);
+      console.log(`  → FRZ after correction - Base h0: ${forecast.base[0]?.freezingLevel}m, Mid h0: ${forecast.mid[0]?.freezingLevel}m (model, unmodified)`);
     }
     
     for (let i = 0; i < hoursToProcess; i++) {
