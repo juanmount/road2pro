@@ -84,11 +84,15 @@ export class PhaseClassifier {
    * mountain surface is below freezing (pre-frontal inversions, cold summit layers).
    */
   private applySafetyOverride(result: PhaseResult, surfaceTemp: number): PhaseResult {
-    if (result.phase === 'rain' && surfaceTemp <= 0) {
-      if (surfaceTemp < -2) {
+    if (result.phase === 'rain' && surfaceTemp <= 1) {
+      if (surfaceTemp <= -2) {
         return { phase: 'snow', confidence: 'medium', snowRatio: 0.9 };
       }
-      return { phase: 'mixed', confidence: 'medium', snowRatio: 0.6 };
+      if (surfaceTemp <= 0) {
+        return { phase: 'snow', confidence: 'medium', snowRatio: 0.8 };
+      }
+      // 0°C < temp <= 1°C: marginal — at least mixed, not pure rain
+      return { phase: 'mixed', confidence: 'medium', snowRatio: 0.5 };
     }
     return result;
   }
@@ -260,11 +264,15 @@ export class PhaseClassifier {
       if (margin < -100) {
         return { phase: 'snow', confidence: 'medium', snowRatio: 0.9 };
       }
-      if (margin > 200) {
+      if (margin > 300) {
         return { phase: 'rain', confidence: 'high', snowRatio: 0.0 };
       }
+      if (margin > 200) {
+        // Marginal: FRZ close to elevation, cold-ish air mass — mixed not rain
+        return { phase: 'mixed', confidence: 'medium', snowRatio: 0.4 };
+      }
       if (margin > 50) {
-        return { phase: 'rain', confidence: 'medium', snowRatio: 0.1 };
+        return { phase: 'mixed', confidence: 'medium', snowRatio: 0.3 };
       }
       // Mixed conditions
       const snowRatio = this.calculateT850TransitionRatio(t850, surfaceTemp, margin);
