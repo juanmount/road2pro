@@ -224,6 +224,14 @@ export default function ResortDetailScreen() {
           else if (margin <= 450) baseAdjustment = 0.02;
           else baseAdjustment = 0;
           
+          // Phase classifier already accounts for T850, wet bulb, cold air pooling.
+          // If it says snow or mixed, trust it — don't let margin alone zero out accumulation.
+          if (h.phase === 'snow') {
+            baseAdjustment = Math.max(baseAdjustment, 0.75);
+          } else if (h.phase === 'mixed') {
+            baseAdjustment = Math.max(baseAdjustment, 0.45);
+          }
+          
           if (baseAdjustment > 0) {
             // Wind loss (elevation-adjusted for Patagonia)
             const elevationWindMultiplier = selectedElevation === 'summit' ? 2.0 : 
