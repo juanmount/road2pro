@@ -571,33 +571,10 @@ export class SnowEngine {
     // GFS override removed: GFS freezinglevel_height is noisy and less accurate than the
     // physically-derived ECMWF values.
 
-    // Week 2 precipitation+snowfall blend: for h168+ progressively blend GFS values.
-    // ECMWF under-predicts frontal systems in Patagonia in the extended range.
-    // GFS weight ramps 0% → 50% over 48 h (days 7→9, capped at 50%).
-    // Week 1 (h0–h168) remains pure ECMWF — accurate within 7 days.
-    // Both precipitation AND snowfall are blended: snowfall drives the red snow bars
-    // in the frontend, so blending only precipitation had no visible effect on them.
-    // FRZ, temperature and wind remain ECMWF-sourced.
-    if (gfs) {
-      for (const elevation of ['base', 'mid', 'summit'] as const) {
-        const gfsData: any[] = gfs[elevation] || [];
-        if (gfsData.length === 0) continue;
-        const gfsMap = new Map<number, any>();
-        for (const p of gfsData) gfsMap.set(new Date(p.time).getTime(), p);
-
-        for (let i = 168; i < hybrid[elevation].length; i++) {
-          const point = hybrid[elevation][i];
-          if (!point) continue;
-          const gfsPoint = gfsMap.get(new Date(point.time).getTime());
-          if (!gfsPoint) continue;
-          const t = Math.min(1, (i - 168) / 48); // 0→1 over 48 h (days 7→9)
-          const gfsWeight = t * 0.50;             // max 50% GFS
-          point.precipitation = Math.max(0, point.precipitation * (1 - gfsWeight) + (gfsPoint.precipitation || 0) * gfsWeight);
-          point.snowfall      = Math.max(0, (point.snowfall ?? 0) * (1 - gfsWeight) + (gfsPoint.snowfall      || 0) * gfsWeight);
-        }
-      }
-      console.log('    → Week 2: ECMWF + up to 50% GFS blend (h168+, ramp 48h) — precipitation & snowfall');
-    }
+    // Week 2 uses 100% ECMWF for all variables. ECMWF covers the full 15-day horizon
+    // via Open-Meteo (forecast_days=16). Previous GFS blend (up to 50%) was diluting
+    // snowfall and precipitation values, making week 2 look too conservative.
+    // Confidence scores already degrade with lead time to signal uncertainty to users.
 
     return hybrid;
   }
