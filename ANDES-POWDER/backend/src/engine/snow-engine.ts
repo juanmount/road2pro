@@ -531,6 +531,40 @@ export class SnowEngine {
       // Start with ECMWF data (most accurate)
       hybrid[elevation] = [...primaryData];
       
+      // Week 2 enhancement: for hours >= 168 (day 8+), take Math.max of ECMWF and GFS
+      // for precipitation and snowfall. ECMWF can miss storms at longer lead times
+      // while GFS detects them. Temperature and wind stay from ECMWF (more accurate).
+      if (secondary && secondaryData.length > 0) {
+        const secondaryByTime = new Map<string, any>();
+        for (const item of secondaryData) {
+          const key = item.time instanceof Date ? item.time.toISOString() : String(item.time);
+          secondaryByTime.set(key, item);
+        }
+        
+        let week2Enhanced = 0;
+        for (let i = 0; i < hybrid[elevation].length; i++) {
+          if (i < 168) continue; // Week 1: pure ECMWF
+          
+          const ecmwfHour = hybrid[elevation][i];
+          const timeKey = ecmwfHour.time instanceof Date ? ecmwfHour.time.toISOString() : String(ecmwfHour.time);
+          const gfsHour = secondaryByTime.get(timeKey);
+          if (!gfsHour) continue;
+          
+          // Take the higher value — if GFS sees a storm ECMWF misses, show it
+          if (typeof gfsHour.precipitation === 'number' && gfsHour.precipitation > (ecmwfHour.precipitation || 0)) {
+            ecmwfHour.precipitation = gfsHour.precipitation;
+            week2Enhanced++;
+          }
+          if (typeof gfsHour.snowfall === 'number' && gfsHour.snowfall > (ecmwfHour.snowfall || 0)) {
+            ecmwfHour.snowfall = gfsHour.snowfall;
+          }
+        }
+        
+        if (week2Enhanced > 0) {
+          console.log(`    → ${elevation}: week 2 enhanced ${week2Enhanced} hours with GFS max-merge`);
+        }
+      }
+      
       // Only fill with GFS/GEFS if ECMWF has less than 336 hours
       if (hybrid[elevation].length < 336 && secondary && secondaryData.length > 0) {
         const lastPrimaryTime = primaryData.length > 0 
@@ -550,7 +584,7 @@ export class SnowEngine {
         
         console.log(`    → ${elevation}: ${primaryData.length} hrs (ECMWF) + ${hoursToAdd} hrs (GFS/GEFS) = ${hybrid[elevation].length} hrs total`);
       } else {
-        console.log(`    → ${elevation}: ${primaryData.length} hrs (ECMWF only)`);
+        console.log(`    → ${elevation}: ${primaryData.length} hrs (ECMWF, week 2 max-merged with GFS)`);
       }
     }
     
