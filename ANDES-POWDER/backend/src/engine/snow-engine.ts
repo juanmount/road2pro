@@ -365,7 +365,7 @@ export class SnowEngine {
     // Detailed base elevation logging for first 24h to debug phase override
     if (elevationBand === 'base' && forecastHour < 24 && data.precipitation > 0.1) {
       const margin = freezingLevel - elevationMeters;
-      const finalPhase = (phase.phase === 'rain' && data.temperature <= 2)
+      const finalPhase = (phase.phase === 'rain' && data.temperature <= 2.5)
         ? (data.temperature <= 1 ? 'snow' : 'mixed')
         : phase.phase;
       console.log(`  [base] h${forecastHour}: temp=${data.temperature.toFixed(2)}°C frz=${freezingLevel}m margin=${margin}m T850=${t850Value ?? 'N/A'} precip=${data.precipitation.toFixed(2)}mm -> classifier=${phase.phase} -> final=${finalPhase}`);
@@ -477,8 +477,8 @@ export class SnowEngine {
       inCloud: visibilityConditions.inCloud,
       cloudBaseMeters: visibilityConditions.cloudBaseMeters || undefined,
       snowfallCmCorrected: corrected.snowfallCorrected,
-      // Final safety override before DB write: T<=2°C cannot produce pure liquid rain.
-      phaseClassification: (phase.phase === 'rain' && data.temperature <= 2)
+      // Final safety override before DB write: T<=2.5°C cannot produce pure liquid rain.
+      phaseClassification: (phase.phase === 'rain' && data.temperature <= 2.5)
         ? (data.temperature <= 1 ? 'snow' : 'mixed')
         : phase.phase,
       snowQuality,

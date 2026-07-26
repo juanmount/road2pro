@@ -84,7 +84,7 @@ export class PhaseClassifier {
    * mountain surface is below freezing (pre-frontal inversions, cold summit layers).
    */
   private applySafetyOverride(result: PhaseResult, surfaceTemp: number): PhaseResult {
-    if (result.phase === 'rain' && surfaceTemp <= 2) {
+    if (result.phase === 'rain' && surfaceTemp <= 2.5) {
       if (surfaceTemp <= -2) {
         return { phase: 'snow', confidence: 'medium', snowRatio: 0.9 };
       }
@@ -92,7 +92,7 @@ export class PhaseClassifier {
         // 1°C wet-bulb is in snow zone per operational forecasters
         return { phase: 'snow', confidence: 'medium', snowRatio: 0.8 };
       }
-      // 1°C < temp <= 2°C: marginal — mixed, not pure rain
+      // 1°C < temp <= 2.5°C: marginal — mixed, not pure rain
       return { phase: 'mixed', confidence: 'medium', snowRatio: 0.5 };
     }
     return result;
