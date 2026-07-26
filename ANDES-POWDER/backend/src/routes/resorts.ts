@@ -993,8 +993,15 @@ router.get('/:id/accumulation', async (req: Request, res: Response) => {
             else if (margin <= 450) retention = 0.02;
             else retention = 0;
           }
-          // T<0°C: snow/mixed precipitación sí acumula aunque FRZ esté alto
-          if (surfaceTemp < 0 && hr.phase_classification !== 'sleet') {
+          // Phase classifier already accounts for T850, wet bulb, cold air pooling.
+          // If it says snow or mixed, trust it — don't let margin alone zero out accumulation.
+          if (hr.phase_classification === 'snow') {
+            retention = Math.max(retention, 0.75);
+          } else if (hr.phase_classification === 'mixed') {
+            retention = Math.max(retention, 0.45);
+          }
+          // T<=0°C: snow/mixed precipitación sí acumula aunque FRZ esté alto
+          if (surfaceTemp <= 0 && hr.phase_classification !== 'sleet') {
             retention = Math.max(retention, hr.phase_classification === 'snow' ? 0.75 : 0.45);
           }
           if (retention === 0) continue;
@@ -1038,8 +1045,10 @@ router.get('/:id/accumulation', async (req: Request, res: Response) => {
                 WHEN (ef.freezing_level_m - ${elevationMeters}) <= -300 THEN ef.snowfall_cm_corrected * 0.95
                 WHEN (ef.freezing_level_m - ${elevationMeters}) <= -100 THEN ef.snowfall_cm_corrected * 0.88
                 WHEN (ef.freezing_level_m - ${elevationMeters}) <= 50  THEN ef.snowfall_cm_corrected * 0.45
-                WHEN ef.phase_classification = 'mixed' AND ef.temperature_c < 0 THEN ef.snowfall_cm_corrected * 0.45
-                WHEN ef.phase_classification = 'snow'  AND ef.temperature_c < 0 THEN ef.snowfall_cm_corrected * 0.75
+                WHEN ef.phase_classification = 'snow'  AND ef.temperature_c <= 0 THEN ef.snowfall_cm_corrected * 0.75
+                WHEN ef.phase_classification = 'mixed' AND ef.temperature_c <= 0 THEN ef.snowfall_cm_corrected * 0.45
+                WHEN ef.phase_classification = 'snow'  THEN ef.snowfall_cm_corrected * 0.75
+                WHEN ef.phase_classification = 'mixed' THEN ef.snowfall_cm_corrected * 0.45
                 WHEN (ef.freezing_level_m - ${elevationMeters}) <= 150 THEN ef.snowfall_cm_corrected * 0.20
                 WHEN (ef.freezing_level_m - ${elevationMeters}) <= 250 THEN ef.snowfall_cm_corrected * 0.08
                 WHEN (ef.freezing_level_m - ${elevationMeters}) <= 350 THEN ef.snowfall_cm_corrected * 0.04

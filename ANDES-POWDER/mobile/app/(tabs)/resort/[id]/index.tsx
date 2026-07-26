@@ -810,6 +810,16 @@ export default function ResortDetailScreen() {
             reason = 'rain';
           }
           
+          // Phase classifier already accounts for T850, wet bulb, cold air pooling.
+          // If it says snow or mixed, trust it — don't let margin alone zero out accumulation.
+          if (h.phase === 'snow') {
+            baseAdjustment = Math.max(baseAdjustment, 0.75);
+            reason = 'snow_phase';
+          } else if (h.phase === 'mixed') {
+            baseAdjustment = Math.max(baseAdjustment, 0.45);
+            reason = 'mixed_phase';
+          }
+          
           if (baseAdjustment > 0) {
             // 2. PATAGONIAN WIND LOSSES (enhanced for elevation)
             // Wind is brutal in Patagonia, especially at summit
