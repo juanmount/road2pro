@@ -59,7 +59,19 @@ class ForecastService {
       return;
     }
     this.isRunning = true;
+    let advisoryLockAcquired = false;
     try {
+    // Acquire a distributed lock via pg_advisory_lock to prevent
+    // concurrent forecast processing across multiple instances (e.g. rolling deploy).
+    // Key 74231 is arbitrary but stable across all instances.
+    try {
+      await pool.query('SELECT pg_advisory_lock(74231)');
+      advisoryLockAcquired = true;
+      console.log('🔒 Distributed forecast lock acquired (pg_advisory_lock 74231)');
+    } catch (lockErr) {
+      console.warn('⚠ Could not acquire pg_advisory_lock — proceeding without distributed lock:', lockErr);
+    }
+
     // Get resorts and process forecasts
     const result = await pool.query('SELECT * FROM resorts ORDER BY name');
     const resorts = result.rows.map(this.mapResortFromDb);
@@ -95,6 +107,14 @@ class ForecastService {
     }
     console.log('Snowfall history saved');
     } finally {
+      if (advisoryLockAcquired) {
+        try {
+          await pool.query('SELECT pg_advisory_unlock(74231)');
+          console.log('🔓 Distributed forecast lock released');
+        } catch (unlockErr) {
+          console.error('Error releasing pg_advisory_unlock:', unlockErr);
+        }
+      }
       this.isRunning = false;
     }
   }

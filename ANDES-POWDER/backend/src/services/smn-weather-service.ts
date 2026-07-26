@@ -39,7 +39,7 @@ interface SMNWeatherData {
 
 export class SMNWeatherService {
   private readonly SMN_BASE_URL = 'https://ws.smn.gob.ar';
-  private readonly BARILOCHE_STATION = '87715'; // Aeropuerto Bariloche
+  private readonly BARILOCHE_STATION = '87765'; // Aeropuerto Bariloche (SAZS)
   private readonly BARILOCHE_ELEVATION = 840; // meters
   private observationService: ObservationService;
   

@@ -41,6 +41,19 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+app.get('/debug/code-version', (req, res) => {
+  const { PhaseClassifier } = require('./engine/phase-classifier');
+  const pc = new PhaseClassifier();
+  const result = pc.classifyPrecipitation(0.5, 1220, 1030, 0.5, 70, 1.5);
+  res.json({
+    timestamp: new Date().toISOString(),
+    testInput: { temp: 0.5, frz: 1220, elev: 1030, precip: 0.5, humidity: 70, t850: 1.5 },
+    classifierResult: result,
+    expectedPhase: 'mixed',
+    hasSafetyOverride: result.phase !== 'rain',
+  });
+});
+
 app.use('/api/resorts', resortsRouter);
 app.use('/api/observations', observationsRouter);
 app.use('/api/auth', authRouter);
