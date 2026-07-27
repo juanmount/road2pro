@@ -30,6 +30,13 @@ export class PhaseClassifier {
         snowRatio: 0.0
       };
     }
+
+    // Hard physical rule: if the station elevation is at or above the freezing level,
+    // precipitation MUST be snow. No mixed or rain is physically possible above the FRZ.
+    // This overrides any model output (T850, wet-bulb, etc.).
+    if (freezingLevel <= elevation) {
+      return { phase: 'snow', confidence: 'high', snowRatio: 1.0 };
+    }
     
     // NEW: Use T850 if feature flag is enabled and data is available
     if (FEATURES.USE_T850 && typeof temperature850hPa === 'number') {
