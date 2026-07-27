@@ -477,12 +477,21 @@ export class SnowEngine {
       inCloud: visibilityConditions.inCloud,
       cloudBaseMeters: visibilityConditions.cloudBaseMeters || undefined,
       snowfallCmCorrected: corrected.snowfallCorrected,
-      // Final safety override before DB write:
-      // 1) rain at T<=2.5°C → mixed (or snow if T<=1°C)
-      // 2) mixed at T<=1°C → snow (cold surface freezes precip regardless of small warm layer)
-      phaseClassification: (phase.phase === 'rain' && data.temperature <= 2.5)
-        ? (data.temperature <= 1 ? 'snow' : 'mixed')
-        : (phase.phase === 'mixed' && data.temperature <= 1 ? 'snow' : phase.phase),
+      // Final phase override before DB write — uses corrected FRZ (what is actually stored).
+      // The classifier runs before correctionService, so it may have used a pre-correction
+      // FRZ that differed from the stored value. Re-apply physical rules here.
+      phaseClassification: (() => {
+        const p = phase.phase;
+        const t = data.temperature;
+        const corrFrz = corrected.freezingLevelCorrected;
+        // 1) Hard physical rule: corrected FRZ at or below elevation → snow
+        if (corrFrz != null && corrFrz <= elevationMeters && p !== 'none') return 'snow';
+        // 2) rain at marginal temps → override
+        if (p === 'rain' && t <= 2.5) return t <= 1 ? 'snow' : 'mixed';
+        // 3) mixed at cold surface → snow
+        if (p === 'mixed' && t <= 1) return 'snow';
+        return p;
+      })(),
       snowQuality,
       powderScore: corrected.powderScoreCorrected,
       skiabilityScore,
