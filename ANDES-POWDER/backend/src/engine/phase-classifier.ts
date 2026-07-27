@@ -67,11 +67,11 @@ export class PhaseClassifier {
     if (phase === 'mixed') {
       // Mixed precipitation - calculate transition ratio
       const snowRatio = this.calculateWetBulbTransitionRatio(wetBulb, margin);
-      return { 
+      return this.applySafetyOverride({ 
         phase: 'mixed', 
         confidence: 'low', 
         snowRatio 
-      };
+      }, temp);
     }
     
     // Fallback (should not reach here)
