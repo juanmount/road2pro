@@ -334,15 +334,18 @@ export default function HomeScreen() {
                     })()}
                   </Text>
                 </View>
-                {item.operationalStatus?.available && (() => {
+                {(() => {
+                  const op = item.operationalStatus;
+                  const hasData = op?.available === true;
                   const hour = new Date().getHours();
                   const isClosed = hour < 8 || hour >= 19;
-                  const op = item.operationalStatus!;
-                  const open  = isClosed ? 0 : (op.liftsOpen  ?? 0);
-                  const total = op.liftsTotal ?? 0;
-                  const pct   = isClosed ? 0 : (total > 0 ? open / total : 0);
-                  const color = isClosed ? 'rgba(255,255,255,0.35)' : pct >= 0.5 ? '#4ade80' : pct >= 0.2 ? '#fbbf24' : '#f87171';
-                  const hasDetail = Array.isArray(op.liftsDetail) && op.liftsDetail.length > 0;
+                  const open  = hasData ? (isClosed ? 0 : (op!.liftsOpen  ?? 0)) : null;
+                  const total = hasData ? (op!.liftsTotal ?? 0) : null;
+                  const pct   = hasData && total ? (isClosed ? 0 : open! / total) : 0;
+                  const color = !hasData ? 'rgba(255,255,255,0.3)'
+                    : isClosed ? 'rgba(255,255,255,0.35)'
+                    : pct >= 0.5 ? '#4ade80' : pct >= 0.2 ? '#fbbf24' : '#f87171';
+                  const hasDetail = hasData && Array.isArray(op!.liftsDetail) && op!.liftsDetail!.length > 0;
                   return (
                     <TouchableOpacity
                       style={styles.opStatusPanel}
@@ -351,12 +354,12 @@ export default function HomeScreen() {
                     >
                       <Text style={styles.opStatusLabel}>MEDIOS</Text>
                       <Text style={[styles.opStatusValue, { color }]}>
-                        {open}
-                        <Text style={styles.opStatusTotal}>/{total}</Text>
+                        {hasData ? open : '--'}
+                        <Text style={styles.opStatusTotal}>/{hasData ? total : '--'}</Text>
                       </Text>
                       <View style={styles.opBarTrack}>
                         <View style={[styles.opBarFill, {
-                          width: `${Math.round(pct * 100)}%` as any,
+                          width: hasData ? (`${Math.round(pct * 100)}%` as any) : '0%',
                           backgroundColor: color,
                         }]} />
                       </View>
