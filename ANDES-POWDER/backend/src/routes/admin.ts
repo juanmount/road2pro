@@ -281,4 +281,16 @@ router.post('/sanitize-snowfall-history', async (req, res) => {
   }
 });
 
+// Force resort operational status sync
+router.post('/sync-resort-status', async (req, res) => {
+  try {
+    const { resortStatusService } = await import('../services/resort-status-service');
+    await resortStatusService.syncAll();
+    res.json({ success: true, message: 'Resort status sync completed' });
+  } catch (err: any) {
+    console.error('Error syncing resort status:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 export default router;
