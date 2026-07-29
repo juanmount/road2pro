@@ -212,12 +212,23 @@ class ForecastService {
       // rain at ≤1°C is physically impossible at mountain base elevations;
       // at 1-2.5°C it should be mixed at worst.
       // This catches any case the classifier or DB-write IIFE missed.
+      // Also recalculates snowfall when phase was wrong (snowfall would have been 0).
       for (const f of allForecasts) {
+        let phaseFixed = false;
         if (f.phaseClassification === 'rain' && f.temperatureC <= 2.5) {
           f.phaseClassification = f.temperatureC <= 1 ? 'snow' : 'mixed';
+          phaseFixed = true;
         }
         if (f.phaseClassification === 'mixed' && f.temperatureC <= 1) {
           f.phaseClassification = 'snow';
+          phaseFixed = true;
+        }
+        // If phase was corrected and snowfall is missing/zero, recalculate it.
+        // Use conservative snow ratios: 0.8 for snow, 0.5 for mixed.
+        if (phaseFixed && (f.snowfallCmCorrected == null || f.snowfallCmCorrected < 0.05) && f.precipitationMm > 0) {
+          const snowRatio = f.phaseClassification === 'snow' ? 0.8 : 0.5;
+          const tempAdj = f.temperatureC <= 0 ? 1.0 : f.temperatureC <= 2 ? 0.85 : 0.7;
+          f.snowfallCmCorrected = Math.round(f.precipitationMm * snowRatio * tempAdj * 100) / 100;
         }
       }
 

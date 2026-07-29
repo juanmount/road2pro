@@ -295,7 +295,22 @@ router.post('/fix-phase', async (req, res) => {
        SET phase_classification = 'snow'
        WHERE phase_classification = 'mixed' AND temperature_c <= 1 AND valid_time >= NOW()`
     );
-    res.json({ success: true, rainFixed: r1.rowCount, mixedFixed: r2.rowCount });
+    // Also fix snowfall that is 0 or near-0 after the phase correction.
+    // Use conservative snow ratios: 0.8 for snow, 0.5 for mixed, with temperature adjustment.
+    const r3 = await pool.query(
+      `UPDATE elevation_forecasts
+       SET snowfall_cm_corrected = ROUND(
+         precipitation_mm
+         * CASE phase_classification WHEN 'snow' THEN 0.8 ELSE 0.5 END
+         * CASE WHEN temperature_c <= 0 THEN 1.0 WHEN temperature_c <= 2 THEN 0.85 ELSE 0.7 END
+       , 2)
+       WHERE phase_classification IN ('snow', 'mixed')
+         AND (snowfall_cm_corrected IS NULL OR snowfall_cm_corrected < 0.05)
+         AND precipitation_mm > 0
+         AND temperature_c <= 2.5
+         AND valid_time >= NOW()`
+    );
+    res.json({ success: true, rainFixed: r1.rowCount, mixedFixed: r2.rowCount, snowfallRecalculated: r3.rowCount });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
