@@ -147,7 +147,25 @@ export class ResortStatusService {
     return [{ sector: 'Cerro Bayo', lifts }];
   }
 
+  private async ensureTableExists(): Promise<void> {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS resort_operational_status (
+        resort_id            UUID PRIMARY KEY REFERENCES resorts(id) ON DELETE CASCADE,
+        lifts_open           INTEGER,
+        lifts_total          INTEGER,
+        runs_open_km         NUMERIC(6,2),
+        runs_total_km        NUMERIC(6,2),
+        snow_depth_base_cm   INTEGER,
+        snow_depth_summit_cm INTEGER,
+        resort_open          BOOLEAN NOT NULL DEFAULT false,
+        lifts_detail         JSONB,
+        scraped_at           TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+  }
+
   async syncAll(): Promise<void> {
+    await this.ensureTableExists();
     console.log('[ResortStatus] Starting sync for all resorts...');
 
     const resortRows = await pool.query(
@@ -212,6 +230,7 @@ export class ResortStatusService {
   }
 
   async getStatus(resortId: string): Promise<ResortStatus & { scrapedAt: Date | null } | null> {
+    await this.ensureTableExists();
     const { rows } = await pool.query(
       `SELECT lifts_open, lifts_total, runs_open_km, runs_total_km,
               snow_depth_base_cm, snow_depth_summit_cm, resort_open, lifts_detail, scraped_at
