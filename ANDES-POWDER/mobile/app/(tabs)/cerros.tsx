@@ -337,15 +337,15 @@ export default function HomeScreen() {
                 {(() => {
                   const op = item.operationalStatus;
                   const hasData = op?.available === true;
+                  if (!hasData) return null;
                   const hour = new Date().getHours();
                   const isClosed = hour < 8 || hour >= 19;
-                  const open  = hasData ? (isClosed ? 0 : (op!.liftsOpen  ?? 0)) : null;
-                  const total = hasData ? (op!.liftsTotal ?? 0) : null;
-                  const pct   = hasData && total ? (isClosed ? 0 : open! / total) : 0;
-                  const color = !hasData ? 'rgba(255,255,255,0.3)'
-                    : isClosed ? 'rgba(255,255,255,0.35)'
+                  const open  = isClosed ? 0 : (op!.liftsOpen  ?? 0);
+                  const total = op!.liftsTotal ?? 0;
+                  const pct   = total ? (isClosed ? 0 : open / total) : 0;
+                  const color = isClosed ? 'rgba(255,255,255,0.35)'
                     : pct >= 0.5 ? '#4ade80' : pct >= 0.2 ? '#fbbf24' : '#f87171';
-                  const hasDetail = hasData && Array.isArray(op!.liftsDetail) && op!.liftsDetail!.length > 0;
+                  const hasDetail = Array.isArray(op!.liftsDetail) && op!.liftsDetail!.length > 0;
                   return (
                     <TouchableOpacity
                       style={styles.opStatusPanel}
@@ -354,12 +354,12 @@ export default function HomeScreen() {
                     >
                       <Text style={styles.opStatusLabel}>MEDIOS</Text>
                       <Text style={[styles.opStatusValue, { color }]}>
-                        {hasData ? open : '--'}
-                        <Text style={styles.opStatusTotal}>/{hasData ? total : '--'}</Text>
+                        {open}
+                        <Text style={styles.opStatusTotal}>/{total}</Text>
                       </Text>
                       <View style={styles.opBarTrack}>
                         <View style={[styles.opBarFill, {
-                          width: hasData ? (`${Math.round(pct * 100)}%` as any) : '0%',
+                          width: `${Math.round(pct * 100)}%` as any,
                           backgroundColor: color,
                         }]} />
                       </View>
