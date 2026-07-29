@@ -59,15 +59,21 @@ class ForecastService {
       return;
     }
     this.isRunning = true;
+    // Use a dedicated connection so pg_advisory_lock and pg_advisory_unlock
+    // run on the SAME session. pool.query() may use different connections,
+    // causing the lock to never be released until the connection is closed.
+    const lockClient = await pool.connect();
     let advisoryLockAcquired = false;
     try {
-    // Acquire a distributed lock via pg_advisory_lock to prevent
-    // concurrent forecast processing across multiple instances (e.g. rolling deploy).
-    // Key 74231 is arbitrary but stable across all instances.
     try {
-      await pool.query('SELECT pg_advisory_lock(74231)');
-      advisoryLockAcquired = true;
-      console.log('🔒 Distributed forecast lock acquired (pg_advisory_lock 74231)');
+      const tryResult = await lockClient.query('SELECT pg_try_advisory_lock(74231) AS acquired');
+      advisoryLockAcquired = tryResult.rows[0]?.acquired === true;
+      if (advisoryLockAcquired) {
+        console.log('🔒 Distributed forecast lock acquired (pg_advisory_lock 74231)');
+      } else {
+        console.warn('⚠ pg_advisory_lock 74231 already held by another session — skipping this run');
+        return;
+      }
     } catch (lockErr) {
       console.warn('⚠ Could not acquire pg_advisory_lock — proceeding without distributed lock:', lockErr);
     }
@@ -109,12 +115,13 @@ class ForecastService {
     } finally {
       if (advisoryLockAcquired) {
         try {
-          await pool.query('SELECT pg_advisory_unlock(74231)');
+          await lockClient.query('SELECT pg_advisory_unlock(74231)');
           console.log('🔓 Distributed forecast lock released');
         } catch (unlockErr) {
           console.error('Error releasing pg_advisory_unlock:', unlockErr);
         }
       }
+      lockClient.release();
       this.isRunning = false;
     }
   }
