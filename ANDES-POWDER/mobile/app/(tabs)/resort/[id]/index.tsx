@@ -1502,7 +1502,7 @@ export default function ResortDetailScreen() {
                           const v = rawTodaySnowfall > 0 && rawTodaySnowfall < 0.1 ? 0.1 : rawTodaySnowfall;
                           return v < 1 ? v.toFixed(1) : Math.round(v);
                         })()}</Text>
-                        <Text style={styles.glassUnit}>cm</Text>
+                        <Text style={styles.glassUnit}>próx.24h</Text>
                       </View>
                       <View style={styles.glassBox}>
                         <Text style={styles.metricLabel}>ANDES</Text>
@@ -1510,7 +1510,7 @@ export default function ResortDetailScreen() {
                           const v = adjustedTodaySnowfall > 0 && adjustedTodaySnowfall < 0.1 ? 0.1 : adjustedTodaySnowfall;
                           return v < 1 ? v.toFixed(1) : Math.round(v);
                         })()}</Text>
-                        <Text style={styles.glassUnit}>cm</Text>
+                        <Text style={styles.glassUnit}>próx.24h</Text>
                       </View>
                       <TouchableOpacity 
                         style={styles.glassBox}
