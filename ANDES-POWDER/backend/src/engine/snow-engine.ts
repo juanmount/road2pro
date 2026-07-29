@@ -371,6 +371,23 @@ export class SnowEngine {
       console.log(`  [base] h${forecastHour}: temp=${data.temperature.toFixed(2)}°C frz=${freezingLevel}m margin=${margin}m T850=${t850Value ?? 'N/A'} precip=${data.precipitation.toFixed(2)}mm -> classifier=${phase.phase} -> final=${finalPhase}`);
     }
     
+    // 1b. Apply cold-temp phase correction BEFORE snowfall calculation.
+    // If the classifier returned 'rain' at ≤2.5°C (e.g. blended FRZ pushed margin too high),
+    // override both phase and snowRatio so that snowfallCmCorrected is calculated correctly.
+    // Similarly, mixed at ≤1°C should be treated as snow for snowfall purposes.
+    if (phase.phase === 'rain' && data.temperature <= 2.5) {
+      if (data.temperature <= 1) {
+        phase.phase = 'snow';
+        phase.snowRatio = 0.8;
+      } else {
+        phase.phase = 'mixed';
+        phase.snowRatio = 0.5;
+      }
+    } else if (phase.phase === 'mixed' && data.temperature <= 1) {
+      phase.phase = 'snow';
+      phase.snowRatio = 0.8;
+    }
+
     // 2. Calculate raw snowfall
     const rawSnowfall = this.snowCalculator.calculateSnowfall(
       data.precipitation,
