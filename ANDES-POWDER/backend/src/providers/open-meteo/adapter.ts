@@ -209,8 +209,8 @@ export class OpenMeteoProvider implements ForecastProvider {
     referenceElevation: number,
     forecastFreezingLevels: number[] = []
   ): TimeSeriesPoint[] {
-    const precipDeacc = this.deaccumulate3hourly(hourly.precipitation);
-    const snowDeacc   = this.deaccumulate3hourly(hourly.snowfall);
+    const precipDeacc = (hourly.precipitation || []).map((v: number | null | undefined) => (v != null && v > 0) ? v : 0);
+    const snowDeacc   = (hourly.snowfall || []).map((v: number | null | undefined) => (v != null && v > 0) ? v : 0);
     return times.map((time, i) => ({
       time,
       temperature: hourly.temperature_2m[i] || 0,
