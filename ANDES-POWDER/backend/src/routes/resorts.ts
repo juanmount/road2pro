@@ -1210,7 +1210,15 @@ router.get('/:id/forecast/daily', async (req: Request, res: Response) => {
         (valid_time AT TIME ZONE 'America/Argentina/Buenos_Aires')::date as date,
         MAX(temperature_c) as max_temp,
         MIN(temperature_c) as min_temp,
-        SUM(CASE WHEN phase_classification IN ('snow','sleet','mixed') THEN snowfall_cm_corrected ELSE 0 END) as total_snowfall,
+        SUM(CASE
+          WHEN temperature_c <= 1 AND precipitation_mm >= 0.1
+            THEN precipitation_mm * 0.8 * CASE WHEN temperature_c <= 0 THEN 1.0 ELSE 0.85 END
+          WHEN phase_classification = 'rain' AND temperature_c <= 2.5 AND precipitation_mm >= 0.1
+            AND freezing_level_m IS NOT NULL AND (freezing_level_m - elevation_meters) < 400
+            THEN precipitation_mm * 0.5 * 0.85
+          WHEN phase_classification IN ('snow','sleet','mixed') THEN snowfall_cm_corrected
+          ELSE 0
+        END) as total_snowfall,
         SUM(precipitation_mm) as total_precipitation,
         AVG(powder_score) as avg_powder_score,
         MAX(wind_speed_kmh) as max_wind_speed,
