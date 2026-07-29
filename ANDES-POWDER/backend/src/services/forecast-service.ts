@@ -208,6 +208,19 @@ class ForecastService {
         ...processed.summit.slice(0, 336)
       ];
       
+      // Post-process: hard-correct any rain at cold surface temps.
+      // rain at ≤1°C is physically impossible at mountain base elevations;
+      // at 1-2.5°C it should be mixed at worst.
+      // This catches any case the classifier or DB-write IIFE missed.
+      for (const f of allForecasts) {
+        if (f.phaseClassification === 'rain' && f.temperatureC <= 2.5) {
+          f.phaseClassification = f.temperatureC <= 1 ? 'snow' : 'mixed';
+        }
+        if (f.phaseClassification === 'mixed' && f.temperatureC <= 1) {
+          f.phaseClassification = 'snow';
+        }
+      }
+
       // Delete existing forecasts — but preserve week 2 if the new fetch is short (GFS temporarily limited)
       const FULL_FORECAST_MIN_ROWS = 800; // ~267h × 3 elevations; anything less = GFS was short
       if (allForecasts.length >= FULL_FORECAST_MIN_ROWS) {

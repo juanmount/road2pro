@@ -281,6 +281,26 @@ router.post('/sanitize-snowfall-history', async (req, res) => {
   }
 });
 
+// Fix rain phase at cold temps in existing DB rows (immediate patch for current data)
+router.post('/fix-phase', async (req, res) => {
+  try {
+    // rain at <=1°C → snow; rain at 1-2.5°C → mixed; mixed at <=1°C → snow
+    const r1 = await pool.query(
+      `UPDATE elevation_forecasts
+       SET phase_classification = CASE WHEN temperature_c <= 1 THEN 'snow' ELSE 'mixed' END
+       WHERE phase_classification = 'rain' AND temperature_c <= 2.5 AND valid_time >= NOW()`
+    );
+    const r2 = await pool.query(
+      `UPDATE elevation_forecasts
+       SET phase_classification = 'snow'
+       WHERE phase_classification = 'mixed' AND temperature_c <= 1 AND valid_time >= NOW()`
+    );
+    res.json({ success: true, rainFixed: r1.rowCount, mixedFixed: r2.rowCount });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Force resort operational status sync
 router.post('/sync-resort-status', async (req, res) => {
   try {
