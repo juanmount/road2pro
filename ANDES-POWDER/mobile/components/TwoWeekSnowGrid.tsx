@@ -69,10 +69,17 @@ function buildAllElevationsDailyData(
       const snow = hours.reduce((s: number, h: any) => s + (h.snowfall || 0), 0);
       const precip = hours.reduce((s: number, h: any) => s + (h.precipitation || 0), 0);
       const phase = getPhase(hours);
-      const rain = phase === 'rain' ? precip : phase === 'mixed' ? precip * 0.5 : 0;
+      // Calculate rain from hours that are actually rain, regardless of day-level phase
+      const rainPrecip = hours
+        .filter((h: any) => h.phase === 'rain')
+        .reduce((s: number, h: any) => s + (h.precipitation || 0), 0);
+      const mixedPrecip = hours
+        .filter((h: any) => h.phase === 'mixed')
+        .reduce((s: number, h: any) => s + (h.precipitation || 0), 0);
+      const rain = Math.round((rainPrecip + mixedPrecip * 0.5) * 10) / 10;
       return {
         snow: Math.round(snow * 10) / 10,
-        rain: Math.round(rain * 10) / 10,
+        rain,
         phase,
       };
     };
