@@ -521,8 +521,21 @@ router.get('/:id/forecast/hourly', async (req: Request, res: Response) => {
       const margin = frz - elevationMeters; // negative = colder than FRZ (snow-favor)
       const temp = Number(h.temperature);
       const precip = Number(h.precipitation || 0);
-      // Strong snow signal
-      if (margin < -200 && precip >= 0.1) {
+      // Hard physical rule: rain/mixed at ≤1°C surface temp is impossible
+      if ((h.phase === 'rain' || h.phase === 'mixed') && temp <= 1 && precip >= 0.1) {
+        h.phase = 'snow';
+        if (!h.snowfall || h.snowfall < 0.05) {
+          const tempAdj = temp <= 0 ? 1.0 : 0.85;
+          h.snowfall = Math.round(precip * 0.8 * tempAdj * 100) / 100;
+        }
+      } else if (h.phase === 'rain' && temp <= 2.5 && precip >= 0.1 && margin < 400) {
+        // FRZ within 400m of elevation + surface ≤2.5°C → at minimum mixed, never pure rain
+        h.phase = 'mixed';
+        if (!h.snowfall || h.snowfall < 0.05) {
+          const tempAdj = temp <= 2 ? 0.85 : 0.7;
+          h.snowfall = Math.round(precip * 0.5 * tempAdj * 100) / 100;
+        }
+      } else if (margin < -200 && precip >= 0.1) {
         h.phase = 'snow';
       } else if (temp <= -2 && precip >= 0.1 && margin < -50) {
         // At least mixed if subzero and near/below FRZ
@@ -975,8 +988,21 @@ router.get('/:id/accumulation', async (req: Request, res: Response) => {
         let dailyTotal = 0;
         const isWeek2 = offset >= 7;
         for (const hr of hours) {
-          if (!['snow', 'sleet', 'mixed'].includes(hr.phase_classification)) continue;
-          const snow = parseFloat(hr.snowfall_cm_corrected || 0);
+          const hrTemp = parseFloat(hr.temperature_c || 0);
+          const hrPrecip = parseFloat(hr.precipitation_mm || 0);
+          const hrFrz = hr.freezing_level_m != null ? parseFloat(hr.freezing_level_m) : null;
+          let effectivePhase: string = hr.phase_classification;
+          let snow = parseFloat(hr.snowfall_cm_corrected || 0);
+          // Physical override: same rule as /hourly route safety net
+          if ((effectivePhase === 'rain' || effectivePhase === 'mixed') && hrTemp <= 1 && hrPrecip >= 0.1) {
+            effectivePhase = 'snow';
+            if (snow < 0.05) snow = hrPrecip * 0.8 * (hrTemp <= 0 ? 1.0 : 0.85);
+          } else if (effectivePhase === 'rain' && hrTemp <= 2.5 && hrPrecip >= 0.1
+            && hrFrz != null && (hrFrz - elevationMeters) < 400) {
+            effectivePhase = 'mixed';
+            if (snow < 0.05) snow = hrPrecip * 0.5 * 0.85;
+          }
+          if (!['snow', 'sleet', 'mixed'].includes(effectivePhase)) continue;
           if (snow <= 0) continue;
           if (isWeek2) {
             // Week 2: raw corrected snowfall, no retention or wind loss.
@@ -1004,14 +1030,14 @@ router.get('/:id/accumulation', async (req: Request, res: Response) => {
           }
           // Phase classifier already accounts for T850, wet bulb, cold air pooling.
           // If it says snow or mixed, trust it — don't let margin alone zero out accumulation.
-          if (hr.phase_classification === 'snow') {
+          if (effectivePhase === 'snow') {
             retention = Math.max(retention, 0.75);
-          } else if (hr.phase_classification === 'mixed') {
+          } else if (effectivePhase === 'mixed') {
             retention = Math.max(retention, 0.45);
           }
           // T<=0°C: snow/mixed precipitación sí acumula aunque FRZ esté alto
-          if (surfaceTemp <= 0 && hr.phase_classification !== 'sleet') {
-            retention = Math.max(retention, hr.phase_classification === 'snow' ? 0.75 : 0.45);
+          if (surfaceTemp <= 0 && effectivePhase !== 'sleet') {
+            retention = Math.max(retention, effectivePhase === 'snow' ? 0.75 : 0.45);
           }
           if (retention === 0) continue;
           const wind = parseFloat(hr.wind_speed_kmh || 0) * windMultiplier;
@@ -1049,6 +1075,13 @@ router.get('/:id/accumulation', async (req: Request, res: Response) => {
           COALESCE((
             SELECT SUM(
               CASE
+                -- Physical override: rain/mixed at ≤1°C is impossible — recalculate from precip
+                WHEN ef.temperature_c <= 1 AND ef.precipitation_mm >= 0.1
+                  THEN ef.precipitation_mm * 0.8 * CASE WHEN ef.temperature_c <= 0 THEN 1.0 ELSE 0.85 END
+                -- Marginal override: rain at 1-2.5°C near FRZ → treat as mixed snowfall
+                WHEN ef.phase_classification = 'rain' AND ef.temperature_c <= 2.5 AND ef.precipitation_mm >= 0.1
+                  AND ef.freezing_level_m IS NOT NULL AND (ef.freezing_level_m - ${elevationMeters}) < 400
+                  THEN ef.precipitation_mm * 0.5 * 0.85
                 WHEN ef.phase_classification NOT IN ('snow', 'sleet', 'mixed') THEN 0
                 WHEN ef.snowfall_cm_corrected <= 0 THEN 0
                 WHEN ef.freezing_level_m IS NULL THEN ef.snowfall_cm_corrected * 0.7
