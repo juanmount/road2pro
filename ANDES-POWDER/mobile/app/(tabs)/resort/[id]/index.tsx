@@ -234,8 +234,8 @@ export default function ResortDetailScreen() {
           
           if (baseAdjustment > 0) {
             // Wind loss (elevation-adjusted for Patagonia)
-            const elevationWindMultiplier = selectedElevation === 'summit' ? 2.0 : 
-                                            selectedElevation === 'mid' ? 1.5 : 1.0;
+            const elevationWindMultiplier = selectedElevation === 'summit' ? 1.3 : 
+                                            selectedElevation === 'mid' ? 1.2 : 1.0;
             const effectiveWind = windSpeed * elevationWindMultiplier;
             let windLoss = 0;
             if (effectiveWind > 60) windLoss = 0.35;
@@ -377,8 +377,8 @@ export default function ResortDetailScreen() {
               }
               
               if (baseAdjustment > 0) {
-                const elevationWindMultiplier = selectedElevation === 'summit' ? 2.0 : 
-                                                selectedElevation === 'mid' ? 1.5 : 1.0;
+                const elevationWindMultiplier = selectedElevation === 'summit' ? 1.3 : 
+                                                selectedElevation === 'mid' ? 1.2 : 1.0;
                 const effectiveWind = windSpeed * elevationWindMultiplier;
                 let windLoss = 0;
                 if (effectiveWind > 60) windLoss = 0.35;
@@ -1490,8 +1490,8 @@ export default function ResortDetailScreen() {
                     ? Math.round(((rawTodaySnowfall - adjustedTodaySnowfall) / rawTodaySnowfall) * 100)
                     : 0;
                   
-                  // Calculate next 14 days total
-                  const next7Days = dailyForecast.slice(0, 14);
+                  // Calculate next 7 days total
+                  const next7Days = dailyForecast.slice(0, 7);
                   const total7Days = next7Days.reduce((sum: number, day: any) => sum + (day.snowfall || 0), 0);
                   
                   return (
