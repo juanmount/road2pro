@@ -51,9 +51,7 @@
     "updates": {
       "url": "https://u.expo.dev/9ef6fdd6-aca4-443a-8bae-2b3f1f611be3"
     },
-    "runtimeVersion": {
-      "policy": "sdkVersion"
-    },
+    "runtimeVersion": "1.0.41",
     "plugins": [
       "expo-router",
       "expo-font",
