@@ -320,7 +320,32 @@ class ForecastService {
         );
       }
       console.log(`  ✓ Stored ${allForecasts.length} elevation forecasts`);
-      
+
+      // SQL-level guarantee: fix any rain at cold surface temps that slipped through TypeScript overrides.
+      // Runs in the same transaction so it's atomic with the INSERT.
+      const sqlFixResult = await client.query(
+        `UPDATE elevation_forecasts
+         SET
+           phase_classification = CASE WHEN temperature_c <= 1 THEN 'snow' ELSE 'mixed' END,
+           snowfall_cm_corrected = CASE
+             WHEN snowfall_cm_corrected IS NULL OR snowfall_cm_corrected < 0.05
+             THEN ROUND(
+               precipitation_mm
+               * CASE WHEN temperature_c <= 1 THEN 0.8 ELSE 0.5 END
+               * CASE WHEN temperature_c <= 0 THEN 1.0 WHEN temperature_c <= 2 THEN 0.85 ELSE 0.7 END
+             , 2)
+             ELSE snowfall_cm_corrected
+           END
+         WHERE forecast_run_id = $1
+           AND phase_classification = 'rain'
+           AND temperature_c <= 2.5
+           AND precipitation_mm > 0`,
+        [forecastRunId]
+      );
+      if (sqlFixResult.rowCount && sqlFixResult.rowCount > 0) {
+        console.log(`  ✓ SQL phase fix: corrected ${sqlFixResult.rowCount} rain→snow/mixed rows at temp≤2.5°C`);
+      }
+
       // Store model agreements
       if (processed.modelAgreement && processed.modelAgreement.length > 0) {
         for (const agreement of processed.modelAgreement) {
