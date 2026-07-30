@@ -100,30 +100,10 @@ export class SnowEngine {
     
     console.log('  → Processing forecast data...');
 
-    // Guard 1: if observed FRZ is >400m above the model's own hour-0 FRZ,
-    // the observation is likely a transient warm reading — skip blend so
-    // the model's forecast (e.g. an incoming cold front) is not hidden.
-    if (observedFreezingLevel && primaryForecast.mid[0]?.freezingLevel) {
-      const modelFrzHour0 = primaryForecast.mid[0].freezingLevel;
-      if (observedFreezingLevel > modelFrzHour0 + 400) {
-        console.log(`  ⚠ Observed FRZ (${observedFreezingLevel}m) >400m above model (${modelFrzHour0}m) — skipping blend`);
-        observedFreezingLevel = null;
-      }
-    }
-
-    // Guard 2: compare against GFS freezinglevel_height (always direct, not derived).
-    // GFS provides freezinglevel_height natively so it's reliable even when ECMWF
-    // T850/T700 is null (ingestion window). If the SMN observation is >150m above
-    // GFS FRZ, it's airport warm bias — skip blend and trust the models.
-    if (observedFreezingLevel && multiModel.gfs?.mid[0]?.freezingLevel) {
-      const gfsFrzHour0 = multiModel.gfs.mid[0].freezingLevel;
-      if (observedFreezingLevel > gfsFrzHour0 + 150) {
-        console.log(`  ⚠ Observed FRZ (${observedFreezingLevel}m) >150m above GFS (${gfsFrzHour0}m) — airport warm bias, skipping blend`);
-        observedFreezingLevel = null;
-      }
-    }
-    
     // 4. Process elevation forecasts with phase classification and corrections
+    // Observed FRZ is logged for diagnostics but NOT blended into the forecast —
+    // we trust the model's freezing level trend and only use observations
+    // for validation and the storm-crossing engine.
     console.log('  → Applying phase classification and corrections...');
     const elevationForecasts = await this.processElevationForecasts(
       resort,
@@ -270,25 +250,6 @@ export class SnowEngine {
     const hoursToProcess = Math.min(forecast.base.length, 336);
     console.log(`  Processing ${hoursToProcess} hours of forecast data...`);
     
-    // Apply observed freezing level correction: blend observed FRZ into BASE only.
-    // The observedFreezingLevel is derived from a valley surface station (840m airport).
-    // Applying it to mid/summit creates a physical inconsistency: model temps at those
-    // elevations (e.g. -2°C at 1600m) stay unchanged while FRZ is artificially raised
-    // to match the warm valley reading — causing wrong phase and reduced snowfall.
-    // Mid and summit use the model's own FRZ (ECMWF pressure-level derived).
-    if (observedFreezingLevel) {
-      console.log(`  → Applying observed FRZ correction to BASE only: ${observedFreezingLevel}m`);
-      for (let i = 0; i < hoursToProcess; i++) {
-        const blendWeight = i <= 24 ? 1.0 : i <= 48 ? 1.0 - ((i - 24) / 24) : 0;
-        if (blendWeight > 0) {
-          const blendFrz = (frzForecast: number) => 
-            Math.round(observedFreezingLevel! * blendWeight + frzForecast * (1 - blendWeight));
-          if (forecast.base[i]) forecast.base[i].freezingLevel = blendFrz(forecast.base[i].freezingLevel || 2000);
-          // mid and summit intentionally NOT blended — model FRZ is more accurate at altitude
-        }
-      }
-      console.log(`  → FRZ after correction - Base h0: ${forecast.base[0]?.freezingLevel}m, Mid h0: ${forecast.mid[0]?.freezingLevel}m (model, unmodified)`);
-    }
     
     for (let i = 0; i < hoursToProcess; i++) {
       // Base elevation
