@@ -601,9 +601,46 @@ export class SnowEngine {
       hybrid.freezingLevels = [...hybrid.freezingLevels, ...additionalLevels].slice(0, 336);
     }
 
-    // FRZ now comes from ECMWF pressure-level interpolation (T850/T700 + geopotential heights).
-    // GFS override removed: GFS freezinglevel_height is noisy and less accurate than the
-    // physically-derived ECMWF values.
+    // FRZ cross-check: ECMWF FRZ is derived from T850/T700 with standard lapse rate,
+    // which overestimates the freezing level in frontal conditions with cold air pooling
+    // (common in Patagonian winters). GFS provides freezinglevel_height directly from the
+    // model, which better captures cold surface air. When the two differ by >200m, take
+    // the minimum — the colder model is more likely correct in snow-relevant conditions.
+    if (secondary?.freezingLevels && primary?.freezingLevels) {
+      const gfsFrzByTime = new Map<string, number>();
+      for (const item of secondary.freezingLevels) {
+        const key = item.time instanceof Date ? item.time.toISOString() : String(item.time);
+        gfsFrzByTime.set(key, item.heightM);
+      }
+
+      let crossChecked = 0;
+      for (let i = 0; i < hybrid.freezingLevels.length && i < 168; i++) {
+        const ecmwfFrz = hybrid.freezingLevels[i];
+        const timeKey = ecmwfFrz.time instanceof Date ? ecmwfFrz.time.toISOString() : String(ecmwfFrz.time);
+        const gfsFrz = gfsFrzByTime.get(timeKey);
+        if (gfsFrz === undefined) continue;
+
+        const diff = ecmwfFrz.heightM - gfsFrz;
+        if (diff > 200) {
+          // ECMWF is significantly higher — use GFS (colder, more conservative)
+          if (i < 6) {
+            console.log(`    → FRZ cross-check h${i}: ECMWF=${ecmwfFrz.heightM}m GFS=${gfsFrz}m → using ${gfsFrz}m (diff=${diff}m)`);
+          }
+          ecmwfFrz.heightM = gfsFrz;
+          // Also update the freezingLevel inside each elevation band's hourly data
+          // (this is what the phase classifier actually reads)
+          for (const elev of ['base', 'mid', 'summit'] as const) {
+            if (hybrid[elev][i]) {
+              hybrid[elev][i].freezingLevel = gfsFrz;
+            }
+          }
+          crossChecked++;
+        }
+      }
+      if (crossChecked > 0) {
+        console.log(`    → FRZ cross-check: ${crossChecked} hours adjusted to GFS (ECMWF was >200m higher)`);
+      }
+    }
 
     // Week 2 uses 100% ECMWF for all variables. ECMWF covers the full 15-day horizon
     // via Open-Meteo (forecast_days=16). Previous GFS blend (up to 50%) was diluting
