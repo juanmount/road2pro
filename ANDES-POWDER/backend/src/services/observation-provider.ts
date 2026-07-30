@@ -20,17 +20,23 @@ export class ObservationProvider {
   /**
    * Get latest observed temperatures for a resort
    */
+  // Sources known to be far from the resort (>100km) and not representative
+  // of mountain conditions. Their readings are consistently warmer due to
+  // valley/lake effects and distance from the mountain.
+  private readonly EXCLUDED_SOURCES = ['SMN-Cutral Co'];
+
   async getLatestTemperatures(resortId: string): Promise<ObservedConditions | null> {
     try {
-      // Get observations from last 2 hours
+      // Get observations from last 2 hours, excluding distant stations
       const result = await pool.query(
         `SELECT elevation_band, value_numeric, observed_at, source
          FROM observations
          WHERE resort_id = $1
          AND observation_type = 'temperature'
          AND observed_at >= NOW() - INTERVAL '2 hours'
+         AND source != ALL($2::text[])
          ORDER BY observed_at DESC`,
-        [resortId]
+        [resortId, this.EXCLUDED_SOURCES]
       );
 
       if (result.rows.length === 0) {

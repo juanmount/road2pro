@@ -113,6 +113,7 @@ router.get('/:id/conditions/observed', async (req: Request, res: Response) => {
     }
 
     // Get latest temperature observations for each elevation (last 2 hours)
+    // Exclude distant stations that contaminate mountain readings
     const observations = await pool.query(
       `SELECT 
         elevation_band,
@@ -124,8 +125,9 @@ router.get('/:id/conditions/observed', async (req: Request, res: Response) => {
       WHERE resort_id = $1
       AND observation_type = 'temperature'
       AND observed_at >= NOW() - INTERVAL '2 hours'
+      AND source != ALL($2::text[])
       ORDER BY observed_at DESC`,
-      [resort.id]
+      [resort.id, ['SMN-Cutral Co']]
     );
 
     // Group by elevation - get most recent for each
@@ -224,14 +226,16 @@ router.get('/:id/forecast/current', async (req: Request, res: Response) => {
     const forecasts = elevationResult.rows;
     
     // Get latest temperature observations (prefer real data over forecast)
+    // Exclude distant stations that contaminate mountain readings
     const obsResult = await pool.query(
       `SELECT elevation_band, value_numeric as temperature
        FROM observations
        WHERE resort_id = $1
        AND observation_type = 'temperature'
        AND observed_at >= NOW() - INTERVAL '2 hours'
+       AND source != ALL($2::text[])
        ORDER BY observed_at DESC`,
-      [resort.id]
+      [resort.id, ['SMN-Cutral Co']]
     );
     
     const observations = obsResult.rows;
