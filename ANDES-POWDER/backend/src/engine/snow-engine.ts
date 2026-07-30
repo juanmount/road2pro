@@ -601,10 +601,35 @@ export class SnowEngine {
       hybrid.freezingLevels = [...hybrid.freezingLevels, ...additionalLevels].slice(0, 336);
     }
 
-    // FRZ comes from ECMWF pressure-level interpolation (T850/T700 + geopotential heights).
-    // This method is more accurate than GFS freezinglevel_height for Patagonian conditions,
-    // verified against Snow-Forecast reference: ECMWF-derived FRZ is within 130-300m of SF
-    // while GFS direct FRZ deviates 190-420m. GFS FRZ is not used for cross-checking.
+    // ICON FRZ override: ICON (DWD) publishes freezinglevel_height directly from its NWP
+    // microphysics scheme at 6km resolution — avoiding the ECMWF T850/T700 lapse-rate
+    // derivation that overestimates FRZ in frontal cold-pooling conditions.
+    // ICON covers ~8 days. For hours beyond ICON coverage, ECMWF-derived FRZ is used.
+    // All other variables (temp, precip, snowfall, wind) remain from ECMWF.
+    if (multiModel.iconFrz && multiModel.iconFrz.length > 0) {
+      const iconFrzByTime = new Map<string, number>();
+      for (const item of multiModel.iconFrz) {
+        const key = item.time instanceof Date ? item.time.toISOString() : String(item.time);
+        iconFrzByTime.set(key, item.heightM);
+      }
+
+      let iconApplied = 0;
+      for (let i = 0; i < hybrid.freezingLevels.length; i++) {
+        const frzItem = hybrid.freezingLevels[i];
+        const timeKey = frzItem.time instanceof Date ? frzItem.time.toISOString() : String(frzItem.time);
+        const iconFrz = iconFrzByTime.get(timeKey);
+        if (iconFrz !== undefined) {
+          frzItem.heightM = iconFrz;
+          for (const elev of ['base', 'mid', 'summit'] as const) {
+            if (hybrid[elev][i]) hybrid[elev][i].freezingLevel = iconFrz;
+          }
+          iconApplied++;
+        }
+      }
+      if (iconApplied > 0) {
+        console.log(`    → ICON FRZ applied to ${iconApplied} hours (direct NWP, 6km res). h0: ${hybrid.freezingLevels[0]?.heightM}m`);
+      }
+    }
 
     // Week 2 uses 100% ECMWF for all variables. ECMWF covers the full 15-day horizon
     // via Open-Meteo (forecast_days=16). Previous GFS blend (up to 50%) was diluting

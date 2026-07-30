@@ -953,12 +953,13 @@ router.get('/:id/accumulation', async (req: Request, res: Response) => {
       const fhRes = await pool.query(
         `SELECT DISTINCT ON (ef.valid_time)
                 ef.valid_time, ef.snowfall_cm_corrected, ef.wind_speed_kmh,
-                ef.phase_classification, ef.freezing_level_m, ef.temperature_c
+                ef.phase_classification, ef.freezing_level_m, ef.temperature_c,
+                ef.precipitation_mm
          FROM elevation_forecasts ef
          JOIN forecast_runs fr ON ef.forecast_run_id = fr.id
          WHERE ef.resort_id = $1
            AND ef.elevation_band = $2
-           AND ef.valid_time >= NOW()
+           AND ef.valid_time >= (date_trunc('day', NOW() AT TIME ZONE '${tz}') AT TIME ZONE '${tz}')
          ORDER BY ef.valid_time, fr.fetched_at DESC`,
         [resort.id, elevationBand]
       );
